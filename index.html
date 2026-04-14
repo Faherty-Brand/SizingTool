@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCE — Size Curve Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* Font override since Satoshi needs a CDN or self-host */
+  :root { --sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, sans-serif; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════
+     WELCOME SCREEN
+     ════════════════════════════════════════ -->
+<div id="welcome-screen">
+  <!-- Top bar with compact uploads -->
+  <div class="welcome-header">
+    <div class="brand">Size Curve Engine</div>
+    <div class="upload-row">
+      <label class="upload-chip" id="chip-inventory">
+        <span class="chip-icon">◫</span>
+        <span>Inventory</span>
+        <span class="chip-count" id="count-inventory"></span>
+        <input type="file" accept=".csv" onchange="handleUpload('inventory', this)">
+      </label>
+      <label class="upload-chip" id="chip-sales">
+        <span class="chip-icon">◰</span>
+        <span>L52W Sales</span>
+        <span class="chip-count" id="count-sales"></span>
+        <input type="file" accept=".csv" onchange="handleUpload('sales', this)">
+      </label>
+      <label class="upload-chip" id="chip-linelist">
+        <span class="chip-icon">◳</span>
+        <span>Linelist</span>
+        <span class="chip-count" id="count-linelist"></span>
+        <input type="file" accept=".csv" onchange="handleUpload('linelist', this)">
+      </label>
+      <label class="upload-chip" id="chip-wip">
+        <span class="chip-icon">◲</span>
+        <span>WIP</span>
+        <span class="chip-count" id="count-wip"></span>
+        <input type="file" accept=".csv" onchange="handleUpload('wip', this)">
+      </label>
+    </div>
+  </div>
+
+  <!-- Season picker area -->
+  <div class="welcome-body">
+    <div class="season-picker">
+      <div class="sp-tag">Size Curve Engine</div>
+      <h1>Select a Season</h1>
+      <p class="sp-sub">Upload your data sources, then choose which season to size</p>
+      <div id="season-area">
+        <div class="sp-waiting">Upload all 4 data sources to continue</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     DASHBOARD
+     ════════════════════════════════════════ -->
+<div id="dashboard-screen">
+  <!-- Top bar -->
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <div class="logo">SCE</div>
+      <div class="season-tag" id="season-label"></div>
+      <div class="div-v"></div>
+      <button class="btn-sm btn-ghost" onclick="showSettings()" style="font-size:9px">⚙ Pres Mins</button>
+    </div>
+    <div class="top-bar-right">
+      <span class="export-count" id="export-count"></span>
+      <button class="btn-sm btn-ghost" onclick="resetToWelcome()">← Seasons</button>
+      <button class="btn-sm btn-accent" id="export-btn" onclick="exportCSV()" disabled>Export Accepted</button>
+    </div>
+  </div>
+
+  <div class="dash-layout">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-nav" id="sidebar-tabs"></div>
+      <div class="sidebar-search">
+        <input class="search-input" type="text" placeholder="Search SKU, style, color..."
+               oninput="handleSearch(this.value)">
+      </div>
+      <div class="sku-list" id="sku-list"></div>
+    </div>
+
+    <!-- Main panel -->
+    <div class="main-panel" id="main-panel">
+      <div class="empty-state">
+        <div class="empty-icon">◉</div>
+        <div>Select a SKU from the sidebar</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
