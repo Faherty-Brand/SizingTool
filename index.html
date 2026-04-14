@@ -3,103 +3,86 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SCE — Size Curve Engine</title>
+<title>PO Sizing</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
-<style>
-  /* Font override since Satoshi needs a CDN or self-host */
-  :root { --sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, sans-serif; }
-</style>
 </head>
 <body>
 
-<!-- ════════════════════════════════════════
-     WELCOME SCREEN
-     ════════════════════════════════════════ -->
-<div id="welcome-screen">
-  <!-- Top bar with compact uploads -->
-  <div class="welcome-header">
-    <div class="brand">Size Curve Engine</div>
-    <div class="upload-row">
-      <label class="upload-chip" id="chip-inventory">
-        <span class="chip-icon">◫</span>
-        <span>Inventory</span>
-        <span class="chip-count" id="count-inventory"></span>
+<!-- ═══ WELCOME ═══ -->
+<div id="welcome">
+  <div class="w-header">
+    <div class="w-header-left">
+      <button class="pm-link" onclick="goSettings()">⚙ Pres Mins</button>
+    </div>
+    <div class="u-row">
+      <label class="u-chip" id="uc-inventory">
+        <span class="chip-icon">◫</span> Inventory
+        <span class="meta" id="um-inventory"></span>
         <input type="file" accept=".csv" onchange="handleUpload('inventory', this)">
       </label>
-      <label class="upload-chip" id="chip-sales">
-        <span class="chip-icon">◰</span>
-        <span>L52W Sales</span>
-        <span class="chip-count" id="count-sales"></span>
+      <label class="u-chip" id="uc-sales">
+        <span class="chip-icon">◰</span> L52W Sales
+        <span class="meta" id="um-sales"></span>
         <input type="file" accept=".csv" onchange="handleUpload('sales', this)">
       </label>
-      <label class="upload-chip" id="chip-linelist">
-        <span class="chip-icon">◳</span>
-        <span>Linelist</span>
-        <span class="chip-count" id="count-linelist"></span>
+      <label class="u-chip" id="uc-linelist">
+        <span class="chip-icon">◳</span> Linelist
+        <span class="meta" id="um-linelist"></span>
         <input type="file" accept=".csv" onchange="handleUpload('linelist', this)">
       </label>
-      <label class="upload-chip" id="chip-wip">
-        <span class="chip-icon">◲</span>
-        <span>WIP</span>
-        <span class="chip-count" id="count-wip"></span>
+      <label class="u-chip" id="uc-wip">
+        <span class="chip-icon">◲</span> WIP
+        <span class="meta" id="um-wip"></span>
         <input type="file" accept=".csv" onchange="handleUpload('wip', this)">
       </label>
     </div>
   </div>
-
-  <!-- Season picker area -->
-  <div class="welcome-body">
-    <div class="season-picker">
-      <div class="sp-tag">Size Curve Engine</div>
+  <div class="w-body">
+    <div class="s-pick">
+      <!-- Sun & Waves SVG -->
+      <svg class="sun-svg" width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g>
+          <!-- Sun rays -->
+          <line x1="32" y1="2" x2="32" y2="8" stroke="#c4572a" stroke-width="2" stroke-linecap="round"/>
+          <line x1="22" y1="4.5" x2="24.5" y2="9.5" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="42" y1="4.5" x2="39.5" y2="9.5" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="14" y1="10" x2="18" y2="14" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="50" y1="10" x2="46" y2="14" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="10" y1="18" x2="16" y2="19" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="54" y1="18" x2="48" y2="19" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/>
+          <!-- Sun body -->
+          <path d="M 20 24 A 12 12 0 0 1 44 24" fill="#c4572a"/>
+          <!-- Wave -->
+          <path d="M 6 28 Q 16 22, 26 28 Q 36 34, 46 28 Q 52 24, 58 28" stroke="#3b7bc0" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M 2 34 Q 14 28, 26 34 Q 38 40, 50 34 Q 56 30, 62 34" stroke="#5a9ae0" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        </g>
+      </svg>
+      <div class="tag">PO Sizing Tool</div>
       <h1>Select a Season</h1>
-      <p class="sp-sub">Upload your data sources, then choose which season to size</p>
-      <div id="season-area">
-        <div class="sp-waiting">Upload all 4 data sources to continue</div>
+      <p class="sub">Upload your data sources, then choose which season to size</p>
+      <div id="s-area">
+        <div class="s-wait">Upload all 4 data sources to continue</div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     DASHBOARD
-     ════════════════════════════════════════ -->
-<div id="dashboard-screen">
-  <!-- Top bar -->
-  <div class="top-bar">
-    <div class="top-bar-left">
-      <div class="logo">SCE</div>
-      <div class="season-tag" id="season-label"></div>
-      <div class="div-v"></div>
-      <button class="btn-sm btn-ghost" onclick="showSettings()" style="font-size:9px">⚙ Pres Mins</button>
+<!-- ═══ DASHBOARD ═══ -->
+<div id="dash">
+  <div class="top">
+    <div class="top-l">
+      <div class="stitle" id="slbl"></div>
     </div>
-    <div class="top-bar-right">
-      <span class="export-count" id="export-count"></span>
-      <button class="btn-sm btn-ghost" onclick="resetToWelcome()">← Seasons</button>
-      <button class="btn-sm btn-accent" id="export-btn" onclick="exportCSV()" disabled>Export Accepted</button>
+    <div class="top-r">
+      <span class="exp-ct" id="exp-ct"></span>
+      <button class="btn btn-g" onclick="backToWelcome()">Return to Homepage</button>
+      <button class="btn btn-g" onclick="goSettings()">⚙ Pres Mins</button>
+      <button class="btn btn-b" id="exp-btn" onclick="exportCSV()" disabled>Export Accepted</button>
     </div>
   </div>
-
-  <div class="dash-layout">
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <div class="sidebar-nav" id="sidebar-tabs"></div>
-      <div class="sidebar-search">
-        <input class="search-input" type="text" placeholder="Search SKU, style, color..."
-               oninput="handleSearch(this.value)">
-      </div>
-      <div class="sku-list" id="sku-list"></div>
-    </div>
-
-    <!-- Main panel -->
-    <div class="main-panel" id="main-panel">
-      <div class="empty-state">
-        <div class="empty-icon">◉</div>
-        <div>Select a SKU from the sidebar</div>
-      </div>
-    </div>
-  </div>
+  <div id="main-area"></div>
 </div>
 
 <script src="app.js"></script>
