@@ -100,12 +100,10 @@ input,select,button,textarea{font-family:inherit}
 .sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
 .sc{padding:14px 16px;background:var(--wh);border:2px solid var(--bdr-lt);border-radius:var(--rl);cursor:pointer;transition:all .15s;position:relative}
 .sc:hover{border-color:var(--blue);box-shadow:var(--shmd);transform:translateY(-1px)}
-.sc.t-cf{border-left:4px solid var(--blue)}.sc.t-in{border-left:4px solid var(--orange)}.sc.t-ns{border-left:4px solid var(--txt3)}
-.sc.acc{border-color:var(--green-bd);background:var(--green-pl)}
-.sc.pend{border-color:var(--yellow-bd);background:var(--yellow-pl)}
+.sc.dv-m{border-left:4px solid var(--blue)}.sc.dv-w{border-left:4px solid var(--pink)}.sc.dv-n{border-left:4px solid var(--slate)}
 .sc .chk{position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
 .sc .chk-g{background:var(--green);color:#fff}
-.sc .chk-y{background:var(--yellow);color:#fff}
+.sc .chk-e{background:var(--wh);border:2px solid var(--bdr);color:transparent}
 .sc .sid{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--navy);margin-bottom:2px}
 .sc .snm{font-size:10px;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px}
 .sc .sbu{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--txt);margin-bottom:2px}
@@ -502,7 +500,7 @@ function render(){
 }
 
 function getFiltered(){
-  let list=Object.values(A.skus);const f=A.filters;
+  let list=Object.values(A.skus).filter(r=>r.sizingType!=='nosize');const f=A.filters;
   if(f.type!=='All')list=list.filter(r=>r.sizingType===f.type);
   if(f.division!=='All')list=list.filter(r=>r.division===f.division);
   if(f.category!=='All')list=list.filter(r=>r.category===f.category);
@@ -530,26 +528,26 @@ function renderGrid(el){
   function sb(k,l){return'<button class="sb'+(A.sortKey===k?' on':'')+'" onclick="A.sortKey=\''+k+'\';render()">'+l+'</button>'}
   let h='<div class="gv"><div class="gc"><div class="gc-row">'+
     '<span class="gc-lbl">Sort</span>'+sb('dtcBuy',A.activeSeason+' Buy')+sb('postBuy','Post-Buy OH')+sb('currentOH','Current OH')+
-    sb('storeCount','Store Count')+sb('type','CF / Initials / No Buy')+sb('accepted','Accepted / Pending')+
+    sb('storeCount','Store Count')+sb('type','CF / Initials')+sb('accepted','Accepted / Pending')+
     '<div style="flex:1"></div><input class="sbar" type="text" placeholder="Search..." value="'+esc(A.searchTerm)+'" oninput="A.searchTerm=this.value;render()">'+
   '</div><div class="gc-row"><span class="gc-lbl">Filter</span>'+
-    '<select class="fsel" onchange="A.filters.type=this.value;render()"><option value="All">Type: All</option><option value="cf"'+(A.filters.type==='cf'?' selected':'')+'>CF</option><option value="initials"'+(A.filters.type==='initials'?' selected':'')+'>Initials</option><option value="nosize"'+(A.filters.type==='nosize'?' selected':'')+'>No Buy</option></select>'+
+    '<select class="fsel" onchange="A.filters.type=this.value;render()"><option value="All">Type: All</option><option value="cf"'+(A.filters.type==='cf'?' selected':'')+'>CF</option><option value="initials"'+(A.filters.type==='initials'?' selected':'')+'>Initials</option></select>'+
     '<select class="fsel'+(divs.length<=1?' dim':'')+'" onchange="A.filters.division=this.value;render()">'+opts(divs,'Division',A.filters.division)+'</select>'+
     '<select class="fsel'+(cats.length<=1?' dim':'')+'" onchange="A.filters.category=this.value;render()">'+opts(cats,'Category',A.filters.category)+'</select>'+
     '<select class="fsel'+(subs.length<=1?' dim':'')+'" onchange="A.filters.subcategory=this.value;render()">'+opts(subs,'Subcategory',A.filters.subcategory)+'</select>'+
     '<span class="gc-lbl" style="margin-left:8px">'+list.length+' SKUs</span></div></div>';
   h+='<div class="sg">';
   list.slice(0,500).forEach(r=>{
-    const acc=A.accepted[r.sku],pend=!acc&&r.dtcBuy>0;
-    const tc=r.sizingType==='cf'?'t-cf':r.sizingType==='initials'?'t-in':'t-ns';
-    const bc=r.sizingType==='cf'?'bdg-cf':r.sizingType==='initials'?'bdg-in':'bdg-ns';
-    const bl=r.sizingType==='cf'?'CF':r.sizingType==='initials'?'INITIALS':'NO BUY';
-    h+='<div class="sc '+tc+(acc?' acc':'')+(pend?' pend':'')+'" onclick="goDetail(\''+esc(r.sku)+'\')">';
+    const acc=A.accepted[r.sku];
+    const divCls=r.division==='Womens'?'dv-w':r.division==='Non-Apparel'||r.division==='Accessories'||r.division==='Footwear'?'dv-n':'dv-m';
+    const bc=r.sizingType==='cf'?'bdg-cf':'bdg-in';
+    const bl=r.sizingType==='cf'?'CF':'INITIALS';
+    h+='<div class="sc '+divCls+'" onclick="goDetail(\''+esc(r.sku)+'\')">';
     if(acc)h+='<div class="chk chk-g">✓</div>';
-    else if(pend)h+='<div class="chk chk-y">⚠</div>';
+    else h+='<div class="chk chk-e"></div>';
     h+='<div class="sid">'+esc(r.sku)+'</div><div class="snm">'+esc(r.styleDescription)+(r.colorDescription?' · '+esc(r.colorDescription):'')+'</div>'+
     '<div class="sbu">'+fmt(r.dtcBuy)+' u</div><div class="ssb">OH: '+fmt(r.totalOH)+' · Stores: '+r.storeCount+'</div>'+
-    '<div class="bdg '+bc+'">'+bl+'</div></div>';
+    '<div class="bdg '+bc+'" style="font-size:10px;padding:3px 8px">'+bl+'</div></div>';
   });
   if(list.length>500)h+='<div class="gnote">Showing 500 of '+list.length+'</div>';
   if(!list.length)h+='<div class="gnote">No SKUs match filters</div>';
@@ -558,7 +556,8 @@ function renderGrid(el){
 
 function goDetail(sku){A.selectedSKU=sku;A.view='detail';A.module=null;render()}
 function goGrid(){A.selectedSKU=null;A.view='grid';A.module=null;render()}
-function goModule(m){A.module=m;render()}
+function goModule(m){A.module=m;document.getElementById('welcome').classList.add('hidden');document.getElementById('dash').classList.add('active');document.getElementById('slbl').textContent=A.activeSeason||'';render()}
+function goBackFromModule(){A.module=null;if(!A.activeSeason){backToWelcome()}else{render()}}
 
 function renderDetail(el,rec){
   const res=computeAlloc(rec);
@@ -682,7 +681,7 @@ function renderPresMins(el){
   for(const s in A.scaleSizes)allScales.add(s);
   let scales=[...allScales].sort();
 
-  let h='<div class="pm-page anim"><button class="d-back" onclick="A.module=null;render()">← Back</button>'+
+  let h='<div class="pm-page anim"><button class="d-back" onclick="goBackFromModule()">← Back</button>'+
     '<h2 style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:4px">Presentation Minimums</h2>'+
     '<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Per-size units per store. Persisted in browser storage.</p>'+
     '<div class="pm-actions"><button class="btn btn-b btn-sm" onclick="addScalePrompt()">+ Add Size Scale</button></div>'+
@@ -737,7 +736,7 @@ function addScalePrompt(){
 // ═══ DATA SOURCES ═══
 function renderDataSources(el){
   const tabs=['inventory','sales','linelist','wip'];
-  let h='<div class="dv-page anim"><button class="d-back" onclick="A.module=null;render()">← Back</button>'+
+  let h='<div class="dv-page anim"><button class="d-back" onclick="goBackFromModule()">← Back</button>'+
     '<h2 style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:4px">Data Sources</h2>'+
     '<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Live view of ingested CSV data.</p>'+
     '<div class="dv-tabs">';
@@ -777,6 +776,7 @@ function backToWelcome(){
   document.getElementById('dash').classList.remove('active');
   document.getElementById('welcome').classList.remove('hidden');
   A.activeSeason=null;A.view='grid';A.module=null;
+  trySeasons();
 }
 
 // ═══ INIT ═══
