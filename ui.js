@@ -65,12 +65,12 @@ function renderGrid(el){
 }
 
 // ═══ DETAIL ═══
-const CHART_COLORS={buy:'#c4572a',sales:'#3b7bc0',postBuy:'#2d8a5e',oh:'#6a7a8a',minRetail:'#b8960f'};
-const CHART_LABELS={buy:'Buy Qty',sales:'L52W Sales',postBuy:'Post-Buy Qty',oh:'Current OH',minRetail:'Min Retail Pres'};
+const CHART_COLORS={buy:'#c4572a',curveSales:'#3b7bc0',postBuy:'#2d8a5e',oh:'#6a7a8a',minRetail:'#b8960f'};
+const CHART_LABELS={buy:'Buy Qty',curveSales:'Curve Sales',postBuy:'Post-Buy Qty',oh:'Current OH',minRetail:'Min Retail Pres'};
 
 function getChartMetrics(isCF){
   if(A.chartMetrics)return A.chartMetrics;
-  const defaults={buy:true,sales:true,postBuy:isCF,oh:false,minRetail:false};
+  const defaults={buy:true,curveSales:true,postBuy:isCF,oh:false,minRetail:false};
   return defaults;
 }
 
@@ -96,7 +96,7 @@ function renderDetail(el,rec){
   rec.sizes.forEach(s=>{
     chartData[s]={
       buy:alloc[s]||0,
-      sales:rec.sizeData[s].sales,
+      curveSales:curveSales[s]||0,
       postBuy:isCF?((bop[s]||0)+(alloc[s]||0)):(alloc[s]||0),
       oh:rec.sizeData[s].onHand,
       minRetail:pm[s]||0

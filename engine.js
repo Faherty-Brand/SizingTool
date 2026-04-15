@@ -267,18 +267,58 @@ function computeAlloc(rec){
   if(isCF){const bp=projBOP(rec);wtr=bp._w;delete bp._w;bop=bp}
   const totalBOP=isCF?Object.values(bop).reduce((a,b)=>a+b,0):0;
   const totalTgt=totalBOP+pool;
-  const ideal={},raw={};
-  rec.sizes.forEach(s=>{ideal[s]=Math.round(curve[s]*totalTgt);raw[s]=isCF?Math.max(0,ideal[s]-bop[s]):Math.round(curve[s]*pool)});
-  // Apply pres min floor
-  const wf={};rec.sizes.forEach(s=>{wf[s]=Math.max(raw[s],pm[s])});
-  const alloc={};const floorSum=Object.values(pm).reduce((a,b)=>a+b,0);const wfSum=Object.values(wf).reduce((a,b)=>a+b,0);
-  if(wfSum<=pool){
-    const rem=pool-floorSum;const above={};rec.sizes.forEach(s=>{above[s]=Math.max(0,raw[s]-pm[s])});
-    const abSum=Object.values(above).reduce((a,b)=>a+b,0);
-    rec.sizes.forEach(s=>{alloc[s]=pm[s]+(abSum>0&&rem>0?Math.round(above[s]/abSum*rem):0)});
-  } else {rec.sizes.forEach(s=>{alloc[s]=Math.round(wf[s]/wfSum*pool)})}
-  let hasOvr=false;rec.sizes.forEach(s=>{if(ovr[s]!==undefined){alloc[s]=ovr[s];hasOvr=true}});
-  if(!hasOvr){const at=Object.values(alloc).reduce((a,b)=>a+b,0);if(at!==pool&&rec.sizes.length){const ms=rec.sizes.reduce((a,b)=>alloc[a]>=alloc[b]?a:b);alloc[ms]+=pool-at}}
+  const ideal={};
+  rec.sizes.forEach(s=>{ideal[s]=Math.round(curve[s]*totalTgt)});
+
+  // ── Allocation with strict pres min enforcement ──
+  const alloc={};
+  const floorSum=rec.sizes.reduce((a,s)=>a+(pm[s]||0),0);
+
+  if(floorSum>=pool){
+    // Floors alone exceed pool — distribute pool proportionally to floors
+    rec.sizes.forEach(s=>{alloc[s]=Math.round((pm[s]||0)/floorSum*pool)});
+  } else {
+    // Step 1: Give every size its floor
+    rec.sizes.forEach(s=>{alloc[s]=pm[s]||0});
+    // Step 2: Distribute remaining units by curve, only to sizes that want more than their floor
+    let remaining=pool-floorSum;
+    // For CF: the "want" per size is ideal target minus BOP minus floor already given
+    // For Initials: the "want" is curve-proportional share of pool minus floor
+    const want={};
+    rec.sizes.forEach(s=>{
+      const curveShare=isCF?Math.max(0,ideal[s]-(bop[s]||0)):Math.round(curve[s]*pool);
+      want[s]=Math.max(0,curveShare-(pm[s]||0));
+    });
+    const wantSum=Object.values(want).reduce((a,b)=>a+b,0);
+    if(wantSum>0&&remaining>0){
+      rec.sizes.forEach(s=>{
+        const extra=Math.round(want[s]/wantSum*remaining);
+        alloc[s]+=extra;
+      });
+    }
+    // Step 3: Reconcile rounding — but NEVER go below floor
+    let allocTotal=rec.sizes.reduce((a,s)=>a+alloc[s],0);
+    let diff=pool-allocTotal;
+    // Add/subtract from sizes that have the most headroom above their floor
+    while(diff!==0){
+      const eligible=rec.sizes.filter(s=>diff>0||(alloc[s]>(pm[s]||0)));
+      if(!eligible.length)break;
+      if(diff>0){
+        // Add to size with largest curve share
+        const best=eligible.reduce((a,b)=>curve[a]>=curve[b]?a:b);
+        alloc[best]++;diff--;
+      } else {
+        // Remove from size with most headroom above floor
+        const best=eligible.reduce((a,b)=>(alloc[a]-(pm[a]||0))>=(alloc[b]-(pm[b]||0))?a:b);
+        if(alloc[best]>(pm[best]||0)){alloc[best]--;diff++}else break;
+      }
+    }
+  }
+
+  // Apply manual overrides (these CAN go below floor — user's explicit choice)
+  let hasOvr=false;
+  rec.sizes.forEach(s=>{if(ovr[s]!==undefined){alloc[s]=ovr[s];hasOvr=true}});
+
   // Curve source sales
   const curveSales={};let acceptedKey=null;
   for(const t of cr.trail){if(t.pass){acceptedKey=t.key;break}}
@@ -300,10 +340,54 @@ function updateExpCt(){const n=Object.keys(A.accepted).length;const el=document.
 
 function exportCSV(){
   const acc=Object.keys(A.accepted);if(!acc.length)return;
-  const lines=['Season Code,Sizing Type,SKU,Size,Quantity'];
-  acc.forEach(sku=>{const r=A.skus[sku];if(!r||r.dtcBuy<=0)return;const res=computeAlloc(r);if(!res)return;
-    const tl=r.sizingType==='initials'?'INITIALS':'CF';
-    r.sizes.forEach(s=>{const q=res.alloc[s]||0;if(q>0)lines.push(A.activeSeason+','+tl+','+sku+','+s+','+q)})});
-  const b=new Blob([lines.join('\n')],{type:'text/csv'});const u=URL.createObjectURL(b);
-  const a=document.createElement('a');a.href=u;a.download='PO_Sizing_'+A.activeSeason+'.csv';a.click();URL.revokeObjectURL(u);
+  // Master size column list matching the upload template
+  const SIZE_COLS=['2T','3T','4T','5','6','8','10','OS','XXS','XS','S','M','L','XL','XXL','XXXL','XS/S','S/M','M/L','L/XL','MT','LT','XLT','XXLT','00','0','2','4','6','8','10','12','14','16','24','25','26','27','28','29','30','31','32','33','34','35','36','38','40','42','30T','32T','34T','36T','38T','40T','28WX30L','29WX30L','30WX30L','31WX30L','32WX30L','33WX30L','34WX30L','35WX30L','36WX30L','38WX30L','40WX30L','42WX30L','28WX32L','29WX32L','30WX32L','31WX32L','32WX32L','33WX32L','34WX32L','35WX32L','36WX32L','38WX32L','40WX32L','42WX32L','28WX34L','29WX34L','30WX34L','31WX34L','32WX34L','33WX34L','34WX34L','35WX34L','36WX34L','38WX34L','40WX34L','42WX34L','1XL','2XL','3XL','4XL','5XL','1XLT','2XLT','3XLT','4XLT','40W36L','42W32L','42W34L','44W30L','44W32L','44W34L','46W30L','46W32L','48W30L','48W32L','50W30L','52W30L','36_','38_','40_','42_','44_','46_','48_','50_'];
+
+  // Tab 1: Simple format
+  const lines1=['Season Code,Sizing Type,SKU,Size,Quantity'];
+  // Tab 2: Upload format
+  const uploadHeader=['SIZING TYPE','Year','Season Code','Department','SKU','Location','Delivery','Customer','From Sales Tier','Sales Tier','Total',...SIZE_COLS];
+  const lines2=[uploadHeader.join(',')];
+
+  const yrMatch=A.activeSeason.match(/(\d{2})$/);
+  const year=yrMatch?'20'+yrMatch[1]:'2026';
+
+  acc.forEach(sku=>{
+    const r=A.skus[sku];if(!r||r.dtcBuy<=0)return;
+    const res=computeAlloc(r);if(!res)return;
+    const tl=r.sizingType==='initials'?'Initials PO':'CF PO';
+    const tlSimple=r.sizingType==='initials'?'INITIALS':'CF';
+    // Delivery month — strip _2, _3 suffix for clean display
+    const delivery=(r.deliveryMonth||'').replace(/_\d+$/,'');
+
+    // Tab 1 rows
+    r.sizes.forEach(s=>{const q=res.alloc[s]||0;if(q>0)lines1.push(A.activeSeason+','+tlSimple+','+sku+','+s+','+q)});
+
+    // Tab 2 row
+    const total=r.sizes.reduce((a,s)=>a+(res.alloc[s]||0),0);
+    const sizeMap={};r.sizes.forEach(s=>{sizeMap[s]=res.alloc[s]||0});
+    const sizeVals=SIZE_COLS.map(sc=>{
+      // Match size column to SKU sizes (case-insensitive)
+      const match=Object.keys(sizeMap).find(k=>k.toUpperCase()===String(sc).toUpperCase());
+      return match?sizeMap[match]||'':'';
+    });
+    const row=[tl,year,A.activeSeason,r.division,sku,'DTC',delivery,'','Global','Global',total,...sizeVals];
+    lines2.push(row.map(v=>typeof v==='string'&&v.includes(',')?'"'+v+'"':v).join(','));
+  });
+
+  // Combine into one CSV with a separator, or create two files
+  // Let's create two separate downloads
+  // File 1: Simple
+  const b1=new Blob([lines1.join('\n')],{type:'text/csv'});
+  const u1=URL.createObjectURL(b1);
+  const a1=document.createElement('a');a1.href=u1;a1.download='PO_Sizing_'+A.activeSeason+'_Simple.csv';a1.click();
+  URL.revokeObjectURL(u1);
+
+  // File 2: Upload format
+  setTimeout(()=>{
+    const b2=new Blob([lines2.join('\n')],{type:'text/csv'});
+    const u2=URL.createObjectURL(b2);
+    const a2=document.createElement('a');a2.href=u2;a2.download='PO_Sizing_'+A.activeSeason+'_Upload.csv';a2.click();
+    URL.revokeObjectURL(u2);
+  },500);
 }
