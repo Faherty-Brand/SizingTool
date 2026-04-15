@@ -195,6 +195,32 @@ input,select,button,textarea{font-family:inherit}
 .dv-table tbody tr:hover{background:var(--sand-lt)}
 .dv-info{font-family:var(--mono);font-size:10px;color:var(--txt3);margin-bottom:8px}
 
+/* === MODAL === */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;display:flex;align-items:center;justify-content:center;animation:fadeUp .2s ease}
+.modal{background:var(--wh);border-radius:var(--rl);padding:28px 32px;max-width:520px;width:90%;box-shadow:var(--shlg);max-height:90vh;overflow-y:auto}
+.modal h3{font-size:18px;font-weight:700;color:var(--navy);margin-bottom:16px}
+.modal-label{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--txt3);margin-bottom:6px;margin-top:16px}
+.modal-input{width:100%;padding:9px 12px;font-size:13px;background:var(--sand-lt);color:var(--txt);border:1px solid var(--bdr);border-radius:var(--r);outline:none}
+.modal-input:focus{border-color:var(--blue)}
+.modal-div-btns{display:flex;gap:6px;margin-top:6px}
+.modal-div-btn{padding:8px 18px;font-size:12px;font-weight:600;border-radius:var(--r);cursor:pointer;transition:all var(--t);border:2px solid var(--bdr-lt);background:var(--wh);color:var(--txt2)}
+.modal-div-btn:hover{border-color:var(--blue)}
+.modal-div-btn.sel-m{border-color:var(--blue);background:var(--blue-pl);color:var(--blue)}
+.modal-div-btn.sel-w{border-color:var(--pink);background:var(--pink-pl);color:var(--pink)}
+.modal-div-btn.sel-n{border-color:var(--slate);background:var(--slate-pl);color:var(--slate)}
+.modal-copy-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.modal-copy-btn{padding:5px 12px;font-size:11px;font-weight:600;font-family:var(--mono);border-radius:4px;cursor:pointer;transition:all var(--t);border:1px solid var(--bdr-lt);background:var(--wh);color:var(--txt2)}
+.modal-copy-btn:hover{border-color:var(--blue)}.modal-copy-btn.sel{border-color:var(--blue);background:var(--blue-pl);color:var(--blue)}
+.tag-area{display:flex;flex-wrap:wrap;gap:4px;padding:8px;min-height:40px;background:var(--sand-lt);border:1px solid var(--bdr);border-radius:var(--r);margin-top:6px;align-items:center;cursor:text}
+.tag-area:focus-within{border-color:var(--blue)}
+.size-tag{font-family:var(--mono);font-size:11px;font-weight:600;padding:3px 8px;background:var(--blue-pl);color:var(--blue);border-radius:4px;display:flex;align-items:center;gap:4px}
+.size-tag .tag-x{cursor:pointer;font-size:13px;color:var(--txt3);line-height:1}
+.size-tag .tag-x:hover{color:var(--red)}
+.tag-input{border:none;outline:none;background:transparent;font-family:var(--mono);font-size:12px;color:var(--txt);min-width:60px;flex:1;padding:2px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:24px}
+.pm-dirty-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--orange-pl);border:1px solid var(--orange-md);border-radius:var(--r);margin-top:10px}
+.pm-dirty-bar .dt-text{font-size:11px;font-weight:600;color:var(--orange);flex:1}
+
 @media(max-width:800px){
 .sg{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
 .u-row{flex-wrap:wrap}
@@ -204,6 +230,7 @@ input,select,button,textarea{font-family:inherit}
 <body>
 
 <div class="toast-area" id="toasts"></div>
+<div id="modal-root"></div>
 
 <!-- WELCOME -->
 <div id="welcome">
@@ -676,6 +703,9 @@ function attrPills(rec){
 }
 
 // ═══ PRES MINS ═══
+// Staged overwrites: { scale: { size: val } } — not saved until accepted
+let pmStaged={};
+
 function renderPresMins(el){
   const allScales=new Set(Object.keys(A.presMins));
   for(const s in A.scaleSizes)allScales.add(s);
@@ -684,16 +714,18 @@ function renderPresMins(el){
   let h='<div class="pm-page anim"><button class="d-back" onclick="goBackFromModule()">← Back</button>'+
     '<h2 style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:4px">Presentation Minimums</h2>'+
     '<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Per-size units per store. Persisted in browser storage.</p>'+
-    '<div class="pm-actions"><button class="btn btn-b btn-sm" onclick="addScalePrompt()">+ Add Size Scale</button></div>'+
+    '<div class="pm-actions"><button class="btn btn-b btn-sm" onclick="openAddScaleModal()">+ Add Size Scale</button></div>'+
     '<div class="pm-cards">';
 
   scales.forEach(scale=>{
     const sizes=A.scaleSizes[scale]||[];if(!sizes.length)return;
     const cfg=A.presMins[scale]||{};
+    const staged=pmStaged[scale]||{};
     const meta=A.presMinsMeta[scale]||{};
     const divCls=meta.div==='Womens'?'div-w':meta.div==='Non-Apparel'?'div-n':'div-m';
     const divTag=meta.div==='Womens'?'pm-div-w':meta.div==='Non-Apparel'?'pm-div-n':'pm-div-m';
     const storeSizes=sizes.filter(s=>(cfg[s]||0)>0).length;
+    const hasStagedChanges=Object.keys(staged).some(s=>staged[s]!==cfg[s]);
 
     h+='<div class="pm-card '+divCls+'"><h3>'+esc(scale)+' <span style="font-weight:400;color:var(--txt3)">('+sizes.length+' sizes · '+storeSizes+' store sizes)</span></h3>';
     if(meta.div)h+='<span class="pm-div-tag '+divTag+'">'+esc(meta.div)+'</span>';
@@ -704,32 +736,151 @@ function renderPresMins(el){
     h+='<tr><td class="pm-row-lbl">Current</td>';
     sizes.forEach(s=>{const v=cfg[s]!==undefined?cfg[s]:'—';h+='<td><span class="pm-val">'+v+'</span></td>'});
     h+='</tr>';
-    // Separator + Edit row
-    h+='<tr class="pm-sep"><td class="pm-row-lbl">Update</td>';
-    sizes.forEach(s=>{const v=cfg[s]!==undefined?cfg[s]:'';h+='<td><input class="pm-input" type="number" step="0.5" min="0" value="'+v+'" onchange="setPM(\''+esc(scale)+'\',\''+esc(s)+'\',this.value)"></td>'});
-    h+='</tr></tbody></table></div>';
+    // Separator + Overwrite row
+    h+='<tr class="pm-sep"><td class="pm-row-lbl">Overwrite</td>';
+    sizes.forEach(s=>{
+      const sv=staged[s]!==undefined?staged[s]:(cfg[s]!==undefined?cfg[s]:'');
+      h+='<td><input class="pm-input" type="number" step="0.5" min="0" value="'+sv+'" onchange="stagePM(\''+esc(scale)+'\',\''+esc(s)+'\',this.value)"></td>';
+    });
+    h+='</tr></tbody></table>';
+    // Accept overwrites bar (only show if there are staged changes)
+    if(hasStagedChanges){
+      h+='<div class="pm-dirty-bar"><span class="dt-text">Unsaved changes</span>'+
+        '<button class="btn btn-grn btn-sm" onclick="acceptPMOverwrites(\''+esc(scale)+'\')">Accept Overwrites</button>'+
+        '<button class="btn btn-g btn-sm" onclick="clearPMStaged(\''+esc(scale)+'\')">Discard</button></div>';
+    }
+    h+='</div>';
   });
 
   h+='</div></div>';el.innerHTML=h;
 }
 
-async function setPM(scale,size,val){
-  if(!A.presMins[scale])A.presMins[scale]={};
-  const v=parseFloat(val);if(isNaN(v)||v<0)delete A.presMins[scale][size];else A.presMins[scale][size]=v;
-  await dbPut('config','presMins',A.presMins);
-  toast('Pres min saved');
+function stagePM(scale,size,val){
+  if(!pmStaged[scale])pmStaged[scale]={};
+  const v=parseFloat(val);
+  if(isNaN(v)||v<0)pmStaged[scale][size]=0;
+  else pmStaged[scale][size]=v;
+  render();
 }
 
-function addScalePrompt(){
-  const name=prompt('New size scale name (e.g. FM6):');if(!name)return;
-  const copyFrom=prompt('Copy sizes from existing scale? Enter name or leave blank:');
-  const div=prompt('Division? (Mens / Womens / Non-Apparel):')||'Mens';
-  if(copyFrom&&A.scaleSizes[copyFrom]){A.scaleSizes[name]=[...A.scaleSizes[copyFrom]];A.scaleSizeCount[name]=A.scaleSizes[name].length}
-  else{const szStr=prompt('Enter sizes comma-separated (e.g. XS,S,M,L,XL,XXL):');if(!szStr)return;A.scaleSizes[name]=szStr.split(',').map(s=>s.trim());A.scaleSizeCount[name]=A.scaleSizes[name].length}
+async function acceptPMOverwrites(scale){
+  const staged=pmStaged[scale]||{};
+  if(!A.presMins[scale])A.presMins[scale]={};
+  for(const s in staged){A.presMins[scale][s]=staged[s]}
+  delete pmStaged[scale];
+  await dbPut('config','presMins',A.presMins);
+  toast(scale+' pres mins updated');
+  render();
+}
+
+function clearPMStaged(scale){
+  delete pmStaged[scale];
+  render();
+}
+
+// ─── Add Scale Modal ───
+let modalState={name:'',div:'Mens',copyFrom:'',sizes:[],sizeInput:''};
+
+function openAddScaleModal(){
+  modalState={name:'',div:'Mens',copyFrom:'',sizes:[],sizeInput:''};
+  renderModal();
+}
+
+function closeModal(){document.getElementById('modal-root').innerHTML=''}
+
+function renderModal(){
+  const existingScales=Object.keys(A.scaleSizes).filter(s=>(A.scaleSizes[s]||[]).length>0);
+  const hasExisting=existingScales.length>0;
+  const ms=modalState;
+  const divBtns=[
+    {val:'Mens',label:'Mens',cls:ms.div==='Mens'?'sel-m':''},
+    {val:'Womens',label:'Womens',cls:ms.div==='Womens'?'sel-w':''},
+    {val:'Non-Apparel',label:'Non-Apparel',cls:ms.div==='Non-Apparel'?'sel-n':''}
+  ];
+
+  let h='<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">'+
+    '<h3>Add Size Scale</h3>';
+
+  // Name
+  h+='<div class="modal-label">Scale Name</div>'+
+    '<input class="modal-input" type="text" placeholder="e.g. FM6" value="'+esc(ms.name)+'" oninput="modalState.name=this.value">';
+
+  // Division
+  h+='<div class="modal-label">Division</div><div class="modal-div-btns">';
+  divBtns.forEach(b=>{
+    h+='<button class="modal-div-btn '+b.cls+'" onclick="modalState.div=\''+b.val+'\';renderModal()">'+b.label+'</button>';
+  });
+  h+='</div>';
+
+  // Copy from existing (only if there are existing scales)
+  if(hasExisting){
+    h+='<div class="modal-label">Copy Sizes From (optional)</div><div class="modal-copy-btns">';
+    h+='<button class="modal-copy-btn'+(ms.copyFrom===''?' sel':'')+'" onclick="modalState.copyFrom=\'\';modalState.sizes=[];renderModal()">None — enter manually</button>';
+    existingScales.forEach(s=>{
+      h+='<button class="modal-copy-btn'+(ms.copyFrom===s?' sel':'')+'" onclick="modalState.copyFrom=\''+esc(s)+'\';modalState.sizes=[...A.scaleSizes[\''+esc(s)+'\']];renderModal()">'+esc(s)+' ('+A.scaleSizes[s].length+')</button>';
+    });
+    h+='</div>';
+  }
+
+  // Size input — tag-style
+  if(!ms.copyFrom){
+    h+='<div class="modal-label">Sizes</div>'+
+      '<div class="tag-area" onclick="this.querySelector(\'.tag-input\').focus()">';
+    ms.sizes.forEach((s,i)=>{
+      h+='<span class="size-tag">'+esc(s)+'<span class="tag-x" onclick="modalState.sizes.splice('+i+',1);renderModal()">×</span></span>';
+    });
+    h+='<input class="tag-input" type="text" placeholder="Type size + Enter" value="'+esc(ms.sizeInput)+'" oninput="modalState.sizeInput=this.value" onkeydown="handleTagKey(event)">';
+    h+='</div>';
+    h+='<div style="font-size:10px;color:var(--txt3);margin-top:4px">Press Enter or comma to add each size. e.g. XS, S, M, L, XL, XXL</div>';
+  } else {
+    // Show copied sizes as read-only tags
+    h+='<div class="modal-label">Sizes (from '+esc(ms.copyFrom)+')</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">';
+    ms.sizes.forEach(s=>{h+='<span class="size-tag">'+esc(s)+'</span>'});
+    h+='</div>';
+  }
+
+  // Footer
+  const canSave=ms.name.trim()&&ms.sizes.length>0;
+  h+='<div class="modal-footer">'+
+    '<button class="btn btn-g" onclick="closeModal()">Cancel</button>'+
+    '<button class="btn btn-b"'+(canSave?'':' disabled')+' onclick="saveNewScale()">Create Scale</button>'+
+  '</div></div></div>';
+
+  document.getElementById('modal-root').innerHTML=h;
+  // Focus the name input if empty
+  if(!ms.name){const inp=document.querySelector('.modal-input');if(inp)setTimeout(()=>inp.focus(),50)}
+}
+
+function handleTagKey(e){
+  if(e.key==='Enter'||e.key===','){
+    e.preventDefault();
+    const val=modalState.sizeInput.replace(',','').trim().toUpperCase();
+    if(val&&!modalState.sizes.includes(val)){
+      modalState.sizes.push(val);
+    }
+    modalState.sizeInput='';
+    renderModal();
+    // Re-focus the tag input
+    setTimeout(()=>{const inp=document.querySelector('.tag-input');if(inp)inp.focus()},50);
+  }
+}
+
+async function saveNewScale(){
+  const ms=modalState;
+  const name=ms.name.trim().toUpperCase();
+  if(!name||!ms.sizes.length)return;
+  A.scaleSizes[name]=[...ms.sizes];
+  A.scaleSizeCount[name]=ms.sizes.length;
   if(!A.presMins[name])A.presMins[name]={};
-  A.presMinsMeta[name]={div};
-  dbPut('config','presMins',A.presMins);
-  dbPut('config','presMinsMeta',A.presMinsMeta);
+  A.presMinsMeta[name]={div:ms.div};
+  // If copied, also copy pres min values
+  if(ms.copyFrom&&A.presMins[ms.copyFrom]){
+    A.presMins[name]={...A.presMins[ms.copyFrom]};
+  }
+  await dbPut('config','presMins',A.presMins);
+  await dbPut('config','presMinsMeta',A.presMinsMeta);
+  closeModal();
+  toast(name+' scale created');
   render();
 }
 
