@@ -173,11 +173,13 @@ input,select,button,textarea{font-family:inherit}
 .dv-table td{padding:4px 10px;border-bottom:1px solid var(--bdr-lt)}.dv-table tbody tr:hover{background:var(--sand-lt)}
 .dv-info{font-family:var(--mono);font-size:10px;color:var(--txt3);margin-bottom:8px}
 @media(max-width:800px){.sg{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}}
+.version-tag{position:fixed;bottom:8px;right:12px;font-family:var(--mono);font-size:9px;color:var(--txt3);opacity:.6;z-index:999}
 </style>
 </head>
 <body>
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
+<div class="version-tag">V4.1 · 16:46 04/16/2026 UTC</div>
 <div id="welcome">
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
@@ -372,6 +374,8 @@ function goSeason(s){
 
 // ═══ PROCESS DATA ═══
 function processData(){
+  // Ensure scaleSizes is built before processing SKUs
+  buildScaleSizes();
   const inv=A.raw.inventory,sales=A.raw.sales,ll=A.raw.linelist,wip=A.raw.wip;
   const c={};
   c.iS=findCol(inv[0],['SKU']);c.iZ=findCol(inv[0],['Size']);c.iO=findCol(inv[0],['On Hand Units - TY','On Hand Units','On Hand']);
