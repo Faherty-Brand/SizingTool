@@ -93,6 +93,8 @@ input,select,button,textarea{font-family:inherit}
 .d-back{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;font-size:11px;font-weight:600;color:var(--blue);background:var(--blue-pl);border:1px solid var(--blue-md);border-radius:var(--r);cursor:pointer;margin-bottom:12px}.d-back:hover{background:var(--blue-md)}
 .detail-sticky{position:sticky;top:52px;z-index:15;background:var(--sand);padding:12px 0 10px;border-bottom:1px solid var(--bdr-lt);margin-bottom:14px}
 .ds-row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.ds-name{font-size:14px;color:var(--txt2);font-weight:500;margin-bottom:8px}
+.ds-color{color:var(--orange);font-weight:600}
 .ds-left{display:flex;align-items:center;gap:10px}.ds-left h2{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--navy)}
 .ds-right{display:flex;gap:8px;align-items:center}
 .attr-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px}
@@ -182,7 +184,7 @@ input,select,button,textarea{font-family:inherit}
 <body>
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
-<div class="version-tag">V5.1 · PRES MIN CLEANUP + % CHART</div>
+<div class="version-tag">V5.2 · STRICT PRES MINS + UI POLISH</div>
 <div id="welcome">
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
@@ -444,9 +446,9 @@ function processData(){
   A.skus={};
   ll.filter(r=>r[c.lSe]===A.activeSeason).forEach(r=>{
     const sku=r[c.lS],scale=r[c.lSS]||'';
-    let sizes=A.scaleSizes[scale]?[...A.scaleSizes[scale]]:[];
-    if(!sizes.length&&A.presMinsMeta[scale]&&A.presMinsMeta[scale].sizes)sizes=[...A.presMinsMeta[scale].sizes].sort(ssort);
-    if(!sizes.length&&A.presMins[scale])sizes=Object.keys(A.presMins[scale]).sort(ssort);
+    // ENFORCE: sizes come ONLY from the user-configured presMinsMeta. No data-derived fallback.
+    let sizes=[];
+    if(A.presMinsMeta[scale]&&A.presMinsMeta[scale].sizes)sizes=[...A.presMinsMeta[scale].sizes].sort(ssort);
     const stCt=numP(r[c.lSn]),dtcBuy=numP(r[c.lDB]);
     const sI=invI[sku]||{},sS=salI[sku]||{},sW=wipI[sku]||{};
     let tOH=0,tSl=0,tWIP=0;const sd={};
@@ -674,23 +676,34 @@ function getFiltered(){
 }
 
 function renderGrid(el){
-  const list=getFiltered(),all=Object.values(A.skus).filter(r=>r.sizingType!=='nosize');
+  const all=Object.values(A.skus).filter(r=>r.sizingType!=='nosize');
   const divs=[...new Set(all.map(r=>r.division).filter(Boolean))].sort();
   const cats=[...new Set(all.map(r=>r.category).filter(Boolean))].sort();
   const subs=[...new Set(all.map(r=>r.subcategory).filter(Boolean))].sort();
   function opts(arr,lbl,cur){let h='<option value="All">'+lbl+': All</option>';arr.forEach(v=>{h+='<option value="'+esc(v)+'"'+(cur===v?' selected':'')+'>'+esc(v)+'</option>'});return h}
-  function sb(k,l){return'<button class="sb'+(A.sortKey===k?' on':'')+'" onclick="A.sortKey=\''+k+'\';render()">'+l+'</button>'}
+  function sb(k,l){return'<button class="sb'+(A.sortKey===k?' on':'')+'" onclick="A.sortKey=\''+k+'\';renderGridCards()">'+l+'</button>'}
   let h='<div class="gv"><div class="gc"><div class="gc-row">'+
     '<span class="gc-lbl">Sort</span>'+sb('dtcBuy',A.activeSeason+' Buy')+sb('postBuy','Post-Buy OH')+sb('currentOH','Current OH')+
     sb('storeCount','Store Count')+sb('type','CF / Initials')+sb('accepted','Accepted / Pending')+
-    '<div style="flex:1"></div><input class="sbar" type="text" placeholder="Search..." value="'+esc(A.searchTerm)+'" oninput="A.searchTerm=this.value;render()">'+
+    '<div style="flex:1"></div><input class="sbar" id="grid-search" type="text" placeholder="Search..." value="'+esc(A.searchTerm)+'" oninput="A.searchTerm=this.value;renderGridCards()">'+
   '</div><div class="gc-row"><span class="gc-lbl">Filter</span>'+
-    '<select class="fsel" onchange="A.filters.type=this.value;render()"><option value="All">Type: All</option><option value="cf"'+(A.filters.type==='cf'?' selected':'')+'>CF</option><option value="initials"'+(A.filters.type==='initials'?' selected':'')+'>Initials</option></select>'+
-    '<select class="fsel'+(divs.length<=1?' dim':'')+'" onchange="A.filters.division=this.value;render()">'+opts(divs,'Division',A.filters.division)+'</select>'+
-    '<select class="fsel'+(cats.length<=1?' dim':'')+'" onchange="A.filters.category=this.value;render()">'+opts(cats,'Category',A.filters.category)+'</select>'+
-    '<select class="fsel'+(subs.length<=1?' dim':'')+'" onchange="A.filters.subcategory=this.value;render()">'+opts(subs,'Subcategory',A.filters.subcategory)+'</select>'+
-    '<span class="gc-lbl" style="margin-left:8px">'+list.length+' SKUs</span></div></div>';
-  h+='<div class="sg">';
+    '<select class="fsel" onchange="A.filters.type=this.value;renderGridCards()"><option value="All">Type: All</option><option value="cf"'+(A.filters.type==='cf'?' selected':'')+'>CF</option><option value="initials"'+(A.filters.type==='initials'?' selected':'')+'>Initials</option></select>'+
+    '<select class="fsel'+(divs.length<=1?' dim':'')+'" onchange="A.filters.division=this.value;renderGridCards()">'+opts(divs,'Division',A.filters.division)+'</select>'+
+    '<select class="fsel'+(cats.length<=1?' dim':'')+'" onchange="A.filters.category=this.value;renderGridCards()">'+opts(cats,'Category',A.filters.category)+'</select>'+
+    '<select class="fsel'+(subs.length<=1?' dim':'')+'" onchange="A.filters.subcategory=this.value;renderGridCards()">'+opts(subs,'Subcategory',A.filters.subcategory)+'</select>'+
+    '<span class="gc-lbl" style="margin-left:8px" id="sku-count"></span></div></div>';
+  h+='<div class="sg" id="sku-cards-container"></div></div>';
+  el.innerHTML=h;
+  renderGridCards();
+}
+
+function renderGridCards(){
+  const container=document.getElementById('sku-cards-container');
+  const countEl=document.getElementById('sku-count');
+  if(!container)return;
+  const list=getFiltered();
+  if(countEl)countEl.textContent=list.length+' SKUs';
+  let h='';
   list.slice(0,500).forEach(r=>{
     const acc=A.accepted[r.sku];
     const divCls=r.division==='Womens'?'dv-w':(r.division==='Non-Apparel'||r.division==='Accessories'||r.division==='Footwear')?'dv-n':'dv-m';
@@ -717,7 +730,7 @@ function renderGrid(el){
   });
   if(list.length>500)h+='<div class="gnote">Showing 500 of '+list.length+'</div>';
   if(!list.length)h+='<div class="gnote">No SKUs match filters</div>';
-  h+='</div></div>';el.innerHTML=h;
+  container.innerHTML=h;
 }
 
 // ═══ DETAIL ═══
@@ -741,7 +754,7 @@ function renderDetail(el,rec){
   if(!res&&rec.sizingType!=='nosize'){
     const issues=[];
     if(rec.dtcBuy<=0)issues.push('DTC Buy is 0');
-    if(!rec.sizes.length)issues.push('No sizes found for scale "'+rec.sizeScale+'" — try re-uploading data or check Pres Mins config');
+    if(!rec.sizes.length)issues.push('Size scale "'+rec.sizeScale+'" is not configured in Pres Mins. Add it to the Pres Mins module before sizing this SKU.');
     el.innerHTML='<div class="dv anim"><button class="d-back" onclick="goGrid()">← Back to '+esc(A.activeSeason)+'</button>'+
       '<div class="detail-sticky"><div class="ds-row1"><div class="ds-left"><h2>'+esc(rec.sku)+'</h2></div></div></div>'+
       '<div style="padding:20px;background:var(--wh);border-radius:var(--rl);border:1px solid var(--bdr-lt);margin-top:12px">'+
@@ -885,6 +898,7 @@ function renderDetail(el,rec){
     '<button class="d-back" onclick="goGrid()">← Back to '+esc(A.activeSeason)+'</button>'+
     '<div class="detail-sticky"><div class="ds-row1"><div class="ds-left"><h2>'+esc(rec.sku)+'</h2><span class="bdg '+(isCF?'bdg-cf':'bdg-in')+'">'+rec.sizingType.toUpperCase()+'</span></div>'+
     '<div class="ds-right">'+resetBtn+lockBtn+'</div></div>'+
+    '<div class="ds-name">'+esc(rec.styleDescription||'')+(rec.colorDescription?' · <span class="ds-color">'+esc(rec.colorDescription)+'</span>':'')+'</div>'+
     '<div class="attr-row">'+attrPills(rec)+'</div>'+
     '<div class="metric-row">'+
       '<span class="metric-pill">'+esc(rec.season)+' Buy: '+fmt(pool)+'</span>'+
