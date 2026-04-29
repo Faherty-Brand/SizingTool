@@ -179,7 +179,7 @@ input,select,button,textarea{font-family:inherit}
 <body>
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
-<div class="version-tag">V4.1 · 16:46 04/16/2026 UTC</div>
+<div class="version-tag">V4.2 · 04/29/2026 UTC</div>
 <div id="welcome">
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
@@ -412,7 +412,10 @@ function processData(){
 
   A.skus={};
   ll.filter(r=>r[c.lSe]===A.activeSeason).forEach(r=>{
-    const sku=r[c.lS],scale=r[c.lSS]||'',sizes=A.scaleSizes[scale]?[...A.scaleSizes[scale]]:[];
+    const sku=r[c.lS],scale=r[c.lSS]||'';
+    let sizes=A.scaleSizes[scale]?[...A.scaleSizes[scale]]:[];
+    if(!sizes.length&&A.presMinsMeta[scale]&&A.presMinsMeta[scale].sizes)sizes=[...A.presMinsMeta[scale].sizes].sort(ssort);
+    if(!sizes.length&&A.presMins[scale])sizes=Object.keys(A.presMins[scale]).sort(ssort);
     const stCt=numP(r[c.lSn]),dtcBuy=numP(r[c.lDB]);
     const sI=invI[sku]||{},sS=salI[sku]||{},sW=wipI[sku]||{};
     let tOH=0,tSl=0,tWIP=0;const sd={};
