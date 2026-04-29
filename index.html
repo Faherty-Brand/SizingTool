@@ -179,7 +179,7 @@ input,select,button,textarea{font-family:inherit}
 <body>
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
-<div class="version-tag">V4.5 · CACHE VALIDATION</div>
+<div class="version-tag">V4.6 · PARSER REBUILT</div>
 <div id="welcome">
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
@@ -228,9 +228,20 @@ function parseCSV(t,hi){
   hi=hi||0;const rl=[];let c='',q=false,r=[];
   for(let i=0;i<t.length;i++){const ch=t[i];if(ch==='"'){if(q&&t[i+1]==='"'){c+='"';i++}else q=!q}else if(ch===','&&!q){r.push(c.trim());c=''}else if((ch==='\n'||ch==='\r')&&!q){if(ch==='\r'&&t[i+1]==='\n')i++;r.push(c.trim());if(r.length>1||(r.length===1&&r[0]!==''))rl.push(r);c='';r=[]}else c+=ch}
   if(c||r.length){r.push(c.trim());rl.push(r)}
-  const f=rl.filter(x=>x.length>1);if(f.length<hi+1)return[];
-  const h=f[hi].map(x=>x.replace(/^\uFEFF/,''));const res=[];
-  for(let i=hi+1;i<f.length;i++){const o={};h.forEach((hh,idx)=>{o[hh]=f[i][idx]||''});res.push(o)}return res;
+  // Find the header row: first row that contains a 'SKU' cell (case-insensitive)
+  let hdrIdx=-1;
+  for(let i=0;i<Math.min(rl.length,8);i++){
+    const row=rl[i]||[];
+    if(row.some(cell=>cell.replace(/^\uFEFF/,'').trim().toLowerCase()==='sku')){hdrIdx=i;break}
+  }
+  if(hdrIdx===-1)return[];
+  const h=rl[hdrIdx].map(x=>x.replace(/^\uFEFF/,'').trim());
+  const res=[];
+  for(let i=hdrIdx+1;i<rl.length;i++){
+    const row=rl[i];if(!row||row.length<2)continue;
+    const o={};h.forEach((hh,idx)=>{o[hh]=row[idx]||''});res.push(o);
+  }
+  return res;
 }
 
 // Header row positions: 42 reports (inventory/sales) always have headers in row 2 (index 1)
