@@ -179,7 +179,7 @@ input,select,button,textarea{font-family:inherit}
 <body>
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
-<div class="version-tag">V4.2 · 04/29/2026 UTC</div>
+<div class="version-tag">V4.4 · SMART HEADER DETECTION</div>
 <div id="welcome">
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
@@ -231,6 +231,26 @@ function parseCSV(t,hi){
   const f=rl.filter(x=>x.length>1);if(f.length<hi+1)return[];
   const h=f[hi].map(x=>x.replace(/^\uFEFF/,''));const res=[];
   for(let i=hi+1;i<f.length;i++){const o={};h.forEach((hh,idx)=>{o[hh]=f[i][idx]||''});res.push(o)}return res;
+}
+
+// Smart header detection: scan first 5 rows for the one that contains expected column markers
+function detectHeaderRow(text,key){
+  const lines=text.split(/\r?\n/).slice(0,6);
+  const expected={
+    inventory:['sku','size','on hand'],
+    sales:['sku','size','net sales','division','category'],
+    linelist:['sku','season code','style description','department'],
+    wip:['sku','size','ordered','shipment status','expected']
+  };
+  const markers=expected[key]||[];
+  for(let i=0;i<lines.length;i++){
+    const row=lines[i].toLowerCase();
+    let hits=0;
+    markers.forEach(m=>{if(row.includes(m))hits++});
+    if(hits>=2)return i;
+  }
+  // Fallback to defaults
+  return(key==='linelist'||key==='wip')?2:1;
 }
 
 function findCol(row,cands){
@@ -293,7 +313,7 @@ function handleUpload(key,inp){
   const reader=new FileReader();
   reader.onload=async function(ev){
     const text=ev.target.result;
-    let hi=(key==='linelist'||key==='wip')?2:1;
+    let hi=detectHeaderRow(text,key);
     A.raw[key]=parseCSV(text,hi);
     A.rawCSV[key]=text;
     A.uploadMeta[key]={rows:A.raw[key].length,cols:A.raw[key][0]?Object.keys(A.raw[key][0]).length:0,date:new Date().toLocaleString(),fileName:file.name};
@@ -339,7 +359,7 @@ async function loadPersistedData(){
   for(const key of['inventory','sales','linelist','wip']){
     const text=await dbGet('csvdata','raw_'+key);
     const meta=await dbGet('csvdata','meta_'+key);
-    if(text&&meta){let hi=(key==='linelist'||key==='wip')?2:1;A.raw[key]=parseCSV(text,hi);A.rawCSV[key]=text;A.uploadMeta[key]=meta;updateChip(key)}
+    if(text&&meta){let hi=detectHeaderRow(text,key);A.raw[key]=parseCSV(text,hi);A.rawCSV[key]=text;A.uploadMeta[key]=meta;updateChip(key)}
   }
   const pm=await dbGet('config','presMins');if(pm)A.presMins=pm;
   const pmm=await dbGet('config','presMinsMeta');if(pmm)A.presMinsMeta=pmm;
@@ -553,6 +573,36 @@ function goBackFromModule(){A.module=null;if(!A.activeSeason){backToWelcome()}el
 function backToWelcome(){document.getElementById('dash').classList.remove('active');document.getElementById('welcome').classList.remove('hidden');A.activeSeason=null;A.view='grid';A.module=null;trySeasons()}
 function setOvr(sku,sz,v){if(!A.overrides[sku])A.overrides[sku]={};A.overrides[sku][sz]=parseInt(v)||0;render()}
 function clrOvr(sku){delete A.overrides[sku];render()}
+function debugSKU(sku){
+  const rec=A.skus[sku];if(!rec){alert('SKU not found in processed records');return}
+  let msg='═══ DEBUG: '+sku+' ═══\n\n';
+  msg+='Hierarchy values from Linelist:\n';
+  msg+='  Division: "'+rec.division+'"\n';
+  msg+='  Category: "'+rec.category+'"\n';
+  msg+='  Subcategory: "'+rec.subcategory+'"\n';
+  msg+='  Style Description: "'+rec.styleDescription+'"\n\n';
+  msg+='Hierarchy keys (lowercased):\n';
+  msg+='  Program: '+rec._hk.prog+'\n';
+  msg+='  Subcategory: '+rec._hk.sub+'\n';
+  msg+='  Category: '+rec._hk.cat+'\n';
+  msg+='  Division: '+rec._hk.div+'\n\n';
+  msg+='hierSales lookup results:\n';
+  for(const lvl of ['prog','sub','cat','div']){
+    const k=rec._hk[lvl];
+    const hs=A.hierSales[k];
+    if(!hs){msg+='  ['+lvl+'] '+k+' → NOT FOUND in hierSales\n'}
+    else{const total=Object.values(hs).reduce((a,b)=>a+b,0);msg+='  ['+lvl+'] '+k+' → '+total+' total units across '+Object.keys(hs).length+' sizes\n'}
+  }
+  msg+='\nSample available hierSales keys (first 10):\n';
+  const allKeys=Object.keys(A.hierSales).slice(0,10);
+  allKeys.forEach(k=>{const total=Object.values(A.hierSales[k]).reduce((a,b)=>a+b,0);msg+='  '+k+' ('+total+' units)\n'});
+  msg+='\nTotal hierSales keys: '+Object.keys(A.hierSales).length;
+  msg+='\nTotal sales rows processed: '+(A.raw.sales?A.raw.sales.length:'NO SALES DATA');
+  msg+='\n\nSample sales row[0] keys: '+(A.raw.sales&&A.raw.sales[0]?Object.keys(A.raw.sales[0]).join(', '):'none');
+  msg+='\nDetected sales columns: sD='+A.cols.sD+', sC='+A.cols.sC+', sSC='+A.cols.sSC+', sSD='+A.cols.sSD+', sU='+A.cols.sU;
+  console.log(msg);
+  alert(msg);
+}
 function toggleAcc(sku){A.accepted[sku]?delete A.accepted[sku]:A.accepted[sku]=true;updateExpCt();render()}
 function updateExpCt(){const n=Object.keys(A.accepted).length;const el=document.getElementById('exp-ct');if(el)el.textContent=n>0?n+' accepted':'';const btn=document.getElementById('exp-btn');if(btn)btn.disabled=n===0}
 
@@ -758,6 +808,7 @@ function renderDetail(el,rec){
   cr.trail.forEach(t=>{if(t.pass)trail+='<span class="rs rp">'+esc(t.level)+' ('+esc(t.label)+') ✓ ['+fmt(t.total)+' vs '+fmt(t.thresh)+' needed]</span>';
     else trail+='<span class="rs rf">'+esc(t.level)+' ('+esc(t.label)+') ✗ ['+fmt(t.total)+' vs '+fmt(t.thresh)+' needed]</span> → '});
   trail+='</div>';
+  trail+='<div style="margin:8px 0 14px"><button onclick="debugSKU(\''+esc(rec.sku)+'\')" style="padding:8px 16px;background:#c4572a;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">🔍 DEBUG SKU DATA</button></div>';
 
   // ── Data Table ──
   const curveSalesTotal=Object.values(curveSales).reduce((a,b)=>a+b,0);
