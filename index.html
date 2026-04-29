@@ -82,8 +82,10 @@ input,select,button,textarea{font-family:inherit}
 .sc{padding:14px 16px;background:var(--wh);border:2px solid var(--bdr-lt);border-radius:var(--rl);cursor:pointer;transition:all .15s;position:relative}
 .sc:hover{border-color:var(--blue);box-shadow:var(--shmd);transform:translateY(-1px)}
 .sc.dv-m{border-left:4px solid var(--blue)}.sc.dv-w{border-left:4px solid var(--pink)}.sc.dv-n{border-left:4px solid var(--slate)}
-.sc .chk{position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.sc .chk{position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;transition:all var(--t)}
+.sc .chk:hover{transform:scale(1.1)}
 .sc .chk-g{background:var(--green);color:#fff}.sc .chk-e{background:var(--wh);border:2px solid var(--bdr);color:transparent}
+.sc .chk-e:hover{border-color:var(--green)}
 .sc .sid{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--navy);margin-bottom:2px}
 .sc .snm{font-size:10px;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px}
 .sc .sbu{font-family:var(--mono);font-size:16px;font-weight:700;margin-bottom:2px}.sc .ssb{font-family:var(--mono);font-size:9px;color:var(--txt3)}
@@ -184,7 +186,7 @@ input,select,button,textarea{font-family:inherit}
 <body>
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
-<div class="version-tag">V5.2 · STRICT PRES MINS + UI POLISH</div>
+<div class="version-tag">V5.3 · CSV PARSER FIX + GRID UPGRADES</div>
 <div id="welcome">
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
@@ -230,8 +232,33 @@ function dbDel(store,key){return new Promise((res,rej)=>{const tx=db.transaction
 
 // ─── CSV Parser ───
 function parseCSV(t,hi){
-  hi=hi||0;const rl=[];let c='',q=false,r=[];
-  for(let i=0;i<t.length;i++){const ch=t[i];if(ch==='"'){if(q&&t[i+1]==='"'){c+='"';i++}else q=!q}else if(ch===','&&!q){r.push(c.trim());c=''}else if((ch==='\n'||ch==='\r')&&!q){if(ch==='\r'&&t[i+1]==='\n')i++;r.push(c.trim());if(r.length>1||(r.length===1&&r[0]!==''))rl.push(r);c='';r=[]}else c+=ch}
+  hi=hi||0;const rl=[];let c='',q=false,r=[],fieldStart=true;
+  for(let i=0;i<t.length;i++){
+    const ch=t[i];
+    if(ch==='"'){
+      if(q){
+        // Inside quoted field: "" is escaped quote, otherwise close the quote
+        if(t[i+1]==='"'){c+='"';i++}
+        else q=false;
+      } else if(fieldStart){
+        // Quote at start of field opens quoted mode
+        q=true;
+      } else {
+        // Bare quote in middle of unquoted field — treat as literal (e.g. 7" in "All Day Short (7\")")
+        c+='"';
+      }
+    } else if(ch===','&&!q){
+      r.push(c.trim());c='';fieldStart=true;continue;
+    } else if((ch==='\n'||ch==='\r')&&!q){
+      if(ch==='\r'&&t[i+1]==='\n')i++;
+      r.push(c.trim());
+      if(r.length>1||(r.length===1&&r[0]!==''))rl.push(r);
+      c='';r=[];fieldStart=true;continue;
+    } else {
+      c+=ch;
+    }
+    fieldStart=false;
+  }
   if(c||r.length){r.push(c.trim());rl.push(r)}
   // Find the header row: first row that contains a 'SKU' cell (case-insensitive)
   let hdrIdx=-1;
@@ -300,8 +327,8 @@ const A={
   skus:{},selectedSKU:null,
   view:'grid',module:null,
   overrides:{},accepted:{},
-  searchTerm:'',sortKey:'dtcBuy',
-  filters:{type:'All',division:'All',category:'All',subcategory:'All'},
+  searchTerm:'',sortKey:'dtcBuy',sortDir:'desc',
+  filters:{type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All'},
   presMins:{M3:{XS:.5,S:1,M:2,L:2,XL:1.5,XXL:.5},FM3:{XS:0,S:1,M:2,L:2,XL:1.5,XXL:0}},
   presMinsMeta:{M3:{div:'Mens',sizes:['XS','S','M','L','XL','XXL']},FM3:{div:'Mens',sizes:['XS','S','M','L','XL','XXL']}},
   scaleSizes:{},scaleSizeCount:{},hierSales:{},salSKU:{},cols:{},
@@ -396,8 +423,8 @@ function trySeasons(){
 
 function goSeason(s){
   A.activeSeason=s;A.selectedSKU=null;A.view='grid';A.module=null;
-  A.overrides={};A.accepted={};A.sortKey='dtcBuy';
-  A.filters={type:'All',division:'All',category:'All',subcategory:'All'};
+  A.overrides={};A.accepted={};A.sortKey='dtcBuy';A.sortDir='desc';
+  A.filters={type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All'};
   processData();
   document.getElementById('welcome').classList.add('hidden');
   document.getElementById('dash').classList.add('active');
@@ -587,6 +614,7 @@ function backToWelcome(){document.getElementById('dash').classList.remove('activ
 function setOvr(sku,sz,v){if(!A.overrides[sku])A.overrides[sku]={};A.overrides[sku][sz]=parseInt(v)||0;render()}
 function clrOvr(sku){delete A.overrides[sku];render()}
 function toggleAcc(sku){A.accepted[sku]?delete A.accepted[sku]:A.accepted[sku]=true;updateExpCt();render()}
+function toggleAccGrid(sku){A.accepted[sku]?delete A.accepted[sku]:A.accepted[sku]=true;updateExpCt();renderGridCards()}
 function updateExpCt(){const n=Object.keys(A.accepted).length;const el=document.getElementById('exp-ct');if(el)el.textContent=n>0?n+' accepted':'';const btn=document.getElementById('exp-btn');if(btn)btn.disabled=n===0}
 
 function exportCSV(){
@@ -662,39 +690,78 @@ function getFiltered(){
   if(f.division!=='All')list=list.filter(r=>r.division===f.division);
   if(f.category!=='All')list=list.filter(r=>r.category===f.category);
   if(f.subcategory!=='All')list=list.filter(r=>r.subcategory===f.subcategory);
+  if(f.sizeScale&&f.sizeScale!=='All')list=list.filter(r=>r.sizeScale===f.sizeScale);
   if(A.searchTerm){const st=A.searchTerm.toLowerCase();list=list.filter(r=>r.sku.toLowerCase().includes(st)||r.styleDescription.toLowerCase().includes(st)||r.colorDescription.toLowerCase().includes(st))}
-  const sk=A.sortKey;
+  const sk=A.sortKey;const dir=A.sortDir==='asc'?1:-1;
   list.sort((a,b)=>{
-    if(sk==='dtcBuy')return b.dtcBuy-a.dtcBuy;
-    if(sk==='postBuy')return(b.totalOH+b.dtcBuy)-(a.totalOH+a.dtcBuy);
-    if(sk==='currentOH')return b.totalOH-a.totalOH;
-    if(sk==='storeCount')return b.storeCount-a.storeCount;
-    if(sk==='type'){const to={cf:0,initials:1};return(to[a.sizingType]||9)-(to[b.sizingType]||9)}
-    if(sk==='accepted'){return(A.accepted[a.sku]?0:1)-(A.accepted[b.sku]?0:1)}
-    return 0;
+    let cmp=0;
+    if(sk==='dtcBuy')cmp=a.dtcBuy-b.dtcBuy;
+    else if(sk==='postBuy')cmp=(a.totalOH+a.dtcBuy)-(b.totalOH+b.dtcBuy);
+    else if(sk==='currentOH')cmp=a.totalOH-b.totalOH;
+    else if(sk==='storeCount')cmp=a.storeCount-b.storeCount;
+    else if(sk==='type'){const to={cf:0,initials:1};cmp=(to[a.sizingType]||9)-(to[b.sizingType]||9)}
+    else if(sk==='accepted')cmp=(A.accepted[a.sku]?0:1)-(A.accepted[b.sku]?0:1);
+    else if(sk==='sizeScale')cmp=(a.sizeScale||'').localeCompare(b.sizeScale||'');
+    return cmp*dir;
   });return list;
 }
 
-function renderGrid(el){
+// Compute filter options reactively — sub-filters only show values valid given the higher-level filter
+function getFilterOptions(){
   const all=Object.values(A.skus).filter(r=>r.sizingType!=='nosize');
+  const f=A.filters;
+  // Divisions: always all
   const divs=[...new Set(all.map(r=>r.division).filter(Boolean))].sort();
-  const cats=[...new Set(all.map(r=>r.category).filter(Boolean))].sort();
-  const subs=[...new Set(all.map(r=>r.subcategory).filter(Boolean))].sort();
+  // Categories: filtered by division
+  let catBase=all;if(f.division!=='All')catBase=catBase.filter(r=>r.division===f.division);
+  const cats=[...new Set(catBase.map(r=>r.category).filter(Boolean))].sort();
+  // Subcategories: filtered by division + category
+  let subBase=catBase;if(f.category!=='All')subBase=subBase.filter(r=>r.category===f.category);
+  const subs=[...new Set(subBase.map(r=>r.subcategory).filter(Boolean))].sort();
+  // Size scales: filtered by all of the above
+  let scaleBase=subBase;if(f.subcategory!=='All')scaleBase=scaleBase.filter(r=>r.subcategory===f.subcategory);
+  const scales=[...new Set(scaleBase.map(r=>r.sizeScale).filter(Boolean))].sort();
+  return{divs,cats,subs,scales};
+}
+
+function renderGrid(el){
+  const{divs,cats,subs,scales}=getFilterOptions();
   function opts(arr,lbl,cur){let h='<option value="All">'+lbl+': All</option>';arr.forEach(v=>{h+='<option value="'+esc(v)+'"'+(cur===v?' selected':'')+'>'+esc(v)+'</option>'});return h}
-  function sb(k,l){return'<button class="sb'+(A.sortKey===k?' on':'')+'" onclick="A.sortKey=\''+k+'\';renderGridCards()">'+l+'</button>'}
+  function sb(k,l){
+    const on=A.sortKey===k;
+    const arrow=on?(A.sortDir==='asc'?' ↑':' ↓'):'';
+    return'<button class="sb'+(on?' on':'')+'" onclick="setSort(\''+k+'\')">'+l+arrow+'</button>';
+  }
+  // Reset deeper filters if their currently-selected value is no longer valid
+  if(A.filters.category!=='All'&&!cats.includes(A.filters.category))A.filters.category='All';
+  if(A.filters.subcategory!=='All'&&!subs.includes(A.filters.subcategory))A.filters.subcategory='All';
+  if(A.filters.sizeScale!=='All'&&!scales.includes(A.filters.sizeScale))A.filters.sizeScale='All';
   let h='<div class="gv"><div class="gc"><div class="gc-row">'+
     '<span class="gc-lbl">Sort</span>'+sb('dtcBuy',A.activeSeason+' Buy')+sb('postBuy','Post-Buy OH')+sb('currentOH','Current OH')+
-    sb('storeCount','Store Count')+sb('type','CF / Initials')+sb('accepted','Accepted / Pending')+
+    sb('storeCount','Store Count')+sb('sizeScale','Size Scale')+sb('type','CF / Initials')+sb('accepted','Accepted / Pending')+
     '<div style="flex:1"></div><input class="sbar" id="grid-search" type="text" placeholder="Search..." value="'+esc(A.searchTerm)+'" oninput="A.searchTerm=this.value;renderGridCards()">'+
   '</div><div class="gc-row"><span class="gc-lbl">Filter</span>'+
-    '<select class="fsel" onchange="A.filters.type=this.value;renderGridCards()"><option value="All">Type: All</option><option value="cf"'+(A.filters.type==='cf'?' selected':'')+'>CF</option><option value="initials"'+(A.filters.type==='initials'?' selected':'')+'>Initials</option></select>'+
-    '<select class="fsel'+(divs.length<=1?' dim':'')+'" onchange="A.filters.division=this.value;renderGridCards()">'+opts(divs,'Division',A.filters.division)+'</select>'+
-    '<select class="fsel'+(cats.length<=1?' dim':'')+'" onchange="A.filters.category=this.value;renderGridCards()">'+opts(cats,'Category',A.filters.category)+'</select>'+
-    '<select class="fsel'+(subs.length<=1?' dim':'')+'" onchange="A.filters.subcategory=this.value;renderGridCards()">'+opts(subs,'Subcategory',A.filters.subcategory)+'</select>'+
+    '<select class="fsel" onchange="setFilter(\'type\',this.value)"><option value="All">Type: All</option><option value="cf"'+(A.filters.type==='cf'?' selected':'')+'>CF</option><option value="initials"'+(A.filters.type==='initials'?' selected':'')+'>Initials</option></select>'+
+    '<select class="fsel'+(divs.length<=1?' dim':'')+'" onchange="setFilter(\'division\',this.value)">'+opts(divs,'Division',A.filters.division)+'</select>'+
+    '<select class="fsel'+(cats.length<=1?' dim':'')+'" onchange="setFilter(\'category\',this.value)">'+opts(cats,'Category',A.filters.category)+'</select>'+
+    '<select class="fsel'+(subs.length<=1?' dim':'')+'" onchange="setFilter(\'subcategory\',this.value)">'+opts(subs,'Subcategory',A.filters.subcategory)+'</select>'+
+    '<select class="fsel'+(scales.length<=1?' dim':'')+'" onchange="setFilter(\'sizeScale\',this.value)">'+opts(scales,'Size Scale',A.filters.sizeScale)+'</select>'+
     '<span class="gc-lbl" style="margin-left:8px" id="sku-count"></span></div></div>';
   h+='<div class="sg" id="sku-cards-container"></div></div>';
   el.innerHTML=h;
   renderGridCards();
+}
+
+function setSort(k){
+  if(A.sortKey===k)A.sortDir=A.sortDir==='asc'?'desc':'asc';
+  else{A.sortKey=k;A.sortDir='desc'}
+  renderGrid(document.getElementById('main-area'));
+}
+
+function setFilter(key,val){
+  A.filters[key]=val;
+  // Re-render full grid so dropdowns reflect cascading options
+  renderGrid(document.getElementById('main-area'));
 }
 
 function renderGridCards(){
@@ -723,7 +790,8 @@ function renderGridCards(){
       pmFlag='<div class="pm-flag pm-flag-bad">⚠ '+esc(r.sizeScale||'NO SCALE')+' not configured</div>';
     }
     h+='<div class="sc '+divCls+'" onclick="goDetail(\''+esc(r.sku)+'\')">';
-    if(acc)h+='<div class="chk chk-g">✓</div>';else h+='<div class="chk chk-e"></div>';
+    if(acc)h+='<div class="chk chk-g" onclick="event.stopPropagation();toggleAccGrid(\''+esc(r.sku)+'\')" title="Click to revert to pending">✓</div>';
+    else h+='<div class="chk chk-e" onclick="event.stopPropagation();toggleAccGrid(\''+esc(r.sku)+'\')" title="Click to accept"></div>';
     h+='<div class="sid">'+esc(r.sku)+'</div><div class="snm">'+esc(r.styleDescription)+(r.colorDescription?' · '+esc(r.colorDescription):'')+'</div>'+
     '<div class="sbu">'+fmt(r.dtcBuy)+' u</div><div class="ssb">OH: '+fmt(r.totalOH)+' · Stores: '+r.storeCount+'</div>'+
     '<div class="bdg '+bc+'" style="font-size:10px;padding:3px 8px">'+bl+'</div>'+pmFlag+'</div>';
