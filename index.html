@@ -179,7 +179,7 @@ input,select,button,textarea{font-family:inherit}
 <body>
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
-<div class="version-tag">V4.4 · SMART HEADER DETECTION</div>
+<div class="version-tag">V4.5 · CACHE VALIDATION</div>
 <div id="welcome">
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
@@ -233,23 +233,9 @@ function parseCSV(t,hi){
   for(let i=hi+1;i<f.length;i++){const o={};h.forEach((hh,idx)=>{o[hh]=f[i][idx]||''});res.push(o)}return res;
 }
 
-// Smart header detection: scan first 5 rows for the one that contains expected column markers
+// Header row positions: 42 reports (inventory/sales) always have headers in row 2 (index 1)
+// Linelist/WIP have headers in row 3 (index 2)
 function detectHeaderRow(text,key){
-  const lines=text.split(/\r?\n/).slice(0,6);
-  const expected={
-    inventory:['sku','size','on hand'],
-    sales:['sku','size','net sales','division','category'],
-    linelist:['sku','season code','style description','department'],
-    wip:['sku','size','ordered','shipment status','expected']
-  };
-  const markers=expected[key]||[];
-  for(let i=0;i<lines.length;i++){
-    const row=lines[i].toLowerCase();
-    let hits=0;
-    markers.forEach(m=>{if(row.includes(m))hits++});
-    if(hits>=2)return i;
-  }
-  // Fallback to defaults
   return(key==='linelist'||key==='wip')?2:1;
 }
 
@@ -359,13 +345,29 @@ async function loadPersistedData(){
   for(const key of['inventory','sales','linelist','wip']){
     const text=await dbGet('csvdata','raw_'+key);
     const meta=await dbGet('csvdata','meta_'+key);
-    if(text&&meta){let hi=detectHeaderRow(text,key);A.raw[key]=parseCSV(text,hi);A.rawCSV[key]=text;A.uploadMeta[key]=meta;updateChip(key)}
+    if(text&&meta){
+      let hi=detectHeaderRow(text,key);
+      A.raw[key]=parseCSV(text,hi);
+      A.rawCSV[key]=text;
+      A.uploadMeta[key]=meta;
+      // Validate parsed columns include 'SKU' — if not, the cached parse is corrupt
+      if(A.raw[key]&&A.raw[key][0]){
+        const cols=Object.keys(A.raw[key][0]);
+        const hasSKU=cols.some(c=>c.toLowerCase()==='sku');
+        if(!hasSKU){
+          console.warn('Persisted '+key+' has invalid headers, clearing:',cols);
+          A.raw[key]=null;A.rawCSV[key]=null;
+          await dbDel('csvdata','raw_'+key);await dbDel('csvdata','meta_'+key);
+          continue;
+        }
+      }
+      updateChip(key);
+    }
   }
   const pm=await dbGet('config','presMins');if(pm)A.presMins=pm;
   const pmm=await dbGet('config','presMinsMeta');if(pmm)A.presMinsMeta=pmm;
   const ss=await dbGet('config','scaleSizes');
   if(ss){for(const k in ss){A.scaleSizes[k]=ss[k];A.scaleSizeCount[k]=ss[k].length}}
-  // Also rebuild from data if available
   if(allUp())buildScaleSizes();
   trySeasons();
 }
