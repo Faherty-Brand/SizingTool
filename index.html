@@ -133,30 +133,12 @@ input,select,button,textarea{font-family:inherit}
 .dt tbody tr:hover{background:var(--sand-lt)}
 .cbl{background-color:var(--cb)!important}.cbd{background-color:var(--cbd)!important}.col{background-color:var(--co)!important}.cod{background-color:var(--cod)!important}
 .dt .rt{background:var(--sand-lt);font-weight:700}.dt .rt td{border-top:2px solid var(--bdr);border-bottom:2px solid var(--bdr);padding:8px 10px}
-.rcpt-expand{cursor:pointer;color:var(--orange);font-weight:700;margin-right:4px;display:inline-block;font-size:9px}
+/* Pending receipts inline date columns (when expanded) */
+.dt th.cod-date{background:rgba(196,87,42,.13)!important;color:var(--orange);font-weight:700;border-left:1px dashed var(--orange-md);border-right:1px dashed var(--orange-md);white-space:nowrap;font-size:9px;letter-spacing:0}
+.dt td.cod-date{background:rgba(196,87,42,.04);font-family:var(--mono);font-size:10px;text-align:right;border-left:1px dashed var(--orange-md);border-right:1px dashed var(--orange-md)}
+.dt .rt td.cod-date{background:rgba(196,87,42,.13);color:var(--orange)}
+.rcpt-expand{cursor:pointer;color:var(--orange);font-weight:700;display:inline-block;font-size:11px;margin-left:3px;user-select:none}
 .rcpt-expand:hover{color:var(--blue)}
-.dt .rcpt-row{background:rgba(196,87,42,.04)}
-.dt .rcpt-row td{border-bottom:1px solid var(--bdr-lt);padding:5px 10px;font-size:10px}
-.dt .rcpt-row-sub{background:rgba(196,87,42,.04)}
-.dt .rcpt-row-sub td{padding:3px 10px 8px;border-bottom:1px solid var(--bdr-lt)}
-
-/* Receipts Matrix (date × size pivot) */
-.rcpt-matrix-wrap{margin-top:14px;background:var(--wh);border:1px solid var(--bdr-lt);border-radius:var(--rl);overflow:hidden}
-.rcpt-matrix-hdr{padding:10px 16px;border-bottom:1px solid var(--bdr-lt);font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--orange);background:var(--orange-pl)}
-.rcpt-matrix-scroll{overflow-x:auto;max-height:420px;overflow-y:auto}
-.rcpt-matrix{width:auto;border-collapse:collapse;min-width:100%}
-.rcpt-matrix th{padding:7px 12px;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--txt2);border-bottom:2px solid var(--bdr);background:var(--sand-lt);position:sticky;top:0;text-align:right;white-space:nowrap}
-.rcpt-matrix th.rcpt-corner{text-align:left;background:var(--sand-dk)}
-.rcpt-matrix th.rcpt-date-hdr{color:var(--orange);background:var(--orange-pl)}
-.rcpt-matrix th.rcpt-tot-hdr{color:var(--navy);background:var(--sand-dk);text-align:right}
-.rcpt-matrix td{padding:5px 12px;text-align:right;font-family:var(--mono);font-size:11px;border-bottom:1px solid var(--bdr-lt);white-space:nowrap}
-.rcpt-matrix .rcpt-rowlbl{text-align:left;font-weight:700;color:var(--navy);background:var(--sand-lt);position:sticky;left:0;z-index:1}
-.rcpt-matrix .rcpt-cell{color:var(--txt)}
-.rcpt-matrix .rcpt-cell-tot{font-weight:700;color:var(--orange);background:var(--orange-pl)}
-.rcpt-matrix .rcpt-cell-grand{font-weight:700;color:var(--navy);background:var(--sand-dk)}
-.rcpt-matrix .rcpt-tot-row{background:var(--sand-lt)}
-.rcpt-matrix .rcpt-tot-row td{border-top:2px solid var(--bdr);border-bottom:2px solid var(--bdr);font-weight:700}
-.rcpt-matrix tbody tr:hover:not(.rcpt-tot-row){background:rgba(59,123,192,.04)}
 .ai{width:64px;padding:3px 6px;font-family:var(--mono);font-size:11px;text-align:right;background:var(--sand-lt);color:var(--txt);border:1px solid var(--bdr);border-radius:3px;outline:none}.ai:focus{border-color:var(--blue)}.ai.ov{background:var(--blue-pl);color:var(--blue);border-color:var(--blue-st)}
 .c-g{color:var(--green)!important}.c-b{color:var(--blue)!important}.c-o{color:var(--orange)!important}.c-r{color:var(--red)!important}.c-n{color:var(--navy)!important}.c-d{color:var(--txt3)!important}.c-t{color:var(--teal)!important}
 /* Pres Mins */
@@ -210,7 +192,7 @@ input,select,button,textarea{font-family:inherit}
 <body>
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
-<div class="version-tag">V5.5 · RECEIPTS MATRIX + BOP-AWARE INITIALS</div>
+<div class="version-tag">V5.6 · INLINE RECEIPT DATE COLUMNS</div>
 <div id="welcome">
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
@@ -985,12 +967,20 @@ function renderDetail(el,rec){
   let tAlloc=0,tPM=0,tMinRetail=0;
 
   // Header
+  const dateColCount=showDateCols?dateRows.length:0;
+  const invColspan=useBOP?(9+dateColCount):7;
   let thead='<tr class="gr"><th></th><th class="gs" colspan="4">Sales Metrics</th>';
-  thead+=useBOP?'<th class="gi" colspan="9">Inventory Metrics</th>':'<th class="gi" colspan="7">Inventory Metrics</th>';
+  thead+='<th class="gi" colspan="'+invColspan+'">Inventory Metrics</th>';
   thead+='</tr><tr><th style="text-align:left">Size</th>';
   thead+='<th class="cbl">SKU Sales</th><th class="cbd">Curve Sales</th><th class="cbl">Curve %</th><th class="cbd">Wkly Rate</th>';
   thead+='<th class="col">Current OH</th>';
-  if(useBOP)thead+='<th class="cod">Pending Rcpts</th><th class="col">Proj. BOP</th>';
+  if(useBOP){
+    // Pending Rcpts header gets the expand chevron
+    const expandBtn=dateRows.length>0?' <span class="rcpt-expand" onclick="toggleWipExpand(\''+esc(rec.sku)+'\')" title="'+(wipExpanded?'Hide':'Show')+' by date">'+(wipExpanded?'▼':'▶')+'</span>':'';
+    thead+='<th class="cod">Pending Rcpts'+expandBtn+'</th>';
+    if(showDateCols){dateRows.forEach(dr=>{thead+='<th class="cod-date">'+esc(dr.date)+'</th>'})}
+    thead+='<th class="col">Proj. BOP</th>';
+  }
   thead+='<th class="cod">Ideal Target</th><th class="col">Pres Min</th><th class="cod">Min Retail Pres</th>';
   thead+='<th class="col">Size Break</th><th class="cod">Break %</th>';
   thead+='<th class="col">Post-Buy</th></tr>';
@@ -1010,7 +1000,7 @@ function renderDetail(el,rec){
   // Build by-date receipts list (sorted, only dates ≤ buy delivery)
   const buyDelivery=getBuyDeliveryDate(rec);
   const dateRows=[];
-  if(isCF&&rec.wipByDate){
+  if(useBOP&&rec.wipByDate){
     for(const dKey in rec.wipByDate){
       const entry=rec.wipByDate[dKey];
       if(buyDelivery&&entry._sortDate&&entry._sortDate>buyDelivery)continue;
@@ -1019,14 +1009,16 @@ function renderDetail(el,rec){
     dateRows.sort((a,b)=>(a.sortDate||0)-(b.sortDate||0));
   }
   const wipExpanded=A.expandedWipSku===rec.sku;
+  const showDateCols=useBOP&&wipExpanded&&dateRows.length>0;
 
   // Totals row first
   let tBody='<tr class="rt"><td>TOTAL</td>';
   tBody+='<td class="cbl">'+fmt(totSkuSl)+'</td><td class="cbd">'+fmt(totCurveSl)+'</td><td class="cbl">100%</td><td class="cbd"></td>';
   tBody+='<td class="col">'+fmt(totOH)+'</td>';
   if(useBOP){
-    const expandBtn=dateRows.length>0?'<span class="rcpt-expand" onclick="toggleWipExpand(\''+esc(rec.sku)+'\')">'+(wipExpanded?'▼':'▶')+'</span>':'';
-    tBody+='<td class="cod">'+expandBtn+' '+fmt(totPend)+'</td><td class="col c-t">'+fmt(totBOP)+'</td>';
+    tBody+='<td class="cod">'+fmt(totPend)+'</td>';
+    if(showDateCols){dateRows.forEach(dr=>{tBody+='<td class="cod-date" style="font-weight:700">'+fmt(dr.total)+'</td>'})}
+    tBody+='<td class="col c-t">'+fmt(totBOP)+'</td>';
   }
   tBody+='<td class="cod">'+fmt(totIdeal)+'</td><td class="col"></td><td class="cod">'+fmt(totMinRet)+'</td>';
   tBody+='<td class="col c-o">'+fmt(totAl)+'</td><td class="cod">100%</td>';
@@ -1047,7 +1039,16 @@ function renderDetail(el,rec){
     tBody+='<td class="cbl c-d">'+pct(cv)+'</td>';
     tBody+='<td class="cbd c-d">'+wr+'</td>';
     tBody+='<td class="col">'+fmt(sd.onHand)+'</td>';
-    if(useBOP){tBody+='<td class="cod">'+fmt(pendingForSize)+'</td>';tBody+='<td class="col c-t">'+fmt(bop[s]||0)+'</td>'}
+    if(useBOP){
+      tBody+='<td class="cod">'+fmt(pendingForSize)+'</td>';
+      if(showDateCols){
+        dateRows.forEach(dr=>{
+          const v=dr.sizes[s]||0;
+          tBody+='<td class="cod-date">'+(v>0?fmt(v):'<span class="c-d">—</span>')+'</td>';
+        });
+      }
+      tBody+='<td class="col c-t">'+fmt(bop[s]||0)+'</td>';
+    }
     tBody+='<td class="cod">'+fmt(useBOP?(ideal[s]||0):Math.round(cv*pool))+'</td>';
     tBody+='<td class="col c-d">'+(pmRate[s]||'—')+'</td>';
     tBody+='<td class="cod'+(a<minRetail&&minRetail>0?' c-r':'')+'">'+fmt(minRetail)+'</td>';
@@ -1055,32 +1056,6 @@ function renderDetail(el,rec){
     tBody+='<td class="cod c-d">'+pct(sbPct)+'</td>';
     tBody+='<td class="col c-g" style="font-weight:600">'+fmt(postBuy)+'</td></tr>';
   });
-
-  // Build receipts matrix HTML (separate table, shown under main table when expanded)
-  let receiptsMatrix='';
-  if(useBOP&&wipExpanded&&dateRows.length){
-    receiptsMatrix='<div class="rcpt-matrix-wrap"><div class="rcpt-matrix-hdr">Pending Receipts by Date · '+rec.sku+'</div>'+
-      '<div class="rcpt-matrix-scroll"><table class="rcpt-matrix"><thead><tr>'+
-      '<th class="rcpt-corner">Size</th>';
-    dateRows.forEach(dr=>{receiptsMatrix+='<th class="rcpt-date-hdr">'+esc(dr.date)+'</th>'});
-    receiptsMatrix+='<th class="rcpt-tot-hdr">Total</th></tr></thead><tbody>';
-    // Total row across dates
-    receiptsMatrix+='<tr class="rcpt-tot-row"><td class="rcpt-rowlbl">TOTAL</td>';
-    let grandTotal=0;
-    dateRows.forEach(dr=>{receiptsMatrix+='<td class="rcpt-cell-tot">'+fmt(dr.total)+'</td>';grandTotal+=dr.total});
-    receiptsMatrix+='<td class="rcpt-cell-grand">'+fmt(grandTotal)+'</td></tr>';
-    // Per-size rows
-    rec.sizes.forEach(s=>{
-      let rowTotal=0;
-      let cells='';
-      dateRows.forEach(dr=>{
-        const v=dr.sizes[s]||0;rowTotal+=v;
-        cells+='<td class="rcpt-cell">'+(v>0?fmt(v):'<span style="color:var(--txt3)">—</span>')+'</td>';
-      });
-      receiptsMatrix+='<tr><td class="rcpt-rowlbl">'+esc(s)+'</td>'+cells+'<td class="rcpt-cell-tot">'+fmt(rowTotal)+'</td></tr>';
-    });
-    receiptsMatrix+='</tbody></table></div></div>';
-  }
 
   const variance=totAl-pool;
   const vNote=variance!==0?'<span class="tbn c-r">Variance: '+(variance>0?'+':'')+variance+'</span>':'<span class="tbn c-g">Balanced — '+fmt(pool)+' units</span>';
@@ -1110,7 +1085,6 @@ function renderDetail(el,rec){
     // Table
     '<div class="tb"><div class="tbh"><div class="slbl" style="margin:0">Data Table</div>'+vNote+'</div>'+
     '<div class="tbs"><table class="dt"><thead>'+thead+'</thead><tbody>'+tBody+'</tbody></table></div></div>'+
-    receiptsMatrix+
     '</div>';
 }
 
