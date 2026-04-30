@@ -192,7 +192,7 @@ input,select,button,textarea{font-family:inherit}
 <body>
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
-<div class="version-tag">V5.6.1 · ERROR SURFACING</div>
+<div class="version-tag">V5.6.2 · DATEROWS HOIST FIX</div>
 <div id="welcome">
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
@@ -971,6 +971,20 @@ function renderDetail(el,rec){
   const curveSalesTotal=Object.values(curveSales).reduce((a,b)=>a+b,0);
   let tAlloc=0,tPM=0,tMinRetail=0;
 
+  // Build by-date receipts list (sorted, only dates ≤ buy delivery) — needed for header build
+  const buyDelivery=getBuyDeliveryDate(rec);
+  const dateRows=[];
+  if(useBOP&&rec.wipByDate){
+    for(const dKey in rec.wipByDate){
+      const entry=rec.wipByDate[dKey];
+      if(buyDelivery&&entry._sortDate&&entry._sortDate>buyDelivery)continue;
+      dateRows.push({date:dKey,sortDate:entry._sortDate,sizes:entry.sizes,total:entry.total});
+    }
+    dateRows.sort((a,b)=>(a.sortDate||0)-(b.sortDate||0));
+  }
+  const wipExpanded=A.expandedWipSku===rec.sku;
+  const showDateCols=useBOP&&wipExpanded&&dateRows.length>0;
+
   // Header
   const dateColCount=showDateCols?dateRows.length:0;
   const invColspan=useBOP?(9+dateColCount):7;
@@ -1001,20 +1015,6 @@ function renderDetail(el,rec){
     totAl+=a;totPost+=(useBOP?(bop[s]||0):0)+a;
     totMinRet+=pm[s];tPM+=(pmRate[s]||0);
   });
-
-  // Build by-date receipts list (sorted, only dates ≤ buy delivery)
-  const buyDelivery=getBuyDeliveryDate(rec);
-  const dateRows=[];
-  if(useBOP&&rec.wipByDate){
-    for(const dKey in rec.wipByDate){
-      const entry=rec.wipByDate[dKey];
-      if(buyDelivery&&entry._sortDate&&entry._sortDate>buyDelivery)continue;
-      dateRows.push({date:dKey,sortDate:entry._sortDate,sizes:entry.sizes,total:entry.total});
-    }
-    dateRows.sort((a,b)=>(a.sortDate||0)-(b.sortDate||0));
-  }
-  const wipExpanded=A.expandedWipSku===rec.sku;
-  const showDateCols=useBOP&&wipExpanded&&dateRows.length>0;
 
   // Totals row first
   let tBody='<tr class="rt"><td>TOTAL</td>';
