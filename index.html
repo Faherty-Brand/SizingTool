@@ -133,6 +133,12 @@ input,select,button,textarea{font-family:inherit}
 .dt tbody tr:hover{background:var(--sand-lt)}
 .cbl{background-color:var(--cb)!important}.cbd{background-color:var(--cbd)!important}.col{background-color:var(--co)!important}.cod{background-color:var(--cod)!important}
 .dt .rt{background:var(--sand-lt);font-weight:700}.dt .rt td{border-top:2px solid var(--bdr);border-bottom:2px solid var(--bdr);padding:8px 10px}
+.rcpt-expand{cursor:pointer;color:var(--orange);font-weight:700;margin-right:4px;display:inline-block;font-size:9px}
+.rcpt-expand:hover{color:var(--blue)}
+.dt .rcpt-row{background:rgba(196,87,42,.04)}
+.dt .rcpt-row td{border-bottom:1px solid var(--bdr-lt);padding:5px 10px;font-size:10px}
+.dt .rcpt-row-sub{background:rgba(196,87,42,.04)}
+.dt .rcpt-row-sub td{padding:3px 10px 8px;border-bottom:1px solid var(--bdr-lt)}
 .ai{width:64px;padding:3px 6px;font-family:var(--mono);font-size:11px;text-align:right;background:var(--sand-lt);color:var(--txt);border:1px solid var(--bdr);border-radius:3px;outline:none}.ai:focus{border-color:var(--blue)}.ai.ov{background:var(--blue-pl);color:var(--blue);border-color:var(--blue-st)}
 .c-g{color:var(--green)!important}.c-b{color:var(--blue)!important}.c-o{color:var(--orange)!important}.c-r{color:var(--red)!important}.c-n{color:var(--navy)!important}.c-d{color:var(--txt3)!important}.c-t{color:var(--teal)!important}
 /* Pres Mins */
@@ -186,7 +192,7 @@ input,select,button,textarea{font-family:inherit}
 <body>
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
-<div class="version-tag">V5.3 · CSV PARSER FIX + GRID UPGRADES</div>
+<div class="version-tag">V5.4 · RECEIPTS PARSING</div>
 <div id="welcome">
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
@@ -333,6 +339,7 @@ const A={
   presMinsMeta:{M3:{div:'Mens',sizes:['XS','S','M','L','XL','XXL']},FM3:{div:'Mens',sizes:['XS','S','M','L','XL','XXL']}},
   scaleSizes:{},scaleSizeCount:{},hierSales:{},salSKU:{},cols:{},
   dvTab:'inventory',
+  expandedWipSku:null,
   chartMetrics:null // per-sku chart toggle state
 };
 
@@ -422,14 +429,18 @@ function trySeasons(){
 }
 
 function goSeason(s){
+  const sameSeason=A.activeSeason===s;
   A.activeSeason=s;A.selectedSKU=null;A.view='grid';A.module=null;
-  A.overrides={};A.accepted={};A.sortKey='dtcBuy';A.sortDir='desc';
-  A.filters={type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All'};
+  if(!sameSeason){
+    A.overrides={};A.accepted={};A.sortKey='dtcBuy';A.sortDir='desc';
+    A.filters={type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All'};
+  }
   processData();
   document.getElementById('welcome').classList.add('hidden');
   document.getElementById('dash').classList.add('active');
   document.getElementById('slbl').textContent=s;
   render();
+  updateExpCt();
 }
 
 // ═══ PROCESS DATA ═══
@@ -453,7 +464,10 @@ function processData(){
   c.lDM=findCol(ll[0],['Delivery Month']);
   c.wS=findCol(wip[0],['SKU']);c.wZ=findCol(wip[0],['Size']);c.wO=findCol(wip[0],['Ordered']);
   c.wSt=findCol(wip[0],['Shipment Status']);c.wPS=findCol(wip[0],['PO Status']);
-  c.wDC=findCol(wip[0],['New Expected in DC','Expected in DC']);
+  c.wLoc=findCol(wip[0],['Location']);
+  c.wMDC=findCol(wip[0],['Master In DC','Master in DC']);
+  c.wTDD=findCol(wip[0],['Target Delivery Date']);
+  c.wDC=findCol(wip[0],['New Expected in DC','Expected in DC']); // legacy fallback
   A.cols=c;
 
   const invI={};inv.forEach(r=>{const k=r[c.iS];if(!invI[k])invI[k]={};invI[k][r[c.iZ]]=(invI[k][r[c.iZ]]||0)+numP(r[c.iO])});
@@ -467,8 +481,42 @@ function processData(){
   });
   A.hierSales=hS;
 
+  // ─── WIP / Pending Receipts ───
+  // Per-SKU: { totalOrdered, bySize:{size:total}, byDate:[{date,size,ordered,daysOut}], byDateAgg:{date:{size:qty,total:n}} }
+  const today=new Date();today.setHours(0,0,0,0);
+  function parseWipDate(s){
+    if(!s)return null;
+    // MM/DD/YYYY format
+    const m=String(s).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if(!m)return null;
+    const d=new Date(parseInt(m[3]),parseInt(m[1])-1,parseInt(m[2]));
+    d.setHours(0,0,0,0);return d;
+  }
+  function fmtDate(d){if(!d)return'';return(d.getMonth()+1)+'/'+d.getDate()+'/'+d.getFullYear()}
   const wipI={};
-  wip.forEach(r=>{if(r[c.wPS]==='Dropped'||r[c.wSt]==='Received')return;const sku=r[c.wS],sz=r[c.wZ];if(!wipI[sku])wipI[sku]={};if(!wipI[sku][sz])wipI[sku][sz]={ordered:0,dc:''};wipI[sku][sz].ordered+=numP(r[c.wO]);if(r[c.wDC]&&!wipI[sku][sz].dc)wipI[sku][sz].dc=r[c.wDC]});
+  wip.forEach(r=>{
+    // Status filter
+    if(r[c.wPS]==='Dropped')return;
+    if(r[c.wSt]==='Received')return;
+    // Location filter — only DTC if column exists
+    if(c.wLoc&&r[c.wLoc]&&r[c.wLoc]!=='DTC')return;
+    // Date resolution: Master In DC > Target Delivery Date > legacy DC
+    let dtStr='';
+    if(c.wMDC&&r[c.wMDC]&&r[c.wMDC].trim()&&r[c.wMDC]!=='0')dtStr=r[c.wMDC];
+    else if(c.wTDD&&r[c.wTDD]&&r[c.wTDD].trim())dtStr=r[c.wTDD];
+    else if(c.wDC&&r[c.wDC])dtStr=r[c.wDC];
+    const dt=parseWipDate(dtStr);
+    // Skip past-dated receipts (even if status isn't "Received")
+    if(dt&&dt<today)return;
+    const sku=r[c.wS],sz=r[c.wZ],qty=numP(r[c.wO]);
+    if(!sku||!sz||qty<=0)return;
+    if(!wipI[sku])wipI[sku]={bySize:{},byDateAgg:{}};
+    wipI[sku].bySize[sz]=(wipI[sku].bySize[sz]||0)+qty;
+    const dKey=dt?fmtDate(dt):'TBD';
+    if(!wipI[sku].byDateAgg[dKey])wipI[sku].byDateAgg[dKey]={_sortDate:dt||new Date(2099,0,1),sizes:{},total:0};
+    wipI[sku].byDateAgg[dKey].sizes[sz]=(wipI[sku].byDateAgg[dKey].sizes[sz]||0)+qty;
+    wipI[sku].byDateAgg[dKey].total+=qty;
+  });
 
   A.skus={};
   ll.filter(r=>r[c.lSe]===A.activeSeason).forEach(r=>{
@@ -477,9 +525,13 @@ function processData(){
     let sizes=[];
     if(A.presMinsMeta[scale]&&A.presMinsMeta[scale].sizes)sizes=[...A.presMinsMeta[scale].sizes].sort(ssort);
     const stCt=numP(r[c.lSn]),dtcBuy=numP(r[c.lDB]);
-    const sI=invI[sku]||{},sS=salI[sku]||{},sW=wipI[sku]||{};
+    const sI=invI[sku]||{},sS=salI[sku]||{},wipRec=wipI[sku]||{bySize:{},byDateAgg:{}};
     let tOH=0,tSl=0,tWIP=0;const sd={};
-    sizes.forEach(s=>{const oh=sI[s]||0,sl=sS[s]||0,wi=sW[s]||{ordered:0,dc:''};sd[s]={onHand:oh,sales:sl,wipOrd:wi.ordered,wipDC:wi.dc};tOH+=oh;tSl+=sl;tWIP+=wi.ordered});
+    sizes.forEach(s=>{
+      const oh=sI[s]||0,sl=sS[s]||0,wo=(wipRec.bySize&&wipRec.bySize[s])||0;
+      sd[s]={onHand:oh,sales:sl,wipOrd:wo};
+      tOH+=oh;tSl+=sl;tWIP+=wo;
+    });
     let sType=dtcBuy===0?'nosize':(tOH===0&&tSl===0?'initials':'cf');
     const div=r[c.lDp]||'',cat=r[c.lCa]||'',sub=r[c.lSc]||'',prog=r[c.lSD]||'',dm=r[c.lDM]||'';
     A.skus[sku]={
@@ -492,6 +544,7 @@ function processData(){
       rollout:r[c.lRo]||'',pst:r[c.lPS]||'',deliveryMonth:dm,
       sizingType:sType,sizes,sizeData:sd,
       totalOH:tOH,totalSales:tSl,totalWIP:tWIP,skuSalesTotal:A.salSKU[sku]||0,
+      wipByDate:wipRec.byDateAgg||{},
       _hk:{prog:'prog|'+div.toLowerCase()+'|'+cat.toLowerCase()+'|'+sub.toLowerCase()+'|'+prog.toLowerCase(),
            sub:'sub|'+div.toLowerCase()+'|'+cat.toLowerCase()+'|'+sub.toLowerCase(),
            cat:'cat|'+div.toLowerCase()+'|'+cat.toLowerCase(),
@@ -531,9 +584,38 @@ function getPresMinRate(rec){
   rec.sizes.forEach(s=>{r[s]=cfg[s]!==undefined?cfg[s]:0});return r;
 }
 
+function getPendingBeforeDelivery(rec){
+  // Returns total pending receipts per size that arrive BEFORE this SKU's buy delivery
+  const buyDelivery=getBuyDeliveryDate(rec);
+  const result={};rec.sizes.forEach(s=>{result[s]=0});
+  if(!rec.wipByDate)return result;
+  for(const dKey in rec.wipByDate){
+    const entry=rec.wipByDate[dKey];
+    // Skip dates that are AFTER the buy delivery (those won't help BOP)
+    if(buyDelivery&&entry._sortDate&&entry._sortDate>buyDelivery)continue;
+    for(const s in entry.sizes){if(result[s]!==undefined)result[s]+=entry.sizes[s]}
+  }
+  return result;
+}
+
+function getBuyDeliveryDate(rec){
+  // Convert delivery month + season year to a Date object
+  if(!rec.deliveryMonth||!rec.season)return null;
+  const base=rec.deliveryMonth.toLowerCase().replace(/_\d+$/,'');
+  const mo=MONTH_MAP[base];if(!mo)return null;
+  const yrMatch=rec.season.match(/(\d{2})$/);if(!yrMatch)return null;
+  return new Date(2000+parseInt(yrMatch[1]),mo-1,1);
+}
+
 function projBOP(rec){
   const w=deliveryToWeeks(rec.deliveryMonth,rec.season);const bop={};
-  rec.sizes.forEach(s=>{const oh=rec.sizeData[s].onHand;const pending=rec.sizeData[s].wipOrd;const wr=rec.sizeData[s].sales/52;bop[s]=Math.max(0,Math.round(oh+pending-wr*w))});
+  const pendingBefore=getPendingBeforeDelivery(rec);
+  rec.sizes.forEach(s=>{
+    const oh=rec.sizeData[s].onHand;
+    const pending=pendingBefore[s]||0;
+    const wr=rec.sizeData[s].sales/52;
+    bop[s]=Math.max(0,Math.round(oh+pending-wr*w));
+  });
   bop._w=w;return bop;
 }
 
@@ -610,11 +692,12 @@ function goDetail(sku){A.selectedSKU=sku;A.view='detail';A.module=null;A.chartMe
 function goGrid(){A.selectedSKU=null;A.view='grid';A.module=null;render()}
 function goModule(m){A.module=m;document.getElementById('welcome').classList.add('hidden');document.getElementById('dash').classList.add('active');document.getElementById('slbl').textContent=A.activeSeason||'';render()}
 function goBackFromModule(){A.module=null;if(!A.activeSeason){backToWelcome()}else{render()}}
-function backToWelcome(){document.getElementById('dash').classList.remove('active');document.getElementById('welcome').classList.remove('hidden');A.activeSeason=null;A.view='grid';A.module=null;trySeasons()}
+function backToWelcome(){document.getElementById('dash').classList.remove('active');document.getElementById('welcome').classList.remove('hidden');A.view='grid';A.module=null;trySeasons();const el=document.getElementById('exp-ct');if(el)el.textContent=''}
 function setOvr(sku,sz,v){if(!A.overrides[sku])A.overrides[sku]={};A.overrides[sku][sz]=parseInt(v)||0;render()}
 function clrOvr(sku){delete A.overrides[sku];render()}
 function toggleAcc(sku){A.accepted[sku]?delete A.accepted[sku]:A.accepted[sku]=true;updateExpCt();render()}
 function toggleAccGrid(sku){A.accepted[sku]?delete A.accepted[sku]:A.accepted[sku]=true;updateExpCt();renderGridCards()}
+function toggleWipExpand(sku){A.expandedWipSku=A.expandedWipSku===sku?null:sku;render()}
 function updateExpCt(){const n=Object.keys(A.accepted).length;const el=document.getElementById('exp-ct');if(el)el.textContent=n>0?n+' accepted':'';const btn=document.getElementById('exp-btn');if(btn)btn.disabled=n===0}
 
 function exportCSV(){
@@ -622,11 +705,8 @@ function exportCSV(){
   // Master size column list matching the upload template
   const SIZE_COLS=['2T','3T','4T','5','6','8','10','OS','XXS','XS','S','M','L','XL','XXL','XXXL','XS/S','S/M','M/L','L/XL','MT','LT','XLT','XXLT','00','0','2','4','6','8','10','12','14','16','24','25','26','27','28','29','30','31','32','33','34','35','36','38','40','42','30T','32T','34T','36T','38T','40T','28WX30L','29WX30L','30WX30L','31WX30L','32WX30L','33WX30L','34WX30L','35WX30L','36WX30L','38WX30L','40WX30L','42WX30L','28WX32L','29WX32L','30WX32L','31WX32L','32WX32L','33WX32L','34WX32L','35WX32L','36WX32L','38WX32L','40WX32L','42WX32L','28WX34L','29WX34L','30WX34L','31WX34L','32WX34L','33WX34L','34WX34L','35WX34L','36WX34L','38WX34L','40WX34L','42WX34L','1XL','2XL','3XL','4XL','5XL','1XLT','2XLT','3XLT','4XLT','40W36L','42W32L','42W34L','44W30L','44W32L','44W34L','46W30L','46W32L','48W30L','48W32L','50W30L','52W30L','36_','38_','40_','42_','44_','46_','48_','50_'];
 
-  // Tab 1: Simple format
-  const lines1=['Season Code,Sizing Type,SKU,Size,Quantity'];
-  // Tab 2: Upload format
   const uploadHeader=['SIZING TYPE','Year','Season Code','Department','SKU','Location','Delivery','Customer','From Sales Tier','Sales Tier','Total',...SIZE_COLS];
-  const lines2=[uploadHeader.join(',')];
+  const lines=[uploadHeader.join(',')];
 
   const yrMatch=A.activeSeason.match(/(\d{2})$/);
   const year=yrMatch?'20'+yrMatch[1]:'2026';
@@ -635,40 +715,21 @@ function exportCSV(){
     const r=A.skus[sku];if(!r||r.dtcBuy<=0)return;
     const res=computeAlloc(r);if(!res)return;
     const tl=r.sizingType==='initials'?'Initials PO':'CF PO';
-    const tlSimple=r.sizingType==='initials'?'INITIALS':'CF';
-    // Delivery month — strip _2, _3 suffix for clean display
     const delivery=(r.deliveryMonth||'').replace(/_\d+$/,'');
-
-    // Tab 1 rows
-    r.sizes.forEach(s=>{const q=res.alloc[s]||0;if(q>0)lines1.push(A.activeSeason+','+tlSimple+','+sku+','+s+','+q)});
-
-    // Tab 2 row
     const total=r.sizes.reduce((a,s)=>a+(res.alloc[s]||0),0);
     const sizeMap={};r.sizes.forEach(s=>{sizeMap[s]=res.alloc[s]||0});
     const sizeVals=SIZE_COLS.map(sc=>{
-      // Match size column to SKU sizes (case-insensitive)
       const match=Object.keys(sizeMap).find(k=>k.toUpperCase()===String(sc).toUpperCase());
       return match?sizeMap[match]||'':'';
     });
     const row=[tl,year,A.activeSeason,r.division,sku,'DTC',delivery,'','Global','Global',total,...sizeVals];
-    lines2.push(row.map(v=>typeof v==='string'&&v.includes(',')?'"'+v+'"':v).join(','));
+    lines.push(row.map(v=>typeof v==='string'&&v.includes(',')?'"'+v+'"':v).join(','));
   });
 
-  // Combine into one CSV with a separator, or create two files
-  // Let's create two separate downloads
-  // File 1: Simple
-  const b1=new Blob([lines1.join('\n')],{type:'text/csv'});
-  const u1=URL.createObjectURL(b1);
-  const a1=document.createElement('a');a1.href=u1;a1.download='PO_Sizing_'+A.activeSeason+'_Simple.csv';a1.click();
-  URL.revokeObjectURL(u1);
-
-  // File 2: Upload format
-  setTimeout(()=>{
-    const b2=new Blob([lines2.join('\n')],{type:'text/csv'});
-    const u2=URL.createObjectURL(b2);
-    const a2=document.createElement('a');a2.href=u2;a2.download='PO_Sizing_'+A.activeSeason+'_Upload.csv';a2.click();
-    URL.revokeObjectURL(u2);
-  },500);
+  const b=new Blob([lines.join('\n')],{type:'text/csv'});
+  const u=URL.createObjectURL(b);
+  const a=document.createElement('a');a.href=u;a.download='PO_Sizing_'+A.activeSeason+'_Upload.csv';a.click();
+  URL.revokeObjectURL(u);
 }
 
 /* ═══════════════════════════════════════
@@ -911,25 +972,59 @@ function renderDetail(el,rec){
   thead+='<th class="col">Size Break</th><th class="cod">Break %</th>';
   thead+='<th class="col">Post-Buy</th></tr>';
 
-  // Compute totals
+  // Compute totals + date-filtered pending receipts
   let totSkuSl=0,totCurveSl=0,totOH=0,totPend=0,totBOP=0,totIdeal=0,totAl=0,totPost=0,totMinRet=0;
+  const pendingFiltered=isCF?getPendingBeforeDelivery(rec):{};
   rec.sizes.forEach(s=>{
     const sd=rec.sizeData[s],a=alloc[s]||0;
     totSkuSl+=sd.sales;totCurveSl+=(curveSales[s]||0);totOH+=sd.onHand;
-    if(isCF){totPend+=sd.wipOrd;totBOP+=(bop[s]||0)}
+    if(isCF){totPend+=(pendingFiltered[s]||0);totBOP+=(bop[s]||0)}
     totIdeal+=(isCF?(ideal[s]||0):Math.round(curve[s]*pool));
     totAl+=a;totPost+=(isCF?(bop[s]||0):0)+a;
     totMinRet+=pm[s];tPM+=(pmRate[s]||0);
   });
 
+  // Build by-date receipts list (sorted, only dates ≤ buy delivery)
+  const buyDelivery=getBuyDeliveryDate(rec);
+  const dateRows=[];
+  if(isCF&&rec.wipByDate){
+    for(const dKey in rec.wipByDate){
+      const entry=rec.wipByDate[dKey];
+      if(buyDelivery&&entry._sortDate&&entry._sortDate>buyDelivery)continue;
+      dateRows.push({date:dKey,sortDate:entry._sortDate,sizes:entry.sizes,total:entry.total});
+    }
+    dateRows.sort((a,b)=>(a.sortDate||0)-(b.sortDate||0));
+  }
+  const wipExpanded=A.expandedWipSku===rec.sku;
+
   // Totals row first
   let tBody='<tr class="rt"><td>TOTAL</td>';
   tBody+='<td class="cbl">'+fmt(totSkuSl)+'</td><td class="cbd">'+fmt(totCurveSl)+'</td><td class="cbl">100%</td><td class="cbd"></td>';
   tBody+='<td class="col">'+fmt(totOH)+'</td>';
-  if(isCF)tBody+='<td class="cod">'+fmt(totPend)+'</td><td class="col c-t">'+fmt(totBOP)+'</td>';
+  if(isCF){
+    const expandBtn=dateRows.length>0?'<span class="rcpt-expand" onclick="toggleWipExpand(\''+esc(rec.sku)+'\')">'+(wipExpanded?'▼':'▶')+'</span>':'';
+    tBody+='<td class="cod">'+expandBtn+' '+fmt(totPend)+'</td><td class="col c-t">'+fmt(totBOP)+'</td>';
+  }
   tBody+='<td class="cod">'+fmt(totIdeal)+'</td><td class="col"></td><td class="cod">'+fmt(totMinRet)+'</td>';
   tBody+='<td class="col c-o">'+fmt(totAl)+'</td><td class="cod">100%</td>';
   tBody+='<td class="col c-g" style="font-weight:700">'+fmt(totPost)+'</td></tr>';
+
+  // Expanded by-date rows (under TOTAL, before per-size rows)
+  if(isCF&&wipExpanded&&dateRows.length){
+    dateRows.forEach(dr=>{
+      tBody+='<tr class="rcpt-row"><td style="padding-left:20px;font-weight:400;color:var(--txt2);font-style:italic">↳ '+esc(dr.date)+'</td>';
+      tBody+='<td class="cbl"></td><td class="cbd"></td><td class="cbl"></td><td class="cbd"></td>';
+      tBody+='<td class="col"></td>';
+      tBody+='<td class="cod c-t" style="font-weight:600">'+fmt(dr.total)+'</td>';
+      tBody+='<td class="col"></td>';
+      tBody+='<td class="cod"></td><td class="col"></td><td class="cod"></td>';
+      tBody+='<td class="col"></td><td class="cod"></td><td class="col"></td></tr>';
+      // Per-size breakdown for this date
+      tBody+='<tr class="rcpt-row-sub"><td style="padding-left:36px;font-size:9px;color:var(--txt3)">by size:</td>';
+      let sizeBreakdown=rec.sizes.map(s=>(dr.sizes[s]>0?esc(s)+':'+fmt(dr.sizes[s]):null)).filter(Boolean).join(' · ');
+      tBody+='<td colspan="13" style="text-align:left;font-family:var(--mono);font-size:10px;color:var(--txt2);padding-left:36px">'+sizeBreakdown+'</td></tr>';
+    });
+  }
 
   // Data rows
   rec.sizes.forEach(s=>{
@@ -937,6 +1032,7 @@ function renderDetail(el,rec){
     const wr=(sd.sales/52).toFixed(1);const cv=curve[s];const sbPct=totAl>0?a/totAl:0;
     const postBuy=(isCF?(bop[s]||0):0)+a;
     const minRetail=pm[s];
+    const pendingForSize=isCF?(pendingFiltered[s]||0):0;
     const hasOv=A.overrides[rec.sku]&&A.overrides[rec.sku][s]!==undefined;
     const inp=locked?'<span class="c-o">'+fmt(a)+'</span>':'<input class="ai'+(hasOv?' ov':'')+'" type="number" value="'+a+'" onchange="setOvr(\''+esc(rec.sku)+'\',\''+esc(s)+'\',this.value)">';
     tBody+='<tr><td>'+esc(s)+'</td>';
@@ -945,7 +1041,7 @@ function renderDetail(el,rec){
     tBody+='<td class="cbl c-d">'+pct(cv)+'</td>';
     tBody+='<td class="cbd c-d">'+wr+'</td>';
     tBody+='<td class="col">'+fmt(sd.onHand)+'</td>';
-    if(isCF){tBody+='<td class="cod">'+fmt(sd.wipOrd)+'</td>';tBody+='<td class="col c-t">'+fmt(bop[s]||0)+'</td>'}
+    if(isCF){tBody+='<td class="cod">'+fmt(pendingForSize)+'</td>';tBody+='<td class="col c-t">'+fmt(bop[s]||0)+'</td>'}
     tBody+='<td class="cod">'+fmt(isCF?(ideal[s]||0):Math.round(cv*pool))+'</td>';
     tBody+='<td class="col c-d">'+(pmRate[s]||'—')+'</td>';
     tBody+='<td class="cod'+(a<minRetail&&minRetail>0?' c-r':'')+'">'+fmt(minRetail)+'</td>';
