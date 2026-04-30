@@ -192,7 +192,7 @@ input,select,button,textarea{font-family:inherit}
 <body>
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
-<div class="version-tag">V5.6 · INLINE RECEIPT DATE COLUMNS</div>
+<div class="version-tag">V5.6.1 · ERROR SURFACING</div>
 <div id="welcome">
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
@@ -743,10 +743,15 @@ function exportCSV(){
 
 function render(){
   const main=document.getElementById('main-area');
-  if(A.module==='presmins'){renderPresMins(main);return}
-  if(A.module==='datasources'){renderDataSources(main);return}
-  if(A.view==='detail'&&A.selectedSKU&&A.skus[A.selectedSKU]){renderDetail(main,A.skus[A.selectedSKU]);return}
-  renderGrid(main);
+  try{
+    if(A.module==='presmins'){renderPresMins(main);return}
+    if(A.module==='datasources'){renderDataSources(main);return}
+    if(A.view==='detail'&&A.selectedSKU&&A.skus[A.selectedSKU]){renderDetail(main,A.skus[A.selectedSKU]);return}
+    renderGrid(main);
+  }catch(err){
+    console.error('Render error:',err);
+    main.innerHTML='<div style="padding:24px;background:var(--wh);border:1px solid var(--red);border-radius:var(--rl);margin:20px"><div style="font-weight:700;color:var(--red);margin-bottom:8px">Render error</div><div style="font-family:var(--mono);font-size:11px;color:var(--txt2);white-space:pre-wrap">'+esc(err.message+'\n\n'+err.stack)+'</div><button class="btn btn-g btn-sm" style="margin-top:12px" onclick="goGrid()">Back to grid</button></div>';
+  }
 }
 
 // ═══ GRID ═══
