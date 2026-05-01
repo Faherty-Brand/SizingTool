@@ -242,7 +242,7 @@ input,select,button,textarea{font-family:inherit}
 <body>
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
-<div class="version-tag">V6.2 · INITIALS FLOW + APS</div>
+<div class="version-tag">V6.2.2 · RETAIL APS × STORES FIX</div>
 <div id="welcome">
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
@@ -788,10 +788,13 @@ function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve){
   // = retail pres min units + online flat (5) + 6 weeks retail APS by retail curve % + 6 weeks online APS by online curve %
   const perSizeFloor={};
   let globalFloorTotal=0;
+  const stCt=rec.storeCount||0;
   rec.sizes.forEach(s=>{
     const presMinUnits=pm[s]||0;
     const onlineFlat=ONLINE_FLAT;
-    const retailWos=apsR*6*(retailCurve[s]||0);
+    // Retail APS is per-store, so total weekly retail rate = APS × stores
+    const retailWos=apsR*stCt*6*(retailCurve[s]||0);
+    // Online APS is already a global figure (no per-store multiplier)
     const onlineWos=apsO*6*(onlineCurve[s]||0);
     const need=Math.ceil(presMinUnits+onlineFlat+retailWos+onlineWos);
     perSizeFloor[s]={presMinUnits,onlineFlat,retailWos:Math.round(retailWos*10)/10,onlineWos:Math.round(onlineWos*10)/10,total:need};
@@ -1148,6 +1151,7 @@ function renderFlowsModal(rec){
   let mathHtml='';
   if(isInitials&&m.perSizeFloor){
     let perSizeRows='';
+    const stCt=rec.storeCount||0;
     rec.sizes.forEach(s=>{
       const f=m.perSizeFloor[s];
       const retailCurvePct=Math.round((retailCurve[s]||0)*1000)/10;
@@ -1156,13 +1160,13 @@ function renderFlowsModal(rec){
         '<td class="fm-sz">'+esc(s)+'</td>'+
         '<td class="fm-num">'+fmt(f.presMinUnits)+'</td>'+
         '<td class="fm-num">'+f.onlineFlat+'</td>'+
-        '<td class="fm-num">'+f.retailWos.toFixed(1)+' <span class="fm-sub">('+m.apsRetail.toFixed(1)+'×6×'+retailCurvePct+'%)</span></td>'+
+        '<td class="fm-num">'+f.retailWos.toFixed(1)+' <span class="fm-sub">('+m.apsRetail.toFixed(1)+'×'+stCt+'×6×'+retailCurvePct+'%)</span></td>'+
         '<td class="fm-num">'+f.onlineWos.toFixed(1)+' <span class="fm-sub">('+m.apsOnline.toFixed(1)+'×6×'+onlineCurvePct+'%)</span></td>'+
         '<td class="fm-num fm-tot">'+f.total+'</td>'+
         '</tr>';
     });
     mathHtml='<div class="fm-math"><div class="fm-math-hdr">Global Floor Calculation (Initials)</div>'+
-      '<div class="fm-math-desc">Each size needs: <b>retail pres min</b> + <b>online flat 5</b> + <b>6 weeks Retail APS by retail curve%</b> + <b>6 weeks Online APS by online curve%</b></div>'+
+      '<div class="fm-math-desc">Each size needs: <b>retail pres min</b> + <b>online flat 5</b> + <b>(Retail APS × stores) × 6 × retail curve%</b> + <b>Online APS × 6 × online curve%</b></div>'+
       '<table class="fm-math-tbl"><thead><tr>'+
       '<th>Size</th><th>Retail Pres Min</th><th>Online Flat</th><th>Retail WoS</th><th>Online WoS</th><th>Total Need</th>'+
       '</tr></thead><tbody>'+perSizeRows+'</tbody></table>'+
@@ -1551,8 +1555,11 @@ function renderDetail(el,rec){
   const skuL52W=rec.skuSalesTotal;
   const totalBOPv=useBOP?totBOP:0;
   const apsR=rec.apsRetail||0,apsO=rec.apsOnline||0;
+  const stCt=rec.storeCount||0;
   const apsR_disp=apsR>=10?Math.round(apsR):(apsR.toFixed(1));
   const apsO_disp=apsO>=10?Math.round(apsO):(apsO.toFixed(1));
+  const apsRtotal=Math.round(apsR*stCt);
+  const apsRpill=stCt>0?'Retail APS: '+apsR_disp+' × '+fmt(stCt)+' = '+fmt(apsRtotal):'Retail APS: '+apsR_disp;
 
   el.innerHTML='<div class="dv anim">'+
     '<button class="d-back" onclick="goGrid()">← Back to '+esc(A.activeSeason)+'</button>'+
@@ -1566,7 +1573,7 @@ function renderDetail(el,rec){
       '<span class="metric-pill">Current OH: '+fmt(rec.totalOH)+'</span>'+
       (useBOP?'<span class="metric-pill">Proj. BOP: '+fmt(totalBOPv)+' ('+wks+'w)</span>':'')+
       '<span class="metric-pill">L52W SKU Sales: '+fmt(skuL52W)+'</span>'+
-      '<span class="metric-pill mp-ch">Retail APS: '+apsR_disp+'</span>'+
+      '<span class="metric-pill mp-ch">'+apsRpill+'</span>'+
       '<span class="metric-pill mp-ch">Online APS: '+apsO_disp+'</span>'+
     '</div></div>'+
     // Chart
