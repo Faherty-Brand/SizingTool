@@ -242,7 +242,7 @@ input,select,button,textarea{font-family:inherit}
 <body>
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
-<div class="version-tag">V6.2.2 · RETAIL APS × STORES FIX</div>
+<div class="version-tag">V6.3 · BOP-AWARE ONLINE</div>
 <div id="welcome">
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
@@ -950,27 +950,46 @@ function computeAlloc(rec){
   if(useBOP){const bp=projBOP(rec);wtr=bp._w;delete bp._w;bop=bp}
   const totalBOP=useBOP?Object.values(bop).reduce((a,b)=>a+b,0):0;
 
-  // ── Retail allocation ──
+  // ── Build channel curves first (used by both alloc and BOP split) ──
   const retailCurveResult=buildCurve(rec,A.hierSalesRet);
+  const onlineCurveResult=buildCurve(rec,A.hierSalesOnline);
+
+  // ── BOP allocation between channels ──
+  // BOP is warehouse-level (untagged). Split it between channels by the buy pool ratio
+  // so each channel can run its own BOP-aware gap-fill against its own curve.
+  const totalChannelPool=effRetailPool+effOnlinePool;
+  const retailBopShare=totalChannelPool>0?effRetailPool/totalChannelPool:1;
+  const onlineBopShare=totalChannelPool>0?effOnlinePool/totalChannelPool:0;
+  const retailBop={},onlineBop={};
+  rec.sizes.forEach(s=>{
+    const total=useBOP?(bop[s]||0):0;
+    retailBop[s]=Math.round(total*retailBopShare);
+    onlineBop[s]=total-retailBop[s]; // remainder ensures retailBop+onlineBop = total exactly
+  });
+
+  // ── Retail allocation (BOP-aware) ──
   const retailCurve=retailCurveResult.curve;
   const retailIdeals={};
-  // Ideal target: BOP-aware for retail (retail = the channel that absorbs BOP gap-filling)
-  const retailTotalTgt=totalBOP+effRetailPool;
+  const retailBopTotal=rec.sizes.reduce((a,s)=>a+retailBop[s],0);
+  const retailTotalTgt=retailBopTotal+effRetailPool;
   rec.sizes.forEach(s=>{retailIdeals[s]=Math.round(retailCurve[s]*retailTotalTgt)});
-  // Effective retail floor: max(0, presMin - BOP)
+  // Effective retail floor: max(0, presMin - retail's share of BOP)
   const retailFloor={};
-  rec.sizes.forEach(s=>{retailFloor[s]=effRetailPool>0?Math.max(0,(pm[s]||0)-(useBOP?(bop[s]||0):0)):0});
-  // For BOP-aware retail allocation, we want the buy to fill gaps (retailIdeals - bop)
+  rec.sizes.forEach(s=>{retailFloor[s]=effRetailPool>0?Math.max(0,(pm[s]||0)-retailBop[s]):0});
+  // Buy should fill the gap to ideal (after subtracting retail's BOP share)
   const retailIdealMinusBop={};
-  rec.sizes.forEach(s=>{retailIdealMinusBop[s]=Math.max(0,retailIdeals[s]-(useBOP?(bop[s]||0):0))});
+  rec.sizes.forEach(s=>{retailIdealMinusBop[s]=Math.max(0,retailIdeals[s]-retailBop[s])});
   const retailAlloc=allocateBuy(rec,effRetailPool,retailCurve,retailFloor,retailIdealMinusBop);
 
-  // ── Online allocation ──
-  const onlineCurveResult=buildCurve(rec,A.hierSalesOnline);
+  // ── Online allocation (BOP-aware) ──
   const onlineCurve=onlineCurveResult.curve;
   const onlineIdeals={};
-  rec.sizes.forEach(s=>{onlineIdeals[s]=Math.round(onlineCurve[s]*effOnlinePool)});
-  const onlineAlloc=allocateBuy(rec,effOnlinePool,onlineCurve,onlineFloor,onlineIdeals);
+  const onlineBopTotal=rec.sizes.reduce((a,s)=>a+onlineBop[s],0);
+  const onlineTotalTgt=onlineBopTotal+effOnlinePool;
+  rec.sizes.forEach(s=>{onlineIdeals[s]=Math.round(onlineCurve[s]*onlineTotalTgt)});
+  const onlineIdealMinusBop={};
+  rec.sizes.forEach(s=>{onlineIdealMinusBop[s]=Math.max(0,onlineIdeals[s]-onlineBop[s])});
+  const onlineAlloc=allocateBuy(rec,effOnlinePool,onlineCurve,onlineFloor,onlineIdealMinusBop);
 
   // ── Combined DTC alloc ──
   const alloc={};
