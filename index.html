@@ -40,7 +40,49 @@ input,select,button,textarea{font-family:inherit}
 .btn-g{background:var(--sand-lt);color:var(--txt2);border:1px solid var(--bdr-lt)}.btn-g:hover{border-color:var(--blue);color:var(--txt)}
 .btn-b{background:var(--blue);color:#fff}.btn-b:hover{background:var(--blue-lt)}.btn-b:disabled{background:var(--sand-dk);color:var(--txt3);cursor:not-allowed}
 .btn-grn{background:var(--green);color:#fff;font-weight:700;padding:7px 18px;font-size:12px;border:none;border-radius:var(--r);cursor:pointer}.btn-grn:hover{background:#35a06a}
+.btn-pk{background:var(--pink);color:#fff;font-weight:700;padding:7px 14px;font-size:11px;border:none;border-radius:var(--r);cursor:pointer}.btn-pk:hover{background:rgba(192,90,138,.85);filter:brightness(1.05)}
 .btn-sm{padding:5px 10px;font-size:10px}
+.metric-pill.mp-ch{background:rgba(42,138,138,.08);color:var(--teal);border:1px solid rgba(42,138,138,.35)}
+
+/* Flows Modal */
+.fm-backdrop{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(20,30,40,.55);backdrop-filter:blur(2px);z-index:1000}
+.fm-panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:90vw;max-width:1100px;max-height:88vh;background:var(--wh);border:1px solid var(--bdr-lt);border-radius:var(--rl);box-shadow:0 30px 80px rgba(0,0,0,.25);z-index:1001;display:flex;flex-direction:column;overflow:hidden}
+.fm-hdr{padding:16px 22px;border-bottom:1px solid var(--bdr-lt);background:var(--sand-lt);display:flex;flex-direction:column;gap:4px;position:relative}
+.fm-title{font-size:18px;font-weight:700;color:var(--navy);font-family:var(--display)}
+.fm-subtitle{font-family:var(--mono);font-size:10px;color:var(--txt3);letter-spacing:.5px}
+.fm-close{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;border:1px solid var(--bdr-lt);background:var(--wh);color:var(--txt2);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit}
+.fm-close:hover{border-color:var(--red);color:var(--red)}
+.fm-body{padding:18px 22px;overflow:auto;flex:1}
+.fm-flows-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:24px}
+.fm-flow{background:rgba(192,90,138,.04);border:1px solid rgba(192,90,138,.25);border-radius:var(--rl);padding:14px}
+.fm-flow-hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.fm-flow-name{font-weight:700;color:var(--pink);font-size:13px}
+.fm-flow-date{font-family:var(--mono);font-size:10px;color:var(--txt2);font-weight:600;background:var(--wh);padding:2px 8px;border-radius:3px;border:1px solid rgba(192,90,138,.3)}
+.fm-flow-stats{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed rgba(192,90,138,.3)}
+.fm-flow-tot{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--navy)}
+.fm-flow-pct{font-family:var(--mono);font-size:10px;color:var(--txt3)}
+.fm-tbl{width:100%;border-collapse:collapse}
+.fm-tbl th{font-family:var(--mono);font-size:9px;color:var(--txt3);font-weight:600;letter-spacing:.5px;text-transform:uppercase;padding:5px 8px;text-align:right;border-bottom:1px solid var(--bdr-lt)}
+.fm-tbl th:first-child{text-align:left}
+.fm-tbl td{padding:4px 8px;font-family:var(--mono);font-size:11px;border-bottom:1px solid rgba(192,90,138,.08)}
+.fm-tbl td.fm-sz{font-weight:700;color:var(--navy)}
+.fm-tbl td.fm-qty{text-align:right;color:var(--txt)}
+.fm-math{margin-top:6px;background:var(--sand-lt);border:1px solid var(--bdr-lt);border-radius:var(--rl);padding:14px}
+.fm-math-hdr{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--orange);margin-bottom:6px}
+.fm-math-desc{font-size:11px;color:var(--txt2);margin-bottom:10px;line-height:1.5}
+.fm-math-tbl{width:100%;border-collapse:collapse;margin-bottom:14px;background:var(--wh);border-radius:var(--r);overflow:hidden}
+.fm-math-tbl th{padding:7px 10px;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--txt2);background:var(--sand-dk);border-bottom:2px solid var(--bdr);text-align:right;white-space:nowrap}
+.fm-math-tbl th:first-child{text-align:left}
+.fm-math-tbl td{padding:5px 10px;font-family:var(--mono);font-size:10px;border-bottom:1px solid var(--bdr-lt);text-align:right}
+.fm-math-tbl td.fm-sz{text-align:left;font-weight:700;color:var(--navy)}
+.fm-math-tbl td.fm-num{color:var(--txt)}
+.fm-math-tbl td.fm-tot{font-weight:700;color:var(--orange);background:var(--orange-pl)}
+.fm-math-tbl .fm-sub{color:var(--txt3);font-size:8px}
+.fm-math-summary{display:flex;flex-direction:column;gap:5px;padding:10px 0 0;border-top:1px dashed var(--bdr)}
+.fm-math-summary>div{font-size:11px;display:flex;justify-content:space-between;align-items:baseline;padding:3px 0}
+.fm-summary-lbl{color:var(--txt2);font-weight:500}
+.fm-summary-val{font-family:var(--mono);font-weight:700;color:var(--navy)}
+.fm-bump{font-size:9px;color:var(--orange);font-weight:600;font-style:italic;margin-left:4px}
 .bdg{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;padding:2px 6px;border-radius:3px;display:inline-block}
 .bdg-cf{color:var(--blue);background:var(--blue-pl)}.bdg-in{color:var(--orange);background:var(--orange-pl)}.bdg-ns{color:var(--txt3);background:var(--sand-dk)}
 .pm-flag{font-family:var(--mono);font-size:8px;font-weight:600;padding:3px 6px;border-radius:3px;margin-top:6px;line-height:1.3}
@@ -145,11 +187,6 @@ input,select,button,textarea{font-family:inherit}
 .dt th.col-ch{background:rgba(42,138,138,.12)!important;color:var(--teal);font-weight:700;border-left:1px dashed rgba(42,138,138,.4);border-right:1px dashed rgba(42,138,138,.4);white-space:nowrap;font-size:9px}
 .dt td.col-ch{background:rgba(42,138,138,.04);border-left:1px dashed rgba(42,138,138,.4);border-right:1px dashed rgba(42,138,138,.4);font-family:var(--mono);font-size:10px;text-align:right}
 .dt .rt td.col-ch{background:rgba(42,138,138,.12);color:var(--teal)}
-
-/* Flow columns (Global / Flow 1 / Flow 2) */
-.dt th.col-flow{background:rgba(192,90,138,.12)!important;color:var(--pink);font-weight:700;border-left:1px dashed rgba(192,90,138,.4);border-right:1px dashed rgba(192,90,138,.4);white-space:nowrap;font-size:9px}
-.dt td.col-flow{background:rgba(192,90,138,.04);border-left:1px dashed rgba(192,90,138,.4);border-right:1px dashed rgba(192,90,138,.4);font-family:var(--mono);font-size:10px;text-align:right}
-.dt .rt td.col-flow{background:rgba(192,90,138,.12);color:var(--pink)}
 .rcpt-expand{cursor:pointer;color:var(--orange);font-weight:700;display:inline-block;font-size:11px;margin-left:3px;user-select:none}
 .rcpt-expand:hover{color:var(--blue)}
 .ai{width:64px;padding:3px 6px;font-family:var(--mono);font-size:11px;text-align:right;background:var(--sand-lt);color:var(--txt);border:1px solid var(--bdr);border-radius:3px;outline:none}.ai:focus{border-color:var(--blue)}.ai.ov{background:var(--blue-pl);color:var(--blue);border-color:var(--blue-st)}
@@ -205,7 +242,7 @@ input,select,button,textarea{font-family:inherit}
 <body>
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
-<div class="version-tag">V6.1.1 · LINELIST PARSER FIX</div>
+<div class="version-tag">V6.2 · INITIALS FLOW + APS</div>
 <div id="welcome">
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
@@ -358,6 +395,24 @@ function deliveryToWeeks(deliveryMonth,seasonCode){
   return Math.max(0,Math.round((target-new Date())/(7*24*60*60*1000)));
 }
 
+// Shift a delivery month forward by N months, preserving any _N suffix
+// e.g. shiftDelivery('November_2', 1) => 'December_2'
+//      shiftDelivery('December_2', 1) => 'January_2' (year wraps but suffix kept)
+function shiftDeliveryMonth(deliveryMonth,offset){
+  if(!deliveryMonth||offset===0)return deliveryMonth||'';
+  const m=deliveryMonth.match(/^([A-Za-z]+)(_\d+)?$/);
+  if(!m)return deliveryMonth;
+  const base=m[1].toLowerCase();
+  const suffix=m[2]||'';
+  const mo=MONTH_MAP[base];if(!mo)return deliveryMonth;
+  let newMo=mo+offset;
+  // Wrap modulo 12 for January follows December
+  while(newMo>12)newMo-=12;
+  while(newMo<1)newMo+=12;
+  const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return monthNames[newMo-1]+suffix;
+}
+
 // ═══ APP STATE ═══
 const A={
   raw:{inventory:null,sales:null,linelist:null,wip:null},
@@ -374,7 +429,7 @@ const A={
   dvTab:'inventory',
   expandedWipSku:null,
   expandedChannelSku:null,  // toggles channel split (Retail/Online) columns in data table
-  expandedFlowSku:null,     // toggles flow columns in data table
+  flowsModalSku:null,       // when set, shows the Flows breakdown modal
   chartMetrics:null // per-sku chart toggle state
 };
 
@@ -714,32 +769,146 @@ function allocateBuy(rec,pool,curve,floors,ideals){
   return alloc;
 }
 
-// Compute flow split for a given total DTC pool and SKU type
-function computeFlows(rec,totalPool,allocByDtcSize,pmTotalNeed,apsTotal){
-  // Default: no flow
-  const result={count:1,splits:[{label:'Global',units:totalPool,offset:0}]};
-  if(totalPool<1200)return result;
+// Compute flow split for the SKU's allocation
+// Returns: { count, splits: [{label, units, offset, sizeBreak, ...meta}], math: { perSizeFloor, globalFloorTotal, ...} }
+function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve){
+  const result={
+    count:1,
+    splits:[{label:'Global',units:totalPool,offset:0,sizeBreak:{...combinedAlloc}}],
+    math:null,
+    eligible:false
+  };
+  if(totalPool<1200){result.reason='Total DTC < 1,200u';return result}
   const isInitials=rec.sizingType==='initials';
-  // Determine split percentages
-  let splits;
-  if(totalPool>=2000)splits=[0.4,0.3,0.3];
-  else splits=[0.6,0.4];
-  const rawUnits=splits.map(p=>Math.round(totalPool*p));
-  // Reconcile rounding
-  const sum=rawUnits.reduce((a,b)=>a+b,0);
-  rawUnits[0]+=(totalPool-sum);
+  const pm=getPresMin(rec); // per-size pres min × stores (already ceiling rounded)
+  const apsR=rec.apsRetail||0,apsO=rec.apsOnline||0;
+  const ONLINE_FLAT=rec.onlineBuy>0?5:0;
 
-  if(isInitials){
-    // Initials must satisfy: Global ≥ pres mins + 6 WOS, AND every flow ≥ 300
-    const wosNeed=apsTotal*6;
-    const globalNeed=pmTotalNeed+wosNeed;
-    const globalUnits=rawUnits[0];
-    const allFlowsLargeEnough=rawUnits.slice(1).every(u=>u>=300);
-    if(globalUnits<globalNeed||!allFlowsLargeEnough)return result;
+  // Per-size global minimum need (Initials math)
+  // = retail pres min units + online flat (5) + 6 weeks retail APS by retail curve % + 6 weeks online APS by online curve %
+  const perSizeFloor={};
+  let globalFloorTotal=0;
+  rec.sizes.forEach(s=>{
+    const presMinUnits=pm[s]||0;
+    const onlineFlat=ONLINE_FLAT;
+    const retailWos=apsR*6*(retailCurve[s]||0);
+    const onlineWos=apsO*6*(onlineCurve[s]||0);
+    const need=Math.ceil(presMinUnits+onlineFlat+retailWos+onlineWos);
+    perSizeFloor[s]={presMinUnits,onlineFlat,retailWos:Math.round(retailWos*10)/10,onlineWos:Math.round(onlineWos*10)/10,total:need};
+    globalFloorTotal+=need;
+  });
+
+  // For CF: use the simpler rule (no per-size floor enforcement; OH covers presentation)
+  if(!isInitials){
+    let splits;
+    if(totalPool>=2000)splits=[0.4,0.3,0.3];
+    else splits=[0.6,0.4];
+    const rawUnits=splits.map(p=>Math.round(totalPool*p));
+    const sum=rawUnits.reduce((a,b)=>a+b,0);
+    rawUnits[0]+=(totalPool-sum);
+    // Validate: each non-Global flow ≥ 300
+    if(!rawUnits.slice(1).every(u=>u>=300)){result.reason='CF flow(s) below 300u';return result}
+    result.eligible=true;result.count=rawUnits.length;
+    result.splits=rawUnits.map((u,i)=>{
+      const ratio=totalPool>0?u/totalPool:0;
+      const sb={};rec.sizes.forEach(s=>{sb[s]=Math.round((combinedAlloc[s]||0)*ratio)});
+      // Reconcile so flow total matches u
+      const subSum=rec.sizes.reduce((a,sz)=>a+sb[sz],0);
+      const diff=u-subSum;
+      if(diff!==0&&rec.sizes.length){const ms=rec.sizes.reduce((a,b)=>sb[a]>=sb[b]?a:b);sb[ms]+=diff}
+      return{label:i===0?'Global':'Flow '+i,units:u,offset:i,sizeBreak:sb};
+    });
+    result.math={type:'CF',percentages:splits,totalPool};
+    return result;
   }
 
-  result.count=rawUnits.length;
-  result.splits=rawUnits.map((u,i)=>({label:i===0?'Global':'Flow '+i,units:u,offset:i}));
+  // INITIALS path: Global must minimally cover globalFloorTotal
+  if(globalFloorTotal>totalPool){
+    result.reason='Global floor ('+globalFloorTotal+'u) exceeds total pool';return result;
+  }
+  let remaining=totalPool-globalFloorTotal;
+  // Determine how many flows we can support (each ≥ 300)
+  let numFlows=0;
+  if(remaining>=600)numFlows=2;
+  else if(remaining>=300)numFlows=1;
+  if(numFlows===0){result.reason='Remaining after global floor ('+remaining+'u) too small to flow';return result}
+
+  // Target Global percentage based on total split count
+  // If numFlows=2 → target 40% Global; if numFlows=1 → target 60% Global
+  const targetGlobalPct=numFlows===2?0.4:0.6;
+  const targetGlobalUnits=Math.round(targetGlobalPct*totalPool);
+
+  let globalUnits=globalFloorTotal;
+  if(globalUnits<targetGlobalUnits){
+    // Bump global up to baseline target
+    const extra=targetGlobalUnits-globalUnits;
+    if(remaining-extra>=numFlows*300){
+      globalUnits=targetGlobalUnits;
+      remaining=totalPool-globalUnits;
+    }
+    // else: can't bump without violating 300 floor — leave at floor
+  }
+  // Distribute remaining across numFlows
+  let flowUnits;
+  if(numFlows===2){
+    // Split remaining as evenly as possible
+    const half=Math.floor(remaining/2);
+    flowUnits=[half,remaining-half];
+    // Validate both ≥ 300; if not, demote to 1 flow
+    if(flowUnits[0]<300||flowUnits[1]<300){
+      numFlows=1;flowUnits=[remaining];
+    }
+  } else {flowUnits=[remaining]}
+
+  if(numFlows===1&&flowUnits[0]<300){result.reason='Single flow below 300u';return result}
+
+  // Build size break for Global (hit per-size floor first, then distribute by combined curve)
+  const globalSb={};
+  rec.sizes.forEach(s=>{globalSb[s]=perSizeFloor[s].total});
+  let globalAssigned=globalFloorTotal;
+  // Distribute the bump-up extra (if any) by combined alloc curve
+  const bumpExtra=globalUnits-globalFloorTotal;
+  if(bumpExtra>0){
+    const allocSum=rec.sizes.reduce((a,s)=>a+(combinedAlloc[s]||0),0);
+    if(allocSum>0){
+      rec.sizes.forEach(s=>{
+        const share=Math.round((combinedAlloc[s]||0)/allocSum*bumpExtra);
+        globalSb[s]+=share;
+      });
+      // Reconcile
+      const sum=rec.sizes.reduce((a,s)=>a+globalSb[s],0);
+      const diff=globalUnits-sum;
+      if(diff!==0&&rec.sizes.length){const ms=rec.sizes.reduce((a,b)=>globalSb[a]>=globalSb[b]?a:b);globalSb[ms]+=diff}
+    }
+  }
+
+  // Flow size breaks: distribute by combined alloc curve, scaled to flow units
+  const flowSplits=[{label:'Global',units:globalUnits,offset:0,sizeBreak:globalSb}];
+  flowUnits.forEach((u,idx)=>{
+    const sb={};
+    const allocSum=rec.sizes.reduce((a,s)=>a+(combinedAlloc[s]||0),0);
+    if(allocSum>0){
+      rec.sizes.forEach(s=>{sb[s]=Math.round((combinedAlloc[s]||0)/allocSum*u)});
+    } else rec.sizes.forEach(s=>{sb[s]=Math.round(u/rec.sizes.length)});
+    const sum=rec.sizes.reduce((a,sz)=>a+sb[sz],0);
+    const diff=u-sum;
+    if(diff!==0&&rec.sizes.length){const ms=rec.sizes.reduce((a,b)=>sb[a]>=sb[b]?a:b);sb[ms]+=diff}
+    flowSplits.push({label:'Flow '+(idx+1),units:u,offset:idx+1,sizeBreak:sb});
+  });
+
+  result.eligible=true;result.count=flowSplits.length;result.splits=flowSplits;
+  result.math={
+    type:'Initials',
+    perSizeFloor,
+    globalFloorTotal,
+    targetGlobalPct,
+    targetGlobalUnits,
+    globalUnits,
+    bumpedAboveFloor:globalUnits>globalFloorTotal,
+    apsRetail:apsR,apsOnline:apsO,
+    totalPool,
+    onlineFlatPerSize:ONLINE_FLAT
+  };
   return result;
 }
 
@@ -827,23 +996,8 @@ function computeAlloc(rec){
   } else rec.sizes.forEach(s=>{onlineCurveSales[s]=0});
 
   // ── Flows: applied to combined DTC pool ──
-  const pmTotalNeed=rec.sizes.reduce((a,s)=>a+(pm[s]||0),0);
-  const apsTotal=(rec.apsRetail||0)+(rec.apsOnline||0);
-  const flows=computeFlows(rec,pool,alloc,pmTotalNeed,apsTotal);
-
-  // Distribute the flow units across sizes, in the same proportion as the combined alloc
-  const flowSizeBreaks=flows.splits.map(sp=>{
-    const ratio=pool>0?sp.units/pool:0;
-    const fb={};rec.sizes.forEach(s=>{fb[s]=Math.round((alloc[s]||0)*ratio)});
-    // Reconcile so flow total matches sp.units
-    const sum=rec.sizes.reduce((a,s)=>a+fb[s],0);
-    const diff=sp.units-sum;
-    if(diff!==0&&rec.sizes.length){
-      const ms=rec.sizes.reduce((a,b)=>fb[a]>=fb[b]?a:b);
-      fb[ms]+=diff;
-    }
-    return{...sp,sizeBreak:fb};
-  });
+  const flows=computeFlows(rec,pool,alloc,retailCurve,onlineCurve);
+  const flowSizeBreaks=flows.splits; // already include sizeBreak field
 
   // For backward compat with existing render code:
   const cr=dtcCurveResult; // primary curve = DTC curve
@@ -876,7 +1030,8 @@ function toggleAcc(sku){A.accepted[sku]?delete A.accepted[sku]:A.accepted[sku]=t
 function toggleAccGrid(sku){A.accepted[sku]?delete A.accepted[sku]:A.accepted[sku]=true;updateExpCt();renderGridCards()}
 function toggleWipExpand(sku){A.expandedWipSku=A.expandedWipSku===sku?null:sku;render()}
 function toggleChannelExpand(sku){A.expandedChannelSku=A.expandedChannelSku===sku?null:sku;render()}
-function toggleFlowExpand(sku){A.expandedFlowSku=A.expandedFlowSku===sku?null:sku;render()}
+function openFlowsModal(sku){A.flowsModalSku=sku;render()}
+function closeFlowsModal(){A.flowsModalSku=null;render()}
 function updateExpCt(){const n=Object.keys(A.accepted).length;const el=document.getElementById('exp-ct');if(el)el.textContent=n>0?n+' accepted':'';const btn=document.getElementById('exp-btn');if(btn)btn.disabled=n===0}
 
 function exportCSV(){
@@ -889,17 +1044,6 @@ function exportCSV(){
 
   const yrMatch=A.activeSeason.match(/(\d{2})$/);
   const year=yrMatch?'20'+yrMatch[1]:'2026';
-  const monthOrder={january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12};
-  function shiftDelivery(deliveryMonth,offset){
-    if(!deliveryMonth||offset===0)return deliveryMonth||'';
-    // Strip _2, _3 suffix temporarily for month calc, then re-add nothing (flows just shift the month)
-    const base=deliveryMonth.toLowerCase().replace(/_\d+$/,'');
-    const mo=monthOrder[base];if(!mo)return deliveryMonth;
-    const newMo=mo+offset;
-    if(newMo<1||newMo>12)return deliveryMonth; // out of season range
-    const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
-    return monthNames[newMo-1];
-  }
   function makeRow(r,sku,sizeMap,total,salesTier,delivery){
     const tl=r.sizingType==='initials'?'Initials PO':'CF PO';
     const sizeVals=SIZE_COLS.map(sc=>{
@@ -921,7 +1065,7 @@ function exportCSV(){
     // Tab 2 (Flows): one row per flow split (Global + Flow 1 + Flow 2 if applicable)
     if(res.flows.count>1&&res.flowSizeBreaks){
       res.flowSizeBreaks.forEach(fb=>{
-        const flowDelivery=shiftDelivery(baseDelivery,fb.offset);
+        const flowDelivery=shiftDeliveryMonth(baseDelivery,fb.offset);
         linesFlows.push(makeRow(r,sku,fb.sizeBreak,fb.units,fb.label,flowDelivery));
       });
     } else {
@@ -953,12 +1097,102 @@ function render(){
   try{
     if(A.module==='presmins'){renderPresMins(main);return}
     if(A.module==='datasources'){renderDataSources(main);return}
-    if(A.view==='detail'&&A.selectedSKU&&A.skus[A.selectedSKU]){renderDetail(main,A.skus[A.selectedSKU]);return}
+    if(A.view==='detail'&&A.selectedSKU&&A.skus[A.selectedSKU]){
+      renderDetail(main,A.skus[A.selectedSKU]);
+      // Overlay flows modal on top if open
+      if(A.flowsModalSku&&A.skus[A.flowsModalSku]){
+        const overlay=document.createElement('div');
+        overlay.id='flows-modal-overlay';
+        overlay.innerHTML=renderFlowsModal(A.skus[A.flowsModalSku]);
+        main.appendChild(overlay);
+      }
+      return;
+    }
     renderGrid(main);
   }catch(err){
     console.error('Render error:',err);
     main.innerHTML='<div style="padding:24px;background:var(--wh);border:1px solid var(--red);border-radius:var(--rl);margin:20px"><div style="font-weight:700;color:var(--red);margin-bottom:8px">Render error</div><div style="font-family:var(--mono);font-size:11px;color:var(--txt2);white-space:pre-wrap">'+esc(err.message+'\n\n'+err.stack)+'</div><button class="btn btn-g btn-sm" style="margin-top:12px" onclick="goGrid()">Back to grid</button></div>';
   }
+}
+
+// ═══ FLOWS MODAL ═══
+function renderFlowsModal(rec){
+  const res=computeAlloc(rec);
+  if(!res||!res.flows||res.flows.count<=1)return '';
+  const{flows,pool,retailCurve,onlineCurve}=res;
+  const m=flows.math||{};
+  const isInitials=rec.sizingType==='initials';
+
+  // Per-flow cards with delivery date + size table
+  let flowsHtml='';
+  flows.splits.forEach(sp=>{
+    const flowDate=shiftDeliveryMonth(rec.deliveryMonth,sp.offset);
+    const pct=pool>0?Math.round(sp.units/pool*100):0;
+    let sizeRows='';
+    rec.sizes.forEach(s=>{
+      sizeRows+='<tr><td class="fm-sz">'+esc(s)+'</td><td class="fm-qty">'+fmt(sp.sizeBreak[s]||0)+'</td></tr>';
+    });
+    flowsHtml+='<div class="fm-flow"><div class="fm-flow-hdr">'+
+      '<div class="fm-flow-name">'+esc(sp.label)+'</div>'+
+      '<div class="fm-flow-date">'+esc(flowDate||'—')+'</div>'+
+      '</div>'+
+      '<div class="fm-flow-stats">'+
+        '<span class="fm-flow-tot">'+fmt(sp.units)+' units</span>'+
+        '<span class="fm-flow-pct">'+pct+'% of pool</span>'+
+      '</div>'+
+      '<table class="fm-tbl"><thead><tr><th>Size</th><th>Qty</th></tr></thead><tbody>'+sizeRows+'</tbody></table>'+
+    '</div>';
+  });
+
+  // Math section — explain how Global was computed
+  let mathHtml='';
+  if(isInitials&&m.perSizeFloor){
+    let perSizeRows='';
+    rec.sizes.forEach(s=>{
+      const f=m.perSizeFloor[s];
+      const retailCurvePct=Math.round((retailCurve[s]||0)*1000)/10;
+      const onlineCurvePct=Math.round((onlineCurve[s]||0)*1000)/10;
+      perSizeRows+='<tr>'+
+        '<td class="fm-sz">'+esc(s)+'</td>'+
+        '<td class="fm-num">'+fmt(f.presMinUnits)+'</td>'+
+        '<td class="fm-num">'+f.onlineFlat+'</td>'+
+        '<td class="fm-num">'+f.retailWos.toFixed(1)+' <span class="fm-sub">('+m.apsRetail.toFixed(1)+'×6×'+retailCurvePct+'%)</span></td>'+
+        '<td class="fm-num">'+f.onlineWos.toFixed(1)+' <span class="fm-sub">('+m.apsOnline.toFixed(1)+'×6×'+onlineCurvePct+'%)</span></td>'+
+        '<td class="fm-num fm-tot">'+f.total+'</td>'+
+        '</tr>';
+    });
+    mathHtml='<div class="fm-math"><div class="fm-math-hdr">Global Floor Calculation (Initials)</div>'+
+      '<div class="fm-math-desc">Each size needs: <b>retail pres min</b> + <b>online flat 5</b> + <b>6 weeks Retail APS by retail curve%</b> + <b>6 weeks Online APS by online curve%</b></div>'+
+      '<table class="fm-math-tbl"><thead><tr>'+
+      '<th>Size</th><th>Retail Pres Min</th><th>Online Flat</th><th>Retail WoS</th><th>Online WoS</th><th>Total Need</th>'+
+      '</tr></thead><tbody>'+perSizeRows+'</tbody></table>'+
+      '<div class="fm-math-summary">'+
+        '<div><span class="fm-summary-lbl">Sum of per-size needs:</span> <span class="fm-summary-val">'+fmt(m.globalFloorTotal)+'u</span></div>'+
+        '<div><span class="fm-summary-lbl">Target Global %:</span> <span class="fm-summary-val">'+Math.round(m.targetGlobalPct*100)+'% × '+fmt(pool)+'u = '+fmt(m.targetGlobalUnits)+'u</span></div>'+
+        '<div><span class="fm-summary-lbl">Final Global:</span> <span class="fm-summary-val">'+fmt(m.globalUnits)+'u'+(m.bumpedAboveFloor?' <span class="fm-bump">(bumped above floor to baseline %)</span>':' <span class="fm-bump">(at minimum floor)</span>')+'</span></div>'+
+        '<div><span class="fm-summary-lbl">Remaining to flow:</span> <span class="fm-summary-val">'+fmt(pool-m.globalUnits)+'u</span></div>'+
+      '</div>'+
+    '</div>';
+  } else if(m.type==='CF'){
+    mathHtml='<div class="fm-math"><div class="fm-math-hdr">CF Flow Split</div>'+
+      '<div class="fm-math-desc">CF SKUs split based on total pool size:</div>'+
+      '<div class="fm-math-summary">'+
+        '<div><span class="fm-summary-lbl">Total Pool:</span> <span class="fm-summary-val">'+fmt(pool)+'u</span></div>'+
+        '<div><span class="fm-summary-lbl">Split Rule:</span> <span class="fm-summary-val">'+(pool>=2000?'40 / 30 / 30 (≥2000u)':'60 / 40 (1200–1999u)')+'</span></div>'+
+      '</div></div>';
+  }
+
+  return '<div class="fm-backdrop" onclick="closeFlowsModal()"></div>'+
+    '<div class="fm-panel" onclick="event.stopPropagation()">'+
+      '<div class="fm-hdr"><div class="fm-title">Flows · '+esc(rec.sku)+'</div>'+
+        '<div class="fm-subtitle">'+esc(rec.styleDescription||'')+(rec.colorDescription?' · '+esc(rec.colorDescription):'')+' · '+fmt(pool)+'u total · base delivery '+esc(rec.deliveryMonth||'—')+'</div>'+
+        '<button class="fm-close" onclick="closeFlowsModal()" title="Close">×</button>'+
+      '</div>'+
+      '<div class="fm-body">'+
+        '<div class="fm-flows-grid">'+flowsHtml+'</div>'+
+        mathHtml+
+      '</div>'+
+    '</div>';
 }
 
 // ═══ GRID ═══
@@ -1194,10 +1428,8 @@ function renderDetail(el,rec){
   }
   const wipExpanded=A.expandedWipSku===rec.sku;
   const channelExpanded=A.expandedChannelSku===rec.sku;
-  const flowExpanded=A.expandedFlowSku===rec.sku;
   const showDateCols=useBOP&&wipExpanded&&dateRows.length>0;
   const showChannelCols=useChannelSplit&&channelExpanded;
-  const showFlowCols=flows.count>1&&flowExpanded;
 
   // Header
   const dateColCount=showDateCols?dateRows.length:0;
@@ -1205,11 +1437,9 @@ function renderDetail(el,rec){
   // + 2 if useBOP (Pending Rcpts, Proj BOP)
   // + dateColCount if showDateCols
   // + 2 if showChannelCols (Retail Buy, Online Buy under Size Break)
-  // + flows.count if showFlowCols
   let invColspan=7;
   if(useBOP)invColspan+=2+dateColCount;
   if(showChannelCols)invColspan+=2;
-  if(showFlowCols)invColspan+=flows.count;
   // Sales metrics col count: base 4 (SKU Sales, Curve Sales, Curve %, Wkly Rate)
   // + 4 if showChannelCols (Retail Curve Sales, Online Curve Sales, Retail Curve %, Online Curve %)
   let salesColspan=4;
@@ -1233,12 +1463,10 @@ function renderDetail(el,rec){
     thead+='<th class="col">Proj. BOP</th>';
   }
   thead+='<th class="cod">Ideal Target</th><th class="col">Pres Min</th><th class="cod">Min Retail Pres</th>';
-  // Size Break with channel chevron + flow chevron
+  // Size Break with channel chevron only (flows live in popup now)
   const sbChannelChevron=useChannelSplit?' <span class="rcpt-expand" onclick="toggleChannelExpand(\''+esc(rec.sku)+'\')" title="'+(channelExpanded?'Hide':'Show')+' channel split">'+(channelExpanded?'▼':'▶')+'</span>':'';
-  const sbFlowChevron=flows.count>1?' <span class="rcpt-expand" onclick="toggleFlowExpand(\''+esc(rec.sku)+'\')" title="'+(flowExpanded?'Hide':'Show')+' flows">'+(flowExpanded?'⇲':'⇱')+'</span>':'';
-  thead+='<th class="col">Size Break'+sbChannelChevron+sbFlowChevron+'</th>';
+  thead+='<th class="col">Size Break'+sbChannelChevron+'</th>';
   if(showChannelCols)thead+='<th class="col-ch">Retail Buy</th><th class="col-ch">Online Buy</th>';
-  if(showFlowCols){flows.splits.forEach(sp=>{thead+='<th class="col-flow">'+esc(sp.label)+' ('+fmt(sp.units)+')</th>'})}
   thead+='<th class="cod">Break %</th>';
   thead+='<th class="col">Post-Buy</th></tr>';
 
@@ -1274,7 +1502,6 @@ function renderDetail(el,rec){
   tBody+='<td class="cod">'+fmt(totIdeal)+'</td><td class="col"></td><td class="cod">'+fmt(totMinRet)+'</td>';
   tBody+='<td class="col c-o">'+fmt(totAl)+'</td>';
   if(showChannelCols)tBody+='<td class="col-ch">'+fmt(totRetAlloc)+'</td><td class="col-ch">'+fmt(totOnlineAlloc)+'</td>';
-  if(showFlowCols){flows.splits.forEach(sp=>{tBody+='<td class="col-flow" style="font-weight:700">'+fmt(sp.units)+'</td>'})}
   tBody+='<td class="cod">100%</td>';
   tBody+='<td class="col c-g" style="font-weight:700">'+fmt(totPost)+'</td></tr>';
 
@@ -1311,7 +1538,6 @@ function renderDetail(el,rec){
     tBody+='<td class="cod'+(a<minRetail&&minRetail>0?' c-r':'')+'">'+fmt(minRetail)+'</td>';
     tBody+='<td class="col">'+inp+'</td>';
     if(showChannelCols)tBody+='<td class="col-ch">'+fmt(retailAlloc[s]||0)+'</td><td class="col-ch">'+fmt(onlineAlloc[s]||0)+'</td>';
-    if(showFlowCols){flowSizeBreaks.forEach(fb=>{tBody+='<td class="col-flow">'+fmt(fb.sizeBreak[s]||0)+'</td>'})}
     tBody+='<td class="cod c-d">'+pct(sbPct)+'</td>';
     tBody+='<td class="col c-g" style="font-weight:600">'+fmt(postBuy)+'</td></tr>';
   });
@@ -1321,13 +1547,17 @@ function renderDetail(el,rec){
   const lockBtn=locked?'<button class="btn-grn" style="opacity:.6" onclick="toggleAcc(\''+esc(rec.sku)+'\')">✓ Accepted</button>':'<button class="btn-grn" onclick="toggleAcc(\''+esc(rec.sku)+'\')">Accept</button>';
   const hasOvrs=A.overrides[rec.sku]&&Object.keys(A.overrides[rec.sku]).length>0;
   const resetBtn=hasOvrs&&!locked?'<button class="btn btn-g btn-sm" onclick="clrOvr(\''+esc(rec.sku)+'\')">Reset</button>':'';
+  const flowsBtn=flows.eligible&&flows.count>1?'<button class="btn btn-pk btn-sm" onclick="openFlowsModal(\''+esc(rec.sku)+'\')" title="View flow breakdown">Flows ('+flows.count+')</button>':'';
   const skuL52W=rec.skuSalesTotal;
   const totalBOPv=useBOP?totBOP:0;
+  const apsR=rec.apsRetail||0,apsO=rec.apsOnline||0;
+  const apsR_disp=apsR>=10?Math.round(apsR):(apsR.toFixed(1));
+  const apsO_disp=apsO>=10?Math.round(apsO):(apsO.toFixed(1));
 
   el.innerHTML='<div class="dv anim">'+
     '<button class="d-back" onclick="goGrid()">← Back to '+esc(A.activeSeason)+'</button>'+
     '<div class="detail-sticky"><div class="ds-row1"><div class="ds-left"><h2>'+esc(rec.sku)+'</h2><span class="bdg '+(isCF?'bdg-cf':'bdg-in')+'">'+rec.sizingType.toUpperCase()+'</span></div>'+
-    '<div class="ds-right">'+resetBtn+lockBtn+'</div></div>'+
+    '<div class="ds-right">'+resetBtn+flowsBtn+lockBtn+'</div></div>'+
     '<div class="ds-name">'+esc(rec.styleDescription||'')+(rec.colorDescription?' · <span class="ds-color">'+esc(rec.colorDescription)+'</span>':'')+'</div>'+
     '<div class="attr-row">'+attrPills(rec)+'</div>'+
     '<div class="metric-row">'+
@@ -1336,6 +1566,8 @@ function renderDetail(el,rec){
       '<span class="metric-pill">Current OH: '+fmt(rec.totalOH)+'</span>'+
       (useBOP?'<span class="metric-pill">Proj. BOP: '+fmt(totalBOPv)+' ('+wks+'w)</span>':'')+
       '<span class="metric-pill">L52W SKU Sales: '+fmt(skuL52W)+'</span>'+
+      '<span class="metric-pill mp-ch">Retail APS: '+apsR_disp+'</span>'+
+      '<span class="metric-pill mp-ch">Online APS: '+apsO_disp+'</span>'+
     '</div></div>'+
     // Chart
     '<div class="cb"><div class="slbl">Size Distribution</div>'+legend+
