@@ -33,8 +33,8 @@ input,select,button,textarea{font-family:inherit}
 @keyframes toastIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
 @keyframes toastOut{from{opacity:1}to{opacity:0}}
 .anim{animation:fadeUp .3s ease forwards}
-.toast-area{position:fixed;top:12px;right:12px;z-index:999;display:flex;flex-direction:column;gap:6px}
-.toast{padding:8px 16px;border-radius:var(--r);font-size:11px;font-weight:600;font-family:var(--mono);animation:toastIn .3s ease;box-shadow:var(--shmd)}
+.toast-area{position:fixed;bottom:32px;left:16px;z-index:9500;display:flex;flex-direction:column;gap:6px;max-width:380px;pointer-events:none}
+.toast{padding:10px 16px;border-radius:var(--r);font-size:12px;font-weight:600;font-family:var(--mono);animation:toastIn .3s ease;box-shadow:var(--shmd);pointer-events:auto;word-wrap:break-word}
 .toast.ok{background:var(--green-pl);color:var(--green);border:1px solid var(--green-bd)}.toast.out{animation:toastOut .5s ease forwards}
 .btn{padding:7px 14px;font-size:11px;font-weight:600;border-radius:var(--r);cursor:pointer;transition:all var(--t);border:none;white-space:nowrap}
 .btn-g{background:var(--sand-lt);color:var(--txt2);border:1px solid var(--bdr-lt)}.btn-g:hover{border-color:var(--blue);color:var(--txt)}
@@ -273,7 +273,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V7.1 · SHARED CONTEXT</div>
+<div class="version-tag">V7.1.1 · TOAST POSITION</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
