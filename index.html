@@ -89,7 +89,8 @@ input,select,button,textarea{font-family:inherit}
 .pm-flag-ok{background:var(--green-pl);color:var(--green);border:1px solid var(--green-bd)}
 .pm-flag-bad{background:rgba(196,64,64,.08);color:var(--red);border:1px solid rgba(196,64,64,.35)}
 /* Welcome */
-#welcome{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;position:relative}
+#welcome{min-height:100vh;display:none;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;position:relative}
+#welcome.shown{display:flex}
 .w-nav{position:fixed;top:0;left:0;right:0;padding:10px 20px;display:flex;gap:8px;z-index:10}
 .w-center{text-align:center;max-width:600px}
 .sun-svg{display:block;margin:0 auto 12px}
@@ -237,19 +238,63 @@ input,select,button,textarea{font-family:inherit}
 .dv-info{font-family:var(--mono);font-size:10px;color:var(--txt3);margin-bottom:8px}
 @media(max-width:800px){.sg{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}}
 .version-tag{position:fixed;bottom:8px;right:12px;font-family:var(--mono);font-size:9px;color:var(--txt3);opacity:.6;z-index:999}
+
+/* Login screen */
+#login{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:var(--sand);z-index:9999}
+#login.active{display:flex}
+.login-card{background:var(--wh);border:1px solid var(--bdr-lt);border-radius:var(--rl);padding:36px 32px;width:380px;max-width:92%;box-shadow:0 8px 28px rgba(0,0,0,.06);text-align:center}
+.login-card h1{font-size:22px;font-weight:700;color:var(--navy);margin:18px 0 6px}
+.login-card .sub{color:var(--txt2);font-size:13px;margin-bottom:22px;line-height:1.5}
+.login-card input[type="email"]{width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:var(--rs);font:inherit;font-size:14px;color:var(--txt);background:var(--wh);box-sizing:border-box}
+.login-card input[type="email"]:focus{outline:none;border-color:var(--blue)}
+.login-card .btn-primary{width:100%;margin-top:12px;padding:11px;background:var(--blue);color:#fff;border:none;border-radius:var(--rs);font-weight:600;font-size:14px;cursor:pointer;transition:all var(--t)}
+.login-card .btn-primary:hover{background:var(--navy)}
+.login-card .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.login-card .login-msg{margin-top:14px;font-size:12px;color:var(--txt2);line-height:1.5}
+.login-card .login-msg.err{color:var(--red)}
+.login-card .login-msg.ok{color:var(--green)}
+.login-foot{margin-top:18px;font-family:var(--mono);font-size:9px;color:var(--txt3);letter-spacing:1px}
+
+/* User badge + logout in welcome nav */
+.user-badge{font-family:var(--mono);font-size:10px;color:var(--txt2);padding:6px 10px;background:var(--sand-lt);border:1px solid var(--bdr-lt);border-radius:var(--rs)}
+.user-badge b{color:var(--navy);font-weight:700;font-family:var(--sans)}
+
+/* Refresh banner (when others update data) */
+.refresh-banner{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--blue);color:#fff;padding:9px 16px;border-radius:var(--rs);font-size:13px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:9000;animation:slideDown .3s ease-out}
+.refresh-banner button{background:#fff;color:var(--blue);border:none;padding:5px 12px;border-radius:var(--rs);font-weight:600;font-size:12px;cursor:pointer}
+.refresh-banner button:hover{background:var(--sand-lt)}
+.refresh-banner .x{cursor:pointer;opacity:.7;font-size:18px;line-height:1}
+.refresh-banner .x:hover{opacity:1}
+@keyframes slideDown{from{transform:translate(-50%,-100%);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 </style>
 </head>
 <body>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
-<div class="version-tag">V6.4.1 · DUAL DOWNLOAD FIX</div>
+<div id="refresh-banner-host"></div>
+<div class="version-tag">V7.1 · SHARED CONTEXT</div>
+
+<!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
+<div id="login" class="active">
+  <div class="login-card">
+    <svg class="sun-svg" width="64" height="44" viewBox="0 0 64 44" fill="none"><line x1="32" y1="2" x2="32" y2="8" stroke="#c4572a" stroke-width="2" stroke-linecap="round"/><line x1="22" y1="4.5" x2="24.5" y2="9.5" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/><line x1="42" y1="4.5" x2="39.5" y2="9.5" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="10" x2="18" y2="14" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/><line x1="50" y1="10" x2="46" y2="14" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/><line x1="10" y1="18" x2="16" y2="19" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/><line x1="54" y1="18" x2="48" y2="19" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/><path d="M 20 24 A 12 12 0 0 1 44 24" fill="#c4572a"/><path d="M 6 28 Q 16 22 26 28 Q 36 34 46 28 Q 52 24 58 28" stroke="#3b7bc0" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M 2 34 Q 14 28 26 34 Q 38 40 50 34 Q 56 30 62 34" stroke="#5a9ae0" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
+    <h1>PO Sizing Tool</h1>
+    <p class="sub">Faherty employees only.<br>We'll send you a magic link.</p>
+    <input type="email" id="login-email" placeholder="you@fahertybrand.com" autocomplete="email">
+    <button class="btn-primary" id="login-btn" onclick="sendMagicLink()">Send magic link</button>
+    <div class="login-msg" id="login-msg"></div>
+    <div class="login-foot">FAHERTY · MERCHANDISING</div>
+  </div>
+</div>
+
 <div id="welcome">
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
     <button class="pm-link" onclick="goModule('datasources')">📊 Data Sources</button>
-    <button class="pm-link" onclick="exportContext()" title="Download a snapshot of your CSV uploads + Pres Mins config to share with a teammate">⬇ Export Context</button>
-    <label class="pm-link" style="cursor:pointer" title="Import a context snapshot from a teammate (replaces all local data)">⬆ Import Context<input type="file" accept=".json" onchange="importContext(this)" style="display:none"></label>
     <div style="flex:1"></div>
+    <span class="user-badge" id="user-badge"></span>
+    <button class="pm-link" onclick="logout()" title="Sign out">⎋ Logout</button>
     <label class="u-chip" id="uc-inventory"><span>◫ Inventory</span><span class="meta" id="um-inventory"></span><input type="file" accept=".csv" onchange="handleUpload('inventory',this)"></label>
     <label class="u-chip" id="uc-sales"><span>◰ L52W Sales</span><span class="meta" id="um-sales"></span><input type="file" accept=".csv" onchange="handleUpload('sales',this)"></label>
     <label class="u-chip" id="uc-linelist"><span>◳ Linelist</span><span class="meta" id="um-linelist"></span><input type="file" accept=".csv" onchange="handleUpload('linelist',this)"></label>
@@ -277,8 +322,179 @@ input,select,button,textarea{font-family:inherit}
 </div>
 <script>
 /* ═══════════════════════════════════════
-   PO Sizing V4 — Core Engine (db + data)
+   PO Sizing V7.1 — Supabase Cloud Backend
    ═══════════════════════════════════════ */
+
+// Supabase configuration
+const SUPABASE_URL='https://qwtylbbqwkchqkmaycbj.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3dHlsYmJxd2tjaHFrbWF5Y2JqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5MTkxODgsImV4cCI6MjA5MzQ5NTE4OH0.F9CmnmHMc5ST2I_PD3L9OY-_uwNSQKL87vy1T9VKeQw';
+const ALLOWED_DOMAIN='@fahertybrand.com';
+const SUPA=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{
+  auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+});
+
+// Auth state — populated on login, used for attribution writes
+const Auth={user:null,email:null,displayName:null};
+
+// ═══ Display name derivation ═══
+// "julia.appicelli@fahertybrand.com" → "Julia Appicelli"
+function deriveDisplayName(email){
+  if(!email)return 'Unknown';
+  const local=email.split('@')[0]||email;
+  return local.split(/[._\-]+/).map(p=>p?p.charAt(0).toUpperCase()+p.slice(1).toLowerCase():'').filter(Boolean).join(' ')||local;
+}
+
+function formatRelTime(iso){
+  if(!iso)return '';
+  const d=new Date(iso),now=new Date(),diff=(now-d)/1000;
+  if(diff<60)return 'just now';
+  if(diff<3600)return Math.floor(diff/60)+'m ago';
+  if(diff<86400)return Math.floor(diff/3600)+'h ago';
+  if(diff<86400*7)return Math.floor(diff/86400)+'d ago';
+  return d.toLocaleDateString();
+}
+
+// ═══ Auth flow ═══
+async function sendMagicLink(){
+  const input=document.getElementById('login-email');
+  const msg=document.getElementById('login-msg');
+  const btn=document.getElementById('login-btn');
+  const email=(input.value||'').trim().toLowerCase();
+  msg.className='login-msg';msg.textContent='';
+  if(!email||!email.includes('@')){msg.className='login-msg err';msg.textContent='Please enter a valid email.';return}
+  if(!email.endsWith(ALLOWED_DOMAIN)){msg.className='login-msg err';msg.textContent='Only '+ALLOWED_DOMAIN+' email addresses are allowed.';return}
+  btn.disabled=true;btn.textContent='Sending...';
+  try{
+    const{error}=await SUPA.auth.signInWithOtp({
+      email,
+      options:{emailRedirectTo:window.location.origin+window.location.pathname}
+    });
+    if(error)throw error;
+    msg.className='login-msg ok';msg.textContent='✓ Check your email for the magic link. It\'ll be valid for 24 hours.';
+    btn.textContent='Sent';
+  }catch(err){
+    msg.className='login-msg err';msg.textContent='Error: '+err.message;
+    btn.disabled=false;btn.textContent='Send magic link';
+  }
+}
+
+async function logout(){
+  if(!confirm('Sign out?'))return;
+  await SUPA.auth.signOut();
+  // Clear in-memory state
+  A.raw={inventory:null,sales:null,linelist:null,wip:null};
+  A.rawCSV={};A.uploadMeta={};A.cloudMeta={};
+  A.presMins={};A.presMinsMeta={};A.scaleSizes={};A.scaleSizeCount={};
+  A.activeSeason=null;A.accepted={};A.overrides={};
+  Auth.user=null;Auth.email=null;Auth.displayName=null;
+  showLogin();
+}
+
+function showLogin(){
+  document.getElementById('login').classList.add('active');
+  document.getElementById('welcome').classList.remove('shown');
+  document.getElementById('dash').classList.remove('active');
+  // Reset login form
+  const msg=document.getElementById('login-msg');if(msg){msg.className='login-msg';msg.textContent=''}
+  const btn=document.getElementById('login-btn');if(btn){btn.disabled=false;btn.textContent='Send magic link'}
+  const inp=document.getElementById('login-email');if(inp)inp.value='';
+}
+
+function hideLogin(){
+  document.getElementById('login').classList.remove('active');
+  document.getElementById('welcome').classList.add('shown');
+  // Update user badge
+  const badge=document.getElementById('user-badge');
+  if(badge&&Auth.displayName)badge.innerHTML='<b>'+esc(Auth.displayName)+'</b>';
+}
+
+// ═══ Cloud: CSV files (Storage + metadata table) ═══
+async function cloudUploadCSV(key,text,fileName,rowCount,colCount){
+  const path=key+'.csv';
+  // Upload to Storage (upsert to replace existing)
+  const{error:upErr}=await SUPA.storage.from('csv-uploads').upload(path,new Blob([text],{type:'text/csv'}),{upsert:true,contentType:'text/csv'});
+  if(upErr)throw upErr;
+  // Insert/update metadata row
+  const{error:metaErr}=await SUPA.from('csv_files').upsert({
+    key,filename:fileName,row_count:rowCount,col_count:colCount,storage_path:path,
+    updated_by_email:Auth.email,updated_by_name:Auth.displayName,updated_at:new Date().toISOString()
+  },{onConflict:'key'});
+  if(metaErr)throw metaErr;
+}
+
+async function cloudDownloadCSV(path){
+  const{data,error}=await SUPA.storage.from('csv-uploads').download(path);
+  if(error)throw error;
+  return await data.text();
+}
+
+async function cloudListCSVMeta(){
+  const{data,error}=await SUPA.from('csv_files').select('*');
+  if(error)throw error;
+  const out={};(data||[]).forEach(r=>{out[r.key]=r});
+  return out;
+}
+
+// ═══ Cloud: Pres Mins ═══
+async function cloudListPresMins(){
+  const{data,error}=await SUPA.from('pres_mins').select('*');
+  if(error)throw error;
+  return data||[];
+}
+
+async function cloudSavePresMin(scaleName,division,sizes,mins){
+  const{error}=await SUPA.from('pres_mins').upsert({
+    scale_name:scaleName,division,sizes,mins,
+    updated_by_email:Auth.email,updated_by_name:Auth.displayName,updated_at:new Date().toISOString()
+  },{onConflict:'scale_name'});
+  if(error)throw error;
+}
+
+async function cloudDeletePresMin(scaleName){
+  const{error}=await SUPA.from('pres_mins').delete().eq('scale_name',scaleName);
+  if(error)throw error;
+}
+
+// ═══ Cloud: Realtime subscriptions + refresh banner ═══
+let _realtimeChannel=null;
+let _pendingRefreshes={csv:false,pm:false};
+function setupRealtime(){
+  if(_realtimeChannel)return;
+  _realtimeChannel=SUPA.channel('shared-data')
+    .on('postgres_changes',{event:'*',schema:'public',table:'csv_files'},payload=>{
+      const updatedBy=(payload.new&&payload.new.updated_by_email)||(payload.old&&payload.old.updated_by_email);
+      // Skip if it's our own update
+      if(updatedBy===Auth.email)return;
+      const who=(payload.new&&payload.new.updated_by_name)||'Someone';
+      const what=(payload.new&&payload.new.key)||(payload.old&&payload.old.key)||'data';
+      showRefreshBanner(who+' updated '+what+' CSV',()=>refreshAllFromCloud());
+      _pendingRefreshes.csv=true;
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'pres_mins'},payload=>{
+      const updatedBy=(payload.new&&payload.new.updated_by_email)||(payload.old&&payload.old.updated_by_email);
+      if(updatedBy===Auth.email)return;
+      const who=(payload.new&&payload.new.updated_by_name)||'Someone';
+      const what=(payload.new&&payload.new.scale_name)||(payload.old&&payload.old.scale_name)||'pres mins';
+      showRefreshBanner(who+' updated '+what+' pres mins',()=>refreshAllFromCloud());
+      _pendingRefreshes.pm=true;
+    })
+    .subscribe();
+}
+
+function showRefreshBanner(text,onRefresh){
+  const host=document.getElementById('refresh-banner-host');
+  if(!host)return;
+  host.innerHTML='<div class="refresh-banner"><span>'+esc(text)+'</span><button onclick="(window.__bannerRefresh||(()=>{}))()">Refresh</button><span class="x" onclick="document.getElementById(\'refresh-banner-host\').innerHTML=\'\'">×</span></div>';
+  window.__bannerRefresh=()=>{host.innerHTML='';onRefresh()};
+}
+
+async function refreshAllFromCloud(){
+  await loadFromCloud();
+  toast('Data refreshed');
+  // Re-render whatever view is active
+  if(typeof render==='function'&&document.getElementById('main-area'))render();
+  trySeasons();
+}
 
 // ─── IndexedDB ───
 const DB_NAME='POSizingV3',DB_VER=2;
@@ -418,15 +634,15 @@ function shiftDeliveryMonth(deliveryMonth,offset){
 // ═══ APP STATE ═══
 const A={
   raw:{inventory:null,sales:null,linelist:null,wip:null},
-  rawCSV:{},uploadMeta:{},
+  rawCSV:{},uploadMeta:{},cloudMeta:{},pmMeta:{},
   seasons:[],activeSeason:null,
   skus:{},selectedSKU:null,
   view:'grid',module:null,
   overrides:{},accepted:{},
   searchTerm:'',sortKey:'dtcBuy',sortDir:'desc',
   filters:{type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All'},
-  presMins:{M3:{XS:.5,S:1,M:2,L:2,XL:1.5,XXL:.5},FM3:{XS:0,S:1,M:2,L:2,XL:1.5,XXL:0}},
-  presMinsMeta:{M3:{div:'Mens',sizes:['XS','S','M','L','XL','XXL']},FM3:{div:'Mens',sizes:['XS','S','M','L','XL','XXL']}},
+  presMins:{},
+  presMinsMeta:{},
   scaleSizes:{},scaleSizeCount:{},hierSales:{},salSKU:{},cols:{},
   dvTab:'inventory',
   expandedWipSku:null,
@@ -438,27 +654,48 @@ const A={
 // ═══ UPLOAD ═══
 function handleUpload(key,inp){
   const file=inp.files[0];if(!file)return;
+  if(!Auth.email){alert('Please log in first.');return}
   const reader=new FileReader();
   reader.onload=async function(ev){
     const text=ev.target.result;
     let hi=detectHeaderRow(text,key);
     A.raw[key]=parseCSV(text,hi,key==='linelist');
     A.rawCSV[key]=text;
-    A.uploadMeta[key]={rows:A.raw[key].length,cols:A.raw[key][0]?Object.keys(A.raw[key][0]).length:0,date:new Date().toLocaleString(),fileName:file.name};
+    const rows=A.raw[key].length;
+    const cols=A.raw[key][0]?Object.keys(A.raw[key][0]).length:0;
+    A.uploadMeta[key]={rows,cols,date:new Date().toLocaleString(),fileName:file.name};
+    A.cloudMeta[key]={updated_by_name:Auth.displayName,updated_by_email:Auth.email,updated_at:new Date().toISOString(),filename:file.name,row_count:rows,col_count:cols};
     updateChip(key);
-    await dbPut('csvdata','raw_'+key,text);
-    await dbPut('csvdata','meta_'+key,A.uploadMeta[key]);
+    toast('Uploading '+key+' to cloud...');
+    try{
+      await cloudUploadCSV(key,text,file.name,rows,cols);
+      toast(key.charAt(0).toUpperCase()+key.slice(1)+' synced · '+fmt(rows)+' rows');
+    }catch(err){
+      console.error('Cloud upload failed:',err);
+      toast('Cloud upload failed: '+err.message);
+    }
     // Build scaleSizes from data whenever linelist or sales/inv is uploaded
     if(allUp())buildScaleSizes();
-    toast(key.charAt(0).toUpperCase()+key.slice(1)+' uploaded · '+fmt(A.raw[key].length)+' rows');
     trySeasons();
+    inp.value='';
   };reader.readAsText(file);
 }
 
 function updateChip(key){
   const chip=document.getElementById('uc-'+key);
   const meta=document.getElementById('um-'+key);
-  if(A.raw[key]&&chip){chip.classList.add('ok');const m=A.uploadMeta[key];if(meta)meta.textContent=fmt(m.rows)+'r × '+m.cols+'c · '+m.date}
+  if(A.raw[key]&&chip){
+    chip.classList.add('ok');
+    const m=A.uploadMeta[key];
+    const cm=A.cloudMeta[key];
+    let txt=fmt(m.rows)+'r × '+m.cols+'c';
+    if(cm&&cm.updated_by_name)txt+=' · '+cm.updated_by_name+' '+formatRelTime(cm.updated_at);
+    else if(m.date)txt+=' · '+m.date;
+    if(meta)meta.textContent=txt;
+  } else if(chip) {
+    chip.classList.remove('ok');
+    if(meta)meta.textContent='';
+  }
 }
 
 function allUp(){return A.raw.inventory&&A.raw.sales&&A.raw.linelist&&A.raw.wip}
@@ -474,150 +711,52 @@ function buildScaleSizes(){
   if(sales&&sales[0]){const sS=findCol(sales[0],['SKU']),sZ=findCol(sales[0],['Size']);sales.forEach(r=>{const sc=skuScale[r[sS]];if(sc&&r[sZ]){if(!A.scaleSizes[sc])A.scaleSizes[sc]=new Set();A.scaleSizes[sc].add(r[sZ])}})}
   if(inv&&inv[0]){const iS=findCol(inv[0],['SKU']),iZ=findCol(inv[0],['Size']);inv.forEach(r=>{const sc=skuScale[r[iS]];if(sc&&r[iZ]){if(!A.scaleSizes[sc])A.scaleSizes[sc]=new Set();A.scaleSizes[sc].add(r[iZ])}})}
   for(const s in A.scaleSizes){A.scaleSizes[s]=[...A.scaleSizes[s]].sort(ssort);A.scaleSizeCount[s]=A.scaleSizes[s].length}
-  // Persist scaleSizes only — presMinsMeta stays user-controlled
-  dbPut('config','scaleSizes',Object.fromEntries(Object.entries(A.scaleSizes).map(([k,v])=>[k,Array.isArray(v)?v:[...v]])));
+  // Cache scaleSizes locally (best-effort; not persisted to cloud since it's derived)
+  try{dbPut('config','scaleSizes',Object.fromEntries(Object.entries(A.scaleSizes).map(([k,v])=>[k,Array.isArray(v)?v:[...v]])))}catch(e){}
 }
 
-async function loadPersistedData(){
+async function loadFromCloud(){
+  // 1. Load CSV metadata + files
+  let cloudCsvMeta={};
+  try{cloudCsvMeta=await cloudListCSVMeta()}
+  catch(err){console.error('cloudListCSVMeta failed:',err);return}
   for(const key of['inventory','sales','linelist','wip']){
-    const text=await dbGet('csvdata','raw_'+key);
-    const meta=await dbGet('csvdata','meta_'+key);
-    if(text&&meta){
-      let hi=detectHeaderRow(text,key);
-      A.raw[key]=parseCSV(text,hi,key==='linelist');
-      A.rawCSV[key]=text;
-      A.uploadMeta[key]=meta;
-      // Validate parsed columns include 'SKU' — if not, the cached parse is corrupt
-      if(A.raw[key]&&A.raw[key][0]){
-        const cols=Object.keys(A.raw[key][0]);
-        const hasSKU=cols.some(c=>c.toLowerCase()==='sku');
-        if(!hasSKU){
-          console.warn('Persisted '+key+' has invalid headers, clearing:',cols);
-          A.raw[key]=null;A.rawCSV[key]=null;
-          await dbDel('csvdata','raw_'+key);await dbDel('csvdata','meta_'+key);
-          continue;
-        }
+    const meta=cloudCsvMeta[key];
+    if(meta&&meta.storage_path){
+      try{
+        const text=await cloudDownloadCSV(meta.storage_path);
+        A.rawCSV[key]=text;
+        let hi=detectHeaderRow(text,key);
+        A.raw[key]=parseCSV(text,hi,key==='linelist');
+        A.uploadMeta[key]={rows:meta.row_count||A.raw[key].length,cols:meta.col_count||0,date:new Date(meta.updated_at).toLocaleString(),fileName:meta.filename||key+'.csv'};
+        A.cloudMeta[key]=meta;
+      }catch(err){
+        console.error('Failed to load CSV',key,err);
+        A.raw[key]=null;A.rawCSV[key]=null;
       }
-      updateChip(key);
+    } else {
+      A.raw[key]=null;A.rawCSV[key]=null;A.uploadMeta[key]=null;A.cloudMeta[key]=null;
     }
+    updateChip(key);
   }
-  const pm=await dbGet('config','presMins');if(pm)A.presMins=pm;
-  const pmm=await dbGet('config','presMinsMeta');if(pmm)A.presMinsMeta=pmm;
-  const ss=await dbGet('config','scaleSizes');
-  if(ss){for(const k in ss){A.scaleSizes[k]=ss[k];A.scaleSizeCount[k]=ss[k].length}}
+  // 2. Load Pres Mins
+  try{
+    const rows=await cloudListPresMins();
+    A.presMins={};A.presMinsMeta={};A.pmMeta={};
+    rows.forEach(r=>{
+      A.presMinsMeta[r.scale_name]={div:r.division||'Mens',sizes:r.sizes||[]};
+      A.presMins[r.scale_name]=r.mins||{};
+      A.pmMeta[r.scale_name]={updated_by_name:r.updated_by_name,updated_by_email:r.updated_by_email,updated_at:r.updated_at};
+    });
+  }catch(err){
+    console.error('cloudListPresMins failed:',err);
+  }
+  // 3. Rebuild derived caches
+  A.scaleSizes={};A.scaleSizeCount={};
   if(allUp())buildScaleSizes();
   trySeasons();
 }
 
-// ═══ CONTEXT SHARING (Export / Import) ═══
-function exportContext(){
-  const bundle={
-    _meta:{
-      app:'Faherty PO Sizing Tool',
-      version:'V6.4',
-      exportedAt:new Date().toISOString(),
-      exportedBy:(typeof navigator!=='undefined'&&navigator.userAgent)?navigator.userAgent.substring(0,80):''
-    },
-    csv:{
-      inventory:A.rawCSV.inventory||null,
-      sales:A.rawCSV.sales||null,
-      linelist:A.rawCSV.linelist||null,
-      wip:A.rawCSV.wip||null
-    },
-    csvMeta:A.uploadMeta||{},
-    config:{
-      presMins:A.presMins||{},
-      presMinsMeta:A.presMinsMeta||{}
-    }
-  };
-  const json=JSON.stringify(bundle,null,2);
-  const blob=new Blob([json],{type:'application/json'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  const stamp=new Date().toISOString().replace(/[:T]/g,'-').split('.')[0];
-  a.href=url;a.download='POSizing_Context_'+stamp+'.json';a.click();
-  URL.revokeObjectURL(url);
-}
-
-function importContext(inputEl){
-  const file=inputEl.files&&inputEl.files[0];
-  if(!file)return;
-  const reader=new FileReader();
-  reader.onload=async function(ev){
-    let bundle;
-    try{bundle=JSON.parse(ev.target.result)}
-    catch(err){alert('Could not parse context file — invalid JSON.\n\n'+err.message);inputEl.value='';return}
-    if(!bundle||!bundle._meta||!bundle.csv){
-      alert('This does not look like a PO Sizing context file. Missing _meta or csv blocks.');
-      inputEl.value='';return;
-    }
-    const stamp=bundle._meta.exportedAt||'unknown date';
-    const ver=bundle._meta.version||'unknown version';
-    const msg='Replace ALL current data with imported context?\n\n'+
-      'From: '+ver+'\n'+
-      'Exported: '+stamp+'\n\n'+
-      'This will:\n'+
-      '• Overwrite all 4 CSV uploads\n'+
-      '• Overwrite Pres Mins configuration\n'+
-      '• Reset accepted SKUs and overrides\n\n'+
-      'Continue?';
-    if(!confirm(msg)){inputEl.value='';return}
-
-    try{
-      // Clear any in-flight per-season state
-      A.activeSeason=null;A.selectedSKU=null;A.view='grid';A.module=null;
-      A.overrides={};A.accepted={};
-
-      // Import CSVs — write to IndexedDB and reparse
-      const csvKeys=['inventory','sales','linelist','wip'];
-      for(const key of csvKeys){
-        const text=bundle.csv[key];
-        if(text){
-          A.rawCSV[key]=text;
-          let hi=detectHeaderRow(text,key);
-          A.raw[key]=parseCSV(text,hi,key==='linelist');
-          const meta=(bundle.csvMeta&&bundle.csvMeta[key])||{
-            rows:A.raw[key].length,
-            cols:A.raw[key][0]?Object.keys(A.raw[key][0]).length:0,
-            date:'imported '+new Date().toLocaleString(),
-            fileName:'imported_'+key+'.csv'
-          };
-          A.uploadMeta[key]=meta;
-          await dbPut('csvdata','raw_'+key,text);
-          await dbPut('csvdata','meta_'+key,meta);
-        } else {
-          A.rawCSV[key]=null;A.raw[key]=null;delete A.uploadMeta[key];
-          await dbPut('csvdata','raw_'+key,null);
-          await dbPut('csvdata','meta_'+key,null);
-        }
-        updateChip(key);
-      }
-
-      // Import config
-      A.presMins=(bundle.config&&bundle.config.presMins)||{};
-      A.presMinsMeta=(bundle.config&&bundle.config.presMinsMeta)||{};
-      await dbPut('config','presMins',A.presMins);
-      await dbPut('config','presMinsMeta',A.presMinsMeta);
-
-      // Rebuild derived caches
-      A.scaleSizes={};A.scaleSizeCount={};
-      if(allUp())buildScaleSizes();
-
-      trySeasons();
-      // Reset count display
-      const ec=document.getElementById('exp-ct');if(ec)ec.textContent='';
-      alert('Context imported successfully.\n\n'+
-        Object.keys(A.uploadMeta).length+' CSV files loaded\n'+
-        Object.keys(A.presMinsMeta).length+' size scales configured');
-    } catch(err){
-      console.error('Import error:',err);
-      alert('Import failed:\n\n'+err.message+'\n\nLocal state may be partially overwritten — refresh the page if anything looks wrong.');
-    }
-    inputEl.value='';
-  };
-  reader.onerror=function(){alert('Could not read file.');inputEl.value=''};
-  reader.readAsText(file);
-}
 
 function trySeasons(){
   const el=document.getElementById('s-area');if(!el)return;
@@ -1759,6 +1898,11 @@ function renderPresMins(el){
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><h3 style="margin:0">'+esc(scale)+' <span style="font-weight:400;color:var(--txt3)">('+sizes.length+' sizes · '+storeSizes+' store)</span></h3>'+
       '<button class="btn btn-g btn-sm" onclick="openEditScaleModal(\''+esc(scale)+'\')">Edit Sizes</button></div>';
     if(meta.div)h+='<span class="pm-div-tag '+divTag+'">'+esc(meta.div)+'</span>';
+    // Attribution
+    const pmm=A.pmMeta&&A.pmMeta[scale];
+    if(pmm&&pmm.updated_by_name){
+      h+='<div style="font-family:var(--mono);font-size:9px;color:var(--txt3);margin:6px 0 10px;letter-spacing:.3px">Last updated by <b style="color:var(--navy);font-family:var(--sans)">'+esc(pmm.updated_by_name)+'</b> · '+formatRelTime(pmm.updated_at)+'</div>';
+    }
     h+='<table class="pm-tbl"><thead><tr><th></th>';
     sizes.forEach(s=>{h+='<th>'+esc(s)+'</th>'});
     h+='</tr></thead><tbody>';
@@ -1794,19 +1938,29 @@ async function acceptPMOverwrites(scale){
   if(!A.presMins[scale])A.presMins[scale]={};
   for(const s in staged)A.presMins[scale][s]=staged[s];
   delete pmStaged[scale];
-  await dbPut('config','presMins',A.presMins);
-  toast(scale+' pres mins updated');render();
+  const meta=A.presMinsMeta[scale]||{div:'Mens',sizes:[]};
+  try{
+    await cloudSavePresMin(scale,meta.div,meta.sizes||[],A.presMins[scale]);
+    A.pmMeta[scale]={updated_by_name:Auth.displayName,updated_by_email:Auth.email,updated_at:new Date().toISOString()};
+    toast(scale+' pres mins updated');
+  }catch(err){
+    console.error('cloudSavePresMin failed:',err);toast('Save failed: '+err.message);
+  }
+  render();
 }
 
 function clearPMStaged(scale){delete pmStaged[scale];render()}
 
 async function deleteScale(scale){
   if(!confirm('Delete size scale "'+scale+'"? This cannot be undone.'))return;
-  delete A.presMins[scale];delete A.presMinsMeta[scale];delete A.scaleSizes[scale];delete A.scaleSizeCount[scale];
-  await dbPut('config','presMins',A.presMins);
-  await dbPut('config','presMinsMeta',A.presMinsMeta);
-  await dbPut('config','scaleSizes',Object.fromEntries(Object.entries(A.scaleSizes).map(([k,v])=>[k,Array.isArray(v)?v:[...v]])));
-  toast(scale+' deleted');render();
+  delete A.presMins[scale];delete A.presMinsMeta[scale];delete A.scaleSizes[scale];delete A.scaleSizeCount[scale];delete A.pmMeta[scale];
+  try{
+    await cloudDeletePresMin(scale);
+    toast(scale+' deleted');
+  }catch(err){
+    console.error('cloudDeletePresMin failed:',err);toast('Delete failed: '+err.message);
+  }
+  render();
 }
 
 // ─── Add/Edit Scale Modal ───
@@ -1883,10 +2037,14 @@ async function saveScale(){
   if(!A.presMins[name])A.presMins[name]={};
   A.presMinsMeta[name]={div:ms.div,sizes:[...ms.sizes]};
   if(!ms.editing&&ms.copyFrom&&A.presMins[ms.copyFrom])A.presMins[name]={...A.presMins[ms.copyFrom]};
-  await dbPut('config','presMins',A.presMins);
-  await dbPut('config','presMinsMeta',A.presMinsMeta);
-  await dbPut('config','scaleSizes',Object.fromEntries(Object.entries(A.scaleSizes).map(([k,v])=>[k,Array.isArray(v)?v:[...v]])));
-  closeModal();toast(name+(ms.editing?' updated':' created'));render();
+  try{
+    await cloudSavePresMin(name,ms.div,ms.sizes,A.presMins[name]);
+    A.pmMeta[name]={updated_by_name:Auth.displayName,updated_by_email:Auth.email,updated_at:new Date().toISOString()};
+    closeModal();toast(name+(ms.editing?' updated':' created'));
+  }catch(err){
+    console.error('cloudSavePresMin failed:',err);toast('Save failed: '+err.message);
+  }
+  render();
 }
 
 // ═══ DATA SOURCES ═══
@@ -1909,23 +2067,43 @@ function renderDataSources(el){
 }
 
 async function cleanupPresMinsV51(){
-  const cleaned=await dbGet('config','cleanedV51');
-  if(cleaned)return;
-  // Keep only M3 and M6 — reset everything else
-  const newPresMins={};
-  const newMeta={};
-  if(A.presMins.M3){newPresMins.M3={...A.presMins.M3}}
-  if(A.presMins.M6){newPresMins.M6={...A.presMins.M6}}
-  if(A.presMinsMeta.M3){newMeta.M3={...A.presMinsMeta.M3}}
-  if(A.presMinsMeta.M6){newMeta.M6={...A.presMinsMeta.M6}}
-  A.presMins=newPresMins;
-  A.presMinsMeta=newMeta;
-  await dbPut('config','presMins',A.presMins);
-  await dbPut('config','presMinsMeta',A.presMinsMeta);
-  await dbPut('config','cleanedV51',true);
+  // No-op in V7.1 — pres mins now live in the cloud, no local migration needed
 }
 
-openDB().then(()=>loadPersistedData()).then(()=>cleanupPresMinsV51()).catch(e=>console.error('DB error:',e));
+// ═══ V7.1 BOOTSTRAP — Auth gate, then cloud load, then realtime ═══
+async function boot(){
+  // Step 1: Open IndexedDB (still used as a fallback / scratch for any edge cases) — but don't block on it
+  try{await openDB()}catch(e){console.warn('IndexedDB unavailable:',e)}
+  // Step 2: Check auth state. Supabase auto-detects session in URL (magic-link return)
+  // and persists it in localStorage.
+  const{data:{session}}=await SUPA.auth.getSession();
+  if(session&&session.user&&session.user.email){
+    onSignedIn(session.user);
+  } else {
+    showLogin();
+  }
+  // Step 3: Listen for auth state changes (magic-link arrival, manual logout, etc.)
+  SUPA.auth.onAuthStateChange((event,session)=>{
+    if(event==='SIGNED_IN'&&session&&session.user){
+      onSignedIn(session.user);
+    } else if(event==='SIGNED_OUT'){
+      showLogin();
+    }
+  });
+}
+
+async function onSignedIn(user){
+  Auth.user=user;
+  Auth.email=user.email;
+  Auth.displayName=deriveDisplayName(user.email);
+  hideLogin();
+  // Load shared data from cloud
+  await loadFromCloud();
+  // Subscribe to realtime updates
+  setupRealtime();
+}
+
+boot().catch(e=>console.error('Boot error:',e));
 </script>
 </body>
 </html>
