@@ -242,11 +242,13 @@ input,select,button,textarea{font-family:inherit}
 <body>
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
-<div class="version-tag">V6.3 · BOP-AWARE ONLINE</div>
+<div class="version-tag">V6.4.1 · DUAL DOWNLOAD FIX</div>
 <div id="welcome">
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
     <button class="pm-link" onclick="goModule('datasources')">📊 Data Sources</button>
+    <button class="pm-link" onclick="exportContext()" title="Download a snapshot of your CSV uploads + Pres Mins config to share with a teammate">⬇ Export Context</button>
+    <label class="pm-link" style="cursor:pointer" title="Import a context snapshot from a teammate (replaces all local data)">⬆ Import Context<input type="file" accept=".json" onchange="importContext(this)" style="display:none"></label>
     <div style="flex:1"></div>
     <label class="u-chip" id="uc-inventory"><span>◫ Inventory</span><span class="meta" id="um-inventory"></span><input type="file" accept=".csv" onchange="handleUpload('inventory',this)"></label>
     <label class="u-chip" id="uc-sales"><span>◰ L52W Sales</span><span class="meta" id="um-sales"></span><input type="file" accept=".csv" onchange="handleUpload('sales',this)"></label>
@@ -505,6 +507,116 @@ async function loadPersistedData(){
   if(ss){for(const k in ss){A.scaleSizes[k]=ss[k];A.scaleSizeCount[k]=ss[k].length}}
   if(allUp())buildScaleSizes();
   trySeasons();
+}
+
+// ═══ CONTEXT SHARING (Export / Import) ═══
+function exportContext(){
+  const bundle={
+    _meta:{
+      app:'Faherty PO Sizing Tool',
+      version:'V6.4',
+      exportedAt:new Date().toISOString(),
+      exportedBy:(typeof navigator!=='undefined'&&navigator.userAgent)?navigator.userAgent.substring(0,80):''
+    },
+    csv:{
+      inventory:A.rawCSV.inventory||null,
+      sales:A.rawCSV.sales||null,
+      linelist:A.rawCSV.linelist||null,
+      wip:A.rawCSV.wip||null
+    },
+    csvMeta:A.uploadMeta||{},
+    config:{
+      presMins:A.presMins||{},
+      presMinsMeta:A.presMinsMeta||{}
+    }
+  };
+  const json=JSON.stringify(bundle,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const stamp=new Date().toISOString().replace(/[:T]/g,'-').split('.')[0];
+  a.href=url;a.download='POSizing_Context_'+stamp+'.json';a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importContext(inputEl){
+  const file=inputEl.files&&inputEl.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async function(ev){
+    let bundle;
+    try{bundle=JSON.parse(ev.target.result)}
+    catch(err){alert('Could not parse context file — invalid JSON.\n\n'+err.message);inputEl.value='';return}
+    if(!bundle||!bundle._meta||!bundle.csv){
+      alert('This does not look like a PO Sizing context file. Missing _meta or csv blocks.');
+      inputEl.value='';return;
+    }
+    const stamp=bundle._meta.exportedAt||'unknown date';
+    const ver=bundle._meta.version||'unknown version';
+    const msg='Replace ALL current data with imported context?\n\n'+
+      'From: '+ver+'\n'+
+      'Exported: '+stamp+'\n\n'+
+      'This will:\n'+
+      '• Overwrite all 4 CSV uploads\n'+
+      '• Overwrite Pres Mins configuration\n'+
+      '• Reset accepted SKUs and overrides\n\n'+
+      'Continue?';
+    if(!confirm(msg)){inputEl.value='';return}
+
+    try{
+      // Clear any in-flight per-season state
+      A.activeSeason=null;A.selectedSKU=null;A.view='grid';A.module=null;
+      A.overrides={};A.accepted={};
+
+      // Import CSVs — write to IndexedDB and reparse
+      const csvKeys=['inventory','sales','linelist','wip'];
+      for(const key of csvKeys){
+        const text=bundle.csv[key];
+        if(text){
+          A.rawCSV[key]=text;
+          let hi=detectHeaderRow(text,key);
+          A.raw[key]=parseCSV(text,hi,key==='linelist');
+          const meta=(bundle.csvMeta&&bundle.csvMeta[key])||{
+            rows:A.raw[key].length,
+            cols:A.raw[key][0]?Object.keys(A.raw[key][0]).length:0,
+            date:'imported '+new Date().toLocaleString(),
+            fileName:'imported_'+key+'.csv'
+          };
+          A.uploadMeta[key]=meta;
+          await dbPut('csvdata','raw_'+key,text);
+          await dbPut('csvdata','meta_'+key,meta);
+        } else {
+          A.rawCSV[key]=null;A.raw[key]=null;delete A.uploadMeta[key];
+          await dbPut('csvdata','raw_'+key,null);
+          await dbPut('csvdata','meta_'+key,null);
+        }
+        updateChip(key);
+      }
+
+      // Import config
+      A.presMins=(bundle.config&&bundle.config.presMins)||{};
+      A.presMinsMeta=(bundle.config&&bundle.config.presMinsMeta)||{};
+      await dbPut('config','presMins',A.presMins);
+      await dbPut('config','presMinsMeta',A.presMinsMeta);
+
+      // Rebuild derived caches
+      A.scaleSizes={};A.scaleSizeCount={};
+      if(allUp())buildScaleSizes();
+
+      trySeasons();
+      // Reset count display
+      const ec=document.getElementById('exp-ct');if(ec)ec.textContent='';
+      alert('Context imported successfully.\n\n'+
+        Object.keys(A.uploadMeta).length+' CSV files loaded\n'+
+        Object.keys(A.presMinsMeta).length+' size scales configured');
+    } catch(err){
+      console.error('Import error:',err);
+      alert('Import failed:\n\n'+err.message+'\n\nLocal state may be partially overwritten — refresh the page if anything looks wrong.');
+    }
+    inputEl.value='';
+  };
+  reader.onerror=function(){alert('Could not read file.');inputEl.value=''};
+  reader.readAsText(file);
 }
 
 function trySeasons(){
@@ -1096,18 +1208,20 @@ function exportCSV(){
     }
   });
 
-  // Download Tab 1
-  const b1=new Blob([linesGlobal.join('\n')],{type:'text/csv'});
-  const u1=URL.createObjectURL(b1);
-  const a1=document.createElement('a');a1.href=u1;a1.download='PO_Sizing_'+A.activeSeason+'_Global.csv';a1.click();
-  URL.revokeObjectURL(u1);
-  // Download Tab 2
-  setTimeout(()=>{
-    const b2=new Blob([linesFlows.join('\n')],{type:'text/csv'});
-    const u2=URL.createObjectURL(b2);
-    const a2=document.createElement('a');a2.href=u2;a2.download='PO_Sizing_'+A.activeSeason+'_Flows.csv';a2.click();
-    URL.revokeObjectURL(u2);
-  },400);
+  // Download both files synchronously within the same user-activation window.
+  // setTimeout would push the 2nd click outside the user gesture and browsers silently drop it.
+  function downloadCSV(text,filename){
+    const blob=new Blob([text],{type:'text/csv'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  downloadCSV(linesGlobal.join('\n'),'PO_Sizing_'+A.activeSeason+'_Global.csv');
+  downloadCSV(linesFlows.join('\n'),'PO_Sizing_'+A.activeSeason+'_Flows.csv');
 }
 
 /* ═══════════════════════════════════════
