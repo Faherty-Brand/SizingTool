@@ -117,10 +117,30 @@ input,select,button,textarea{font-family:inherit}
 /* Grid */
 .gv{padding:20px 24px}.gc{margin-bottom:14px}
 .gc-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.gc-flex{flex-wrap:wrap;row-gap:6px}
 .gc-lbl{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--txt3);margin-right:4px;flex-shrink:0}
 .sb{padding:5px 10px;font-size:10px;font-weight:600;background:var(--wh);color:var(--txt2);border:1px solid var(--bdr-lt);border-radius:4px;cursor:pointer;transition:all var(--t);white-space:nowrap}
 .sb:hover{border-color:var(--blue)}.sb.on{background:var(--navy);color:var(--txti);border-color:var(--navy)}
-.fsel{padding:5px 8px;font-size:10px;font-weight:500;background:var(--wh);color:var(--txt);border:1px solid var(--bdr-lt);border-radius:4px;outline:none;cursor:pointer}.fsel.dim{opacity:.5}
+.fsel{padding:5px 8px;font-size:10px;font-weight:500;background:var(--wh);color:var(--txt);border:1px solid var(--bdr-lt);border-radius:4px;outline:none;cursor:pointer;transition:all var(--t)}
+.fsel.dim{opacity:.5}
+.fsel.on{background:var(--navy);color:var(--txti);border-color:var(--navy);font-weight:600}
+.fsel.on option{background:var(--wh);color:var(--txt)}
+.sb.clear-filters{background:#fdf3e6;color:#8a3d1e;border:1px solid #c4572a;font-weight:700}
+.sb.clear-filters:hover{background:#c4572a;color:#fff}
+
+/* Division pills (in dash header next to season name) */
+.dv-pill{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.5px;padding:5px 11px;border-radius:14px;border:1.5px solid;cursor:pointer;transition:all var(--t);background:var(--wh);text-transform:uppercase}
+.dv-pill:hover{transform:translateY(-1px)}
+.dv-pill-static{cursor:default}.dv-pill-static:hover{transform:none}
+.dv-pill.dv-pill-all{color:var(--txt2);border-color:var(--bdr)}
+.dv-pill.dv-pill-all.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.dv-pill.div-m{color:var(--blue);border-color:var(--blue)}
+.dv-pill.div-m.on,.dv-pill.div-m.dv-pill-static{background:var(--blue);color:#fff}
+.dv-pill.div-w{color:var(--pink);border-color:var(--pink)}
+.dv-pill.div-w.on,.dv-pill.div-w.dv-pill-static{background:var(--pink);color:#fff}
+.dv-pill.div-n{color:var(--slate);border-color:var(--slate)}
+.dv-pill.div-n.on,.dv-pill.div-n.dv-pill-static{background:var(--slate);color:#fff}
+#division-pills{display:flex;gap:6px;align-items:center}
 .sbar{padding:7px 12px;font-size:12px;background:var(--wh);color:var(--txt);border:1px solid var(--bdr-lt);border-radius:var(--r);outline:none;width:220px}.sbar:focus{border-color:var(--blue)}.sbar::placeholder{color:var(--txt3)}
 .sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
 .sc{padding:14px 16px;background:var(--wh);border:2px solid var(--bdr-lt);border-radius:var(--rl);cursor:pointer;transition:all .15s;position:relative}
@@ -297,7 +317,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V7.3 · PILL/BUTTON/EXPORT FIXES</div>
+<div class="version-tag">V7.3.1 · FILTER UI POLISH</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -334,7 +354,7 @@ input,select,button,textarea{font-family:inherit}
 </div>
 <div id="dash">
   <div class="top">
-    <div class="top-l"><div class="stitle" id="slbl"></div></div>
+    <div class="top-l"><div class="stitle" id="slbl"></div><div id="division-pills"></div></div>
     <div class="top-r">
       <span class="exp-ct" id="exp-ct"></span>
       <button class="btn btn-g" onclick="backToWelcome()">Return to Homepage</button>
@@ -829,6 +849,7 @@ function goSeason(s){
   document.getElementById('dash').classList.add('active');
   document.getElementById('slbl').textContent=s;
   render();
+  renderDivisionPills();
   updateExpCt();
 }
 
@@ -1370,7 +1391,7 @@ function goDetail(sku){A.selectedSKU=sku;A.view='detail';A.module=null;A.chartMe
 function goGrid(){A.selectedSKU=null;A.view='grid';A.module=null;render()}
 function goModule(m){A.module=m;document.getElementById('welcome').classList.add('hidden');document.getElementById('dash').classList.add('active');document.getElementById('slbl').textContent=A.activeSeason||'';render()}
 function goBackFromModule(){A.module=null;if(!A.activeSeason){backToWelcome()}else{render()}}
-function backToWelcome(){document.getElementById('dash').classList.remove('active');document.getElementById('welcome').classList.remove('hidden');A.view='grid';A.module=null;trySeasons();const el=document.getElementById('exp-ct');if(el)el.textContent=''}
+function backToWelcome(){document.getElementById('dash').classList.remove('active');document.getElementById('welcome').classList.remove('hidden');A.view='grid';A.module=null;trySeasons();const el=document.getElementById('exp-ct');if(el)el.textContent='';const dp=document.getElementById('division-pills');if(dp)dp.innerHTML=''}
 function setOvr(sku,sz,v){if(!A.overrides[sku])A.overrides[sku]={};A.overrides[sku][sz]=parseInt(v)||0;render()}
 function clrOvr(sku){delete A.overrides[sku];render()}
 function toggleAcc(sku){A.accepted[sku]?delete A.accepted[sku]:A.accepted[sku]=true;updateExpCt();render()}
@@ -1398,19 +1419,21 @@ function exportCSV(){
 
   // SIZE_COLS now includes a section tag for each column.
   // section: 'kidsOS' (Kids & OS — sizes 2T-XXXL plus shared 6/8/10 for kids), 'mw' (Mens & Womens)
-  // For the previously-duplicated sizes (6, 8, 10), we keep a single canonical column for each
-  // and tag it as 'mw' (since adult women's 6/8/10 is the more common use case in apparel).
-  // Kids' 6/8/10 sizes are not represented separately in this dataset; if needed later, suffix would distinguish.
-  // We rename women's "00"/"0" to "00W"/"0W" so Excel won't render them indistinguishably from numeric "0".
+  // Kids 6/8/10 share numeric labels with women's adult, so kidsMatch:true gates them to kids only.
+  // We rename women's "00"/"0" to "00_"/"0_" so Excel won't render them indistinguishably from numeric "0".
   const SIZE_DEFS=[
     // Kids & OS
-    {col:'2T',sec:'kidsOS'},{col:'3T',sec:'kidsOS'},{col:'4T',sec:'kidsOS'},{col:'5',sec:'kidsOS'},{col:'OS',sec:'kidsOS'},
+    {col:'2T',sec:'kidsOS'},{col:'3T',sec:'kidsOS'},{col:'4T',sec:'kidsOS'},{col:'5',sec:'kidsOS'},
+    // Kids 6/8/10 — same numeric label as women's adult, but in the kidsOS section.
+    // We use a `kidsMatch:true` flag so that population logic skips these for non-kids divisions.
+    {col:'6',sec:'kidsOS',kidsMatch:true},{col:'8',sec:'kidsOS',kidsMatch:true},{col:'10',sec:'kidsOS',kidsMatch:true},
+    {col:'OS',sec:'kidsOS'},
     // Mens & Womens — letter sizes
     {col:'XXS',sec:'mw'},{col:'XS',sec:'mw'},{col:'S',sec:'mw'},{col:'M',sec:'mw'},{col:'L',sec:'mw'},{col:'XL',sec:'mw'},{col:'XXL',sec:'mw'},{col:'XXXL',sec:'mw'},
     {col:'XS/S',sec:'mw'},{col:'S/M',sec:'mw'},{col:'M/L',sec:'mw'},{col:'L/XL',sec:'mw'},
     {col:'MT',sec:'mw'},{col:'LT',sec:'mw'},{col:'XLT',sec:'mw'},{col:'XXLT',sec:'mw'},
     // Mens & Womens — Womens dress sizes (renamed to avoid Excel's leading-zero collapse on 00/0)
-    {col:'00W',sec:'mw',match:'00'},{col:'0W',sec:'mw',match:'0'},
+    {col:'00_',sec:'mw',match:'00'},{col:'0_',sec:'mw',match:'0'},
     {col:'2',sec:'mw'},{col:'4',sec:'mw'},{col:'6',sec:'mw'},{col:'8',sec:'mw'},{col:'10',sec:'mw'},
     {col:'12',sec:'mw'},{col:'14',sec:'mw'},{col:'16',sec:'mw'},
     // Mens & Womens — numeric (waist/etc.)
@@ -1459,12 +1482,16 @@ function exportCSV(){
     const isOSLike=(r.sizes||[]).some(s=>s==='OS');
     const sizeVals=SIZE_DEFS.map(def=>{
       // Match the SKU's actual size key against this column
-      // Use def.match if provided (renamed columns like 00W → match '00'), otherwise def.col
+      // Use def.match if provided (renamed columns like 00_ → match '00'), otherwise def.col
       const lookupKey=def.match!==undefined?def.match:def.col;
       const matchedSku=Object.keys(sizeMap).find(k=>k.toUpperCase()===String(lookupKey).toUpperCase());
       if(!matchedSku)return '';
       // Section gating: only populate columns belonging to this SKU's section
-      if(def.sec==='kidsOS'&&!isKidsLike&&!isOSLike)return '';
+      if(def.sec==='kidsOS'){
+        // Kids 6/8/10 columns share label with adult — only populate for actual kids
+        if(def.kidsMatch&&!isKidsLike)return '';
+        if(!def.kidsMatch&&!isKidsLike&&!isOSLike)return '';
+      }
       if(def.sec==='mw'&&isKidsLike&&!isOSLike)return '';
       return sizeMap[matchedSku]||'';
     });
@@ -1675,31 +1702,90 @@ function getFiltered(){
   });return list;
 }
 
-// Compute filter options reactively — sub-filters only show values valid given the higher-level filter
+// Compute filter options reactively — each filter's dropdown shows only values that remain
+// possible given ALL OTHER active filters (excluding itself, so the user can change selection).
 function getFilterOptions(){
   const all=Object.values(A.skus).filter(r=>r.sizingType!=='nosize');
   const f=A.filters;
-  // Divisions: always all
-  const divs=[...new Set(all.map(r=>r.division).filter(Boolean))].sort();
-  // Categories: filtered by division
-  let catBase=all;if(f.division!=='All')catBase=catBase.filter(r=>r.division===f.division);
-  const cats=[...new Set(catBase.map(r=>r.category).filter(Boolean))].sort();
-  // Subcategories: filtered by division + category
-  let subBase=catBase;if(f.category!=='All')subBase=subBase.filter(r=>r.category===f.category);
-  const subs=[...new Set(subBase.map(r=>r.subcategory).filter(Boolean))].sort();
-  // Size scales: filtered by all of the above
-  let scaleBase=subBase;if(f.subcategory!=='All')scaleBase=scaleBase.filter(r=>r.subcategory===f.subcategory);
-  const scales=[...new Set(scaleBase.map(r=>r.sizeScale).filter(Boolean))].sort();
-  // Commit codes: independent of cascade; just unique values across the season
-  // Include "—" entry if any SKU has empty commit code
-  const commitsRaw=[...new Set(all.map(r=>r.commitCoding).filter(Boolean))].sort();
-  const hasEmptyCommit=all.some(r=>!(r.commitCoding||'').trim());
+  // Helper: apply all filters EXCEPT the named one
+  function applyFiltersExcept(skipKey){
+    return all.filter(r=>{
+      if(skipKey!=='type'&&f.type!=='All'&&r.sizingType!==f.type)return false;
+      if(skipKey!=='division'&&f.division!=='All'&&r.division!==f.division)return false;
+      if(skipKey!=='category'&&f.category!=='All'&&r.category!==f.category)return false;
+      if(skipKey!=='subcategory'&&f.subcategory!=='All'&&r.subcategory!==f.subcategory)return false;
+      if(skipKey!=='sizeScale'&&f.sizeScale!=='All'&&r.sizeScale!==f.sizeScale)return false;
+      if(skipKey!=='commitCoding'&&f.commitCoding!=='All'){
+        if(f.commitCoding==='—'&&(r.commitCoding||'').trim())return false;
+        if(f.commitCoding!=='—'&&(r.commitCoding||'')!==f.commitCoding)return false;
+      }
+      if(skipKey!=='ssConfigured'&&f.ssConfigured!=='All'){
+        const meta=A.presMinsMeta[r.sizeScale||''];
+        const isConfigured=!!(meta&&Array.isArray(meta.sizes)&&meta.sizes.length>0);
+        const want=f.ssConfigured==='Configured';
+        if(want!==isConfigured)return false;
+      }
+      if(skipKey!=='storeCount'&&f.storeCount!=='All'){
+        const sc=r.storeCount;
+        if(f.storeCount==='0'&&sc!==0)return false;
+        if(f.storeCount==='1-25'&&!(sc>=1&&sc<=25))return false;
+        if(f.storeCount==='26-50'&&!(sc>=26&&sc<=50))return false;
+        if(f.storeCount==='51-90'&&!(sc>=51&&sc<=90))return false;
+        if(f.storeCount==='91+'&&!(sc>=91))return false;
+      }
+      if(skipKey!=='accepted'&&f.accepted!=='All'){
+        if(f.accepted==='Accepted'&&!A.accepted[r.sku])return false;
+        if(f.accepted==='Pending'&&A.accepted[r.sku])return false;
+      }
+      return true;
+    });
+  }
+  const divsBase=applyFiltersExcept('division');
+  const divs=[...new Set(divsBase.map(r=>r.division).filter(Boolean))].sort();
+  const catsBase=applyFiltersExcept('category');
+  const cats=[...new Set(catsBase.map(r=>r.category).filter(Boolean))].sort();
+  const subsBase=applyFiltersExcept('subcategory');
+  const subs=[...new Set(subsBase.map(r=>r.subcategory).filter(Boolean))].sort();
+  const scalesBase=applyFiltersExcept('sizeScale');
+  const scales=[...new Set(scalesBase.map(r=>r.sizeScale).filter(Boolean))].sort();
+  const commitsBase=applyFiltersExcept('commitCoding');
+  const commitsRaw=[...new Set(commitsBase.map(r=>r.commitCoding).filter(Boolean))].sort();
+  const hasEmptyCommit=commitsBase.some(r=>!(r.commitCoding||'').trim());
   const commits=hasEmptyCommit?['—',...commitsRaw]:commitsRaw;
-  return{divs,cats,subs,scales,commits};
+  // SS Configured: which states are still possible?
+  const ssBase=applyFiltersExcept('ssConfigured');
+  const ssHasConfigured=ssBase.some(r=>{const m=A.presMinsMeta[r.sizeScale||''];return!!(m&&Array.isArray(m.sizes)&&m.sizes.length>0)});
+  const ssHasUnconfigured=ssBase.some(r=>{const m=A.presMinsMeta[r.sizeScale||''];return!(m&&Array.isArray(m.sizes)&&m.sizes.length>0)});
+  // Store Count: which buckets are still possible?
+  const stBase=applyFiltersExcept('storeCount');
+  const stPossible=new Set();
+  stBase.forEach(r=>{
+    const sc=r.storeCount;
+    if(sc===0)stPossible.add('0');
+    else if(sc<=25)stPossible.add('1-25');
+    else if(sc<=50)stPossible.add('26-50');
+    else if(sc<=90)stPossible.add('51-90');
+    else stPossible.add('91+');
+  });
+  // Type: which types still exist?
+  const typeBase=applyFiltersExcept('type');
+  const typeHasCF=typeBase.some(r=>r.sizingType==='cf');
+  const typeHasInitials=typeBase.some(r=>r.sizingType==='initials');
+  // Accepted: which still exist?
+  const accBase=applyFiltersExcept('accepted');
+  const accHasAccepted=accBase.some(r=>!!A.accepted[r.sku]);
+  const accHasPending=accBase.some(r=>!A.accepted[r.sku]);
+  return{divs,cats,subs,scales,commits,
+    ssOptions:{Configured:ssHasConfigured,'Not Configured':ssHasUnconfigured},
+    stOptions:stPossible,
+    typeOptions:{cf:typeHasCF,initials:typeHasInitials},
+    accOptions:{Accepted:accHasAccepted,Pending:accHasPending}
+  };
 }
 
 function renderGrid(el){
-  const{divs,cats,subs,scales,commits}=getFilterOptions();
+  const fo=getFilterOptions();
+  const{divs,cats,subs,scales,commits,ssOptions,stOptions,typeOptions,accOptions}=fo;
   function opts(arr,lbl,cur){let h='<option value="All">'+lbl+': All</option>';arr.forEach(v=>{h+='<option value="'+esc(v)+'"'+(cur===v?' selected':'')+'>'+esc(v)+'</option>'});return h}
   function sb(k,l){
     const on=A.sortKey===k;
@@ -1711,20 +1797,45 @@ function renderGrid(el){
   if(A.filters.subcategory!=='All'&&!subs.includes(A.filters.subcategory))A.filters.subcategory='All';
   if(A.filters.sizeScale!=='All'&&!scales.includes(A.filters.sizeScale))A.filters.sizeScale='All';
   if(A.filters.commitCoding!=='All'&&!commits.includes(A.filters.commitCoding))A.filters.commitCoding='All';
+  // Auto-snap singletons: if only ONE option exists for a cascadable filter and current=All, auto-select
+  if(A.filters.category==='All'&&cats.length===1)A.filters.category=cats[0];
+  if(A.filters.subcategory==='All'&&subs.length===1)A.filters.subcategory=subs[0];
+  if(A.filters.sizeScale==='All'&&scales.length===1)A.filters.sizeScale=scales[0];
+  if(A.filters.commitCoding==='All'&&commits.length===1)A.filters.commitCoding=commits[0];
+  // Helper for "active filter" highlight
+  function fcls(active){return 'fsel'+(active?' on':'')}
+  // Helper that conditionally disables an option
+  function ssOpt(label){
+    const present=ssOptions[label]!==false;
+    return '<option value="'+label+'"'+(A.filters.ssConfigured===label?' selected':'')+(present?'':' disabled')+'>'+label+(present?'':' (0)')+'</option>';
+  }
+  function stOpt(val,label){
+    const present=stOptions.has(val);
+    return '<option value="'+val+'"'+(A.filters.storeCount===val?' selected':'')+(present?'':' disabled')+'>'+label+(present?'':' (0)')+'</option>';
+  }
+  function typeOpt(val,label){
+    const present=typeOptions[val];
+    return '<option value="'+val+'"'+(A.filters.type===val?' selected':'')+(present?'':' disabled')+'>'+label+(present?'':' (0)')+'</option>';
+  }
+  function accOpt(val,label){
+    const present=accOptions[val];
+    return '<option value="'+val+'"'+(A.filters.accepted===val?' selected':'')+(present?'':' disabled')+'>'+label+(present?'':' (0)')+'</option>';
+  }
+  // How many filters are active (not 'All')?
+  const activeFilters=Object.entries(A.filters).filter(([k,v])=>k!=='division'&&v!=='All').length;
   let h='<div class="gv"><div class="gc"><div class="gc-row">'+
     '<span class="gc-lbl">Sort</span>'+sb('dtcBuy',A.activeSeason+' Buy')+sb('postBuy','Post-Buy OH')+sb('currentOH','Current OH')+sb('sized','Units Sized')+
     '<div style="flex:1"></div><input class="sbar" id="grid-search" type="text" placeholder="Search..." value="'+esc(A.searchTerm)+'" oninput="A.searchTerm=this.value;renderGridCards()">'+
-  '</div><div class="gc-row"><span class="gc-lbl">Filter</span>'+
-    '<select class="fsel" onchange="setFilter(\'type\',this.value)"><option value="All">Type: All</option><option value="cf"'+(A.filters.type==='cf'?' selected':'')+'>CF</option><option value="initials"'+(A.filters.type==='initials'?' selected':'')+'>Initials</option></select>'+
-    '<select class="fsel'+(divs.length<=1?' dim':'')+'" onchange="setFilter(\'division\',this.value)">'+opts(divs,'Division',A.filters.division)+'</select>'+
-    '<select class="fsel'+(cats.length<=1?' dim':'')+'" onchange="setFilter(\'category\',this.value)">'+opts(cats,'Category',A.filters.category)+'</select>'+
-    '<select class="fsel'+(subs.length<=1?' dim':'')+'" onchange="setFilter(\'subcategory\',this.value)">'+opts(subs,'Subcategory',A.filters.subcategory)+'</select>'+
-    '<select class="fsel'+(scales.length<=1?' dim':'')+'" onchange="setFilter(\'sizeScale\',this.value)">'+opts(scales,'Size Scale',A.filters.sizeScale)+'</select>'+
-    '<select class="fsel'+(commits.length<=1?' dim':'')+'" onchange="setFilter(\'commitCoding\',this.value)">'+opts(commits,'Commit Code',A.filters.commitCoding)+'</select>'+
-  '</div><div class="gc-row"><span class="gc-lbl"></span>'+
-    '<select class="fsel" onchange="setFilter(\'ssConfigured\',this.value)"><option value="All">SS Configured: All</option><option value="Configured"'+(A.filters.ssConfigured==='Configured'?' selected':'')+'>Configured</option><option value="Not Configured"'+(A.filters.ssConfigured==='Not Configured'?' selected':'')+'>Not Configured</option></select>'+
-    '<select class="fsel" onchange="setFilter(\'storeCount\',this.value)"><option value="All">Store Count: All</option><option value="0"'+(A.filters.storeCount==='0'?' selected':'')+'>0</option><option value="1-25"'+(A.filters.storeCount==='1-25'?' selected':'')+'>1–25</option><option value="26-50"'+(A.filters.storeCount==='26-50'?' selected':'')+'>26–50</option><option value="51-90"'+(A.filters.storeCount==='51-90'?' selected':'')+'>51–90</option><option value="91+"'+(A.filters.storeCount==='91+'?' selected':'')+'>91+</option></select>'+
-    '<select class="fsel" onchange="setFilter(\'accepted\',this.value)"><option value="All">Status: All</option><option value="Accepted"'+(A.filters.accepted==='Accepted'?' selected':'')+'>Accepted</option><option value="Pending"'+(A.filters.accepted==='Pending'?' selected':'')+'>Pending</option></select>'+
+  '</div><div class="gc-row gc-flex"><span class="gc-lbl">Filter</span>'+
+    '<select class="'+fcls(A.filters.type!=='All')+'" onchange="setFilter(\'type\',this.value)"><option value="All">Type: All</option>'+typeOpt('cf','CF')+typeOpt('initials','Initials')+'</select>'+
+    '<select class="'+fcls(A.filters.category!=='All')+(cats.length<=1?' dim':'')+'" onchange="setFilter(\'category\',this.value)">'+opts(cats,'Category',A.filters.category)+'</select>'+
+    '<select class="'+fcls(A.filters.subcategory!=='All')+(subs.length<=1?' dim':'')+'" onchange="setFilter(\'subcategory\',this.value)">'+opts(subs,'Subcategory',A.filters.subcategory)+'</select>'+
+    '<select class="'+fcls(A.filters.sizeScale!=='All')+(scales.length<=1?' dim':'')+'" onchange="setFilter(\'sizeScale\',this.value)">'+opts(scales,'Size Scale',A.filters.sizeScale)+'</select>'+
+    '<select class="'+fcls(A.filters.commitCoding!=='All')+(commits.length<=1?' dim':'')+'" onchange="setFilter(\'commitCoding\',this.value)">'+opts(commits,'Commit Code',A.filters.commitCoding)+'</select>'+
+    '<select class="'+fcls(A.filters.ssConfigured!=='All')+'" onchange="setFilter(\'ssConfigured\',this.value)"><option value="All">SS Configured: All</option>'+ssOpt('Configured')+ssOpt('Not Configured')+'</select>'+
+    '<select class="'+fcls(A.filters.storeCount!=='All')+'" onchange="setFilter(\'storeCount\',this.value)"><option value="All">Store Count: All</option>'+stOpt('0','0')+stOpt('1-25','1–25')+stOpt('26-50','26–50')+stOpt('51-90','51–90')+stOpt('91+','91+')+'</select>'+
+    '<select class="'+fcls(A.filters.accepted!=='All')+'" onchange="setFilter(\'accepted\',this.value)"><option value="All">Status: All</option>'+accOpt('Accepted','Accepted')+accOpt('Pending','Pending')+'</select>'+
+    (activeFilters>0?'<button class="sb mass-btn clear-filters" onclick="clearAllFilters()" title="Clear all active filters">✕ Clear Filters ('+activeFilters+')</button>':'')+
     '<div style="flex:1"></div><span class="gc-lbl" id="sku-count"></span>'+
     '<button class="sb mass-btn mass-acc" onclick="massAccept()" title="Accept all SKUs in current filter">✓ Accept All Filtered</button>'+
     '<button class="sb mass-btn mass-unacc" onclick="massUnaccept()" title="Revert all filtered SKUs to pending">✕ Unaccept All Filtered</button>'+
@@ -1744,6 +1855,45 @@ function setFilter(key,val){
   A.filters[key]=val;
   // Re-render full grid so dropdowns reflect cascading options
   renderGrid(document.getElementById('main-area'));
+}
+
+function setDivision(div){
+  A.filters.division=div;
+  // Re-render the seasonal grid (cascade resets & filter dropdowns refresh) AND the division pills
+  renderGrid(document.getElementById('main-area'));
+  renderDivisionPills();
+}
+
+function clearAllFilters(){
+  // Reset every filter EXCEPT division (which is now controlled by header pills)
+  const keepDiv=A.filters.division;
+  A.filters={type:'All',division:keepDiv,category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All'};
+  A.searchTerm='';
+  renderGrid(document.getElementById('main-area'));
+}
+
+function renderDivisionPills(){
+  const host=document.getElementById('division-pills');
+  if(!host)return;
+  if(!A.activeSeason||!A.skus){host.innerHTML='';return}
+  const all=Object.values(A.skus).filter(r=>r.sizingType!=='nosize');
+  const divs=[...new Set(all.map(r=>r.division).filter(Boolean))].sort();
+  if(!divs.length){host.innerHTML='';return}
+  function divCls(d){return d==='Womens'?'div-w':(d==='Non-Apparel'||d==='Accessories'||d==='Footwear')?'div-n':'div-m'}
+  let h='';
+  if(divs.length===1){
+    // Only one division — show as a static highlighted pill, no toggle
+    const d=divs[0];
+    h+='<span class="dv-pill dv-pill-static '+divCls(d)+'">'+esc(d)+'</span>';
+    if(A.filters.division!=='All')A.filters.division='All'; // ensure no over-restrict
+  } else {
+    const cur=A.filters.division||'All';
+    h+='<button class="dv-pill dv-pill-all'+(cur==='All'?' on':'')+'" onclick="setDivision(\'All\')">All</button>';
+    divs.forEach(d=>{
+      h+='<button class="dv-pill '+divCls(d)+(cur===d?' on':'')+'" onclick="setDivision(\''+esc(d)+'\')">'+esc(d)+'</button>';
+    });
+  }
+  host.innerHTML=h;
 }
 
 function renderGridCards(){
@@ -1785,13 +1935,18 @@ function renderGridCards(){
       }catch(e){sizedTotal=0}
     }
     const bought=r.dtcBuy||0;
-    // 3-tier color: Green (match), Yellow (off by 1-2), Red (off by 3+)
+    // 3-tier color: Green (match), Yellow (off by 1-2), Red (off by 3+, OR not configured with non-zero buy)
     let sizedCls='sc-sized-ok';
-    if(pmConfigured){
-      const variance=Math.abs(sizedTotal-bought);
-      if(variance===0)sizedCls='sc-sized-ok';
-      else if(variance<3)sizedCls='sc-sized-warn';
-      else sizedCls='sc-sized-bad';
+    if(bought>0){
+      if(!pmConfigured){
+        // SKU has a buy but no pres mins — output is broken. Always red.
+        sizedCls='sc-sized-bad';
+      } else {
+        const variance=Math.abs(sizedTotal-bought);
+        if(variance===0)sizedCls='sc-sized-ok';
+        else if(variance<3)sizedCls='sc-sized-warn';
+        else sizedCls='sc-sized-bad';
+      }
     }
 
     // Delivery month (short form)
