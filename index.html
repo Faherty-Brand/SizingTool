@@ -222,6 +222,9 @@ input,select,button,textarea{font-family:inherit}
 .dt .rt{background:var(--sand-lt);font-weight:700}.dt .rt td{border-top:2px solid var(--bdr);border-bottom:2px solid var(--bdr);padding:8px 10px}
 /* Pending receipts inline date columns (when expanded) */
 .dt th.cod-date{background:rgba(196,87,42,.13)!important;color:var(--orange);font-weight:700;border-left:1px dashed var(--orange-md);border-right:1px dashed var(--orange-md);white-space:nowrap;font-size:9px;letter-spacing:0}
+.size-row-online{color:var(--pink);font-weight:700}
+.dt tr.size-row-online-row{background:rgba(192,90,138,.04)}
+.dt tr.size-row-online-row:hover{background:rgba(192,90,138,.09)}
 .dt td.cod-date{background:rgba(196,87,42,.04);font-family:var(--mono);font-size:10px;text-align:right;border-left:1px dashed var(--orange-md);border-right:1px dashed var(--orange-md)}
 .dt .rt td.cod-date{background:rgba(196,87,42,.13);color:var(--orange)}
 
@@ -247,6 +250,8 @@ input,select,button,textarea{font-family:inherit}
 .pm-div-m{color:var(--blue);background:var(--blue-pl)}.pm-div-w{color:var(--pink);background:var(--pink-pl)}.pm-div-n{color:var(--slate);background:var(--slate-pl)}
 .pm-tbl{width:auto;border-collapse:collapse;min-width:100%}
 .pm-tbl th{padding:5px 8px;font-family:var(--mono);font-size:9px;font-weight:600;text-transform:uppercase;color:var(--txt3);text-align:center;border-bottom:1px solid var(--bdr-lt);white-space:nowrap}
+.pm-tbl th.pm-th-online{color:var(--pink);background:rgba(192,90,138,.08)}
+.pm-tbl td.pm-cell-online{background:rgba(192,90,138,.04)}
 .pm-tbl td{padding:4px 6px;text-align:center;white-space:nowrap}
 .pm-tbl .pm-row-lbl{font-family:var(--mono);font-size:9px;font-weight:600;color:var(--txt3);text-align:left;padding-right:12px;text-transform:uppercase;letter-spacing:.5px}
 .pm-tbl .pm-sep td{border-top:1px solid var(--bdr-lt);padding-top:6px}
@@ -268,12 +273,50 @@ input,select,button,textarea{font-family:inherit}
 .modal-copy-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .modal-copy-btn{padding:5px 12px;font-size:11px;font-weight:600;font-family:var(--mono);border-radius:4px;cursor:pointer;border:1px solid var(--bdr-lt);background:var(--wh);color:var(--txt2)}.modal-copy-btn:hover{border-color:var(--blue)}.modal-copy-btn.sel{border-color:var(--blue);background:var(--blue-pl);color:var(--blue)}
 .tag-area{display:flex;flex-wrap:wrap;gap:4px;padding:8px;min-height:40px;background:var(--sand-lt);border:1px solid var(--bdr);border-radius:var(--r);margin-top:6px;align-items:center;cursor:text}.tag-area:focus-within{border-color:var(--blue)}
+.tag-area-reorder{background:var(--blue-pl);border-color:var(--blue);cursor:default}
 .size-tag{font-family:var(--mono);font-size:11px;font-weight:600;padding:3px 8px;background:var(--blue-pl);color:var(--blue);border-radius:4px;display:flex;align-items:center;gap:4px}
-.size-tag .tag-x{cursor:pointer;font-size:13px;color:var(--txt3);line-height:1}.size-tag .tag-x:hover{color:var(--red)}
+.size-tag.size-tag-online{background:rgba(192,90,138,.12);color:var(--pink);border:1px solid rgba(192,90,138,.4)}
+.size-tag .tag-label{cursor:pointer;user-select:none}
+.size-tag .tag-label:hover{text-decoration:underline}
+.size-tag .tag-x{cursor:pointer;font-size:13px;color:var(--txt3);line-height:1;margin-left:2px}
+.size-tag .tag-x:hover{color:var(--red)}
+.size-tag-reorder{padding:2px 4px}
+.size-tag-reorder .tag-label{cursor:default;padding:0 4px}
+.size-tag-reorder .tag-label:hover{text-decoration:none}
+.tag-arrow{background:var(--wh);border:1px solid var(--bdr);border-radius:3px;padding:1px 6px;font-size:10px;cursor:pointer;color:var(--blue);font-weight:700}
+.tag-arrow:hover:not(:disabled){background:var(--blue);color:#fff}
+.tag-arrow:disabled{opacity:.3;cursor:not-allowed}
 .tag-input{border:none;outline:none;background:transparent;font-family:var(--mono);font-size:12px;color:var(--txt);min-width:60px;flex:1;padding:2px}
 .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:24px}
 /* Data viewer */
 .dv-page{padding:24px 28px 60px}.dv-tabs{display:flex;gap:4px;margin-bottom:14px}
+
+/* Changelog */
+.cl-page{padding:24px 28px 60px;max-width:1100px}
+.cl-filters{display:flex;gap:6px;margin-bottom:18px}
+.cl-list{display:flex;flex-direction:column;gap:6px}
+.cl-loading,.cl-empty{font-family:var(--mono);font-size:11px;color:var(--txt3);padding:20px;text-align:center}
+.cl-row{background:var(--wh);border:1px solid var(--bdr-lt);border-radius:var(--rs);padding:11px 14px;border-left-width:3px;transition:all var(--t)}
+.cl-row.cl-expandable{cursor:pointer}
+.cl-row.cl-expandable:hover{background:var(--sand-lt);border-color:var(--bdr)}
+.cl-row.cl-cat-csv{border-left-color:var(--orange)}
+.cl-row.cl-cat-pm{border-left-color:var(--blue)}
+.cl-row-main{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cl-cat-tag{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.6px;padding:2px 7px;border-radius:3px;flex-shrink:0}
+.cl-cat-tag.cl-cat-csv{background:var(--orange-pl);color:var(--orange)}
+.cl-cat-tag.cl-cat-pm{background:var(--blue-pl);color:var(--blue)}
+.cl-actor{font-weight:700;color:var(--navy);font-size:13px;flex-shrink:0}
+.cl-summary{color:var(--txt);font-size:12px;flex:1;min-width:200px}
+.cl-time{font-family:var(--mono);font-size:10px;color:var(--txt3);flex-shrink:0;letter-spacing:.3px}
+.cl-chevron{color:var(--txt3);font-size:11px;flex-shrink:0;margin-left:4px}
+.cl-detail{margin-top:10px;padding:10px 12px;background:var(--sand-lt);border-radius:var(--rs);border:1px solid var(--bdr-lt)}
+.cl-diff{font-family:var(--mono);font-size:11px;width:auto;border-collapse:collapse}
+.cl-diff th{font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;color:var(--txt3);letter-spacing:.5px;text-align:left;padding:4px 12px 4px 4px}
+.cl-diff td{padding:3px 12px 3px 4px}
+.cl-diff-size{font-weight:700;color:var(--navy)}
+.cl-diff-from{color:var(--txt2)}
+.cl-diff-arrow{color:var(--txt3)}
+.cl-diff-to{color:var(--green);font-weight:700}
 .dv-tab{padding:7px 16px;font-size:11px;font-weight:600;background:var(--wh);color:var(--txt2);border:1px solid var(--bdr-lt);border-radius:var(--r);cursor:pointer}.dv-tab:hover{border-color:var(--blue)}.dv-tab.on{background:var(--navy);color:var(--txti);border-color:var(--navy)}
 .dv-table-wrap{background:var(--wh);border:1px solid var(--bdr-lt);border-radius:var(--rl);overflow:auto;max-height:calc(100vh - 200px)}
 .dv-table{border-collapse:collapse;font-family:var(--mono);font-size:10px;white-space:nowrap}
@@ -317,7 +360,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V7.3.1 · FILTER UI POLISH</div>
+<div class="version-tag">V7.4 · CHANGELOG + ONLINE-ONLY + REORDER</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -336,6 +379,7 @@ input,select,button,textarea{font-family:inherit}
   <div class="w-nav">
     <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
     <button class="pm-link" onclick="goModule('datasources')">📊 Data Sources</button>
+    <button class="pm-link" onclick="goModule('changelog')">📜 Changelog</button>
     <div style="flex:1"></div>
     <span class="user-badge" id="user-badge"></span>
     <button class="pm-link" onclick="logout()" title="Sign out">⎋ Logout</button>
@@ -486,9 +530,10 @@ async function cloudListPresMins(){
   return data||[];
 }
 
-async function cloudSavePresMin(scaleName,division,sizes,mins){
+async function cloudSavePresMin(scaleName,division,sizes,mins,onlineOnlySizes){
   const{error}=await SUPA.from('pres_mins').upsert({
     scale_name:scaleName,division,sizes,mins,
+    online_only_sizes:onlineOnlySizes||[],
     updated_by_email:Auth.email,updated_by_name:Auth.displayName,updated_at:new Date().toISOString()
   },{onConflict:'scale_name'});
   if(error)throw error;
@@ -497,6 +542,31 @@ async function cloudSavePresMin(scaleName,division,sizes,mins){
 async function cloudDeletePresMin(scaleName){
   const{error}=await SUPA.from('pres_mins').delete().eq('scale_name',scaleName);
   if(error)throw error;
+}
+
+// ═══ Cloud: Changelog ═══
+async function cloudLogEvent(eventType,category,target,summary,details){
+  if(!Auth.email)return; // not signed in, skip
+  try{
+    const{error}=await SUPA.from('changelog').insert({
+      event_type:eventType,
+      category,
+      target,
+      summary,
+      details:details||null,
+      actor_email:Auth.email,
+      actor_name:Auth.displayName
+    });
+    if(error)console.warn('Changelog write failed:',error);
+  }catch(err){console.warn('Changelog write threw:',err)}
+}
+
+async function cloudListChanges(category,limit){
+  let q=SUPA.from('changelog').select('*').order('created_at',{ascending:false}).limit(limit||100);
+  if(category&&category!=='all')q=q.eq('category',category);
+  const{data,error}=await q;
+  if(error)throw error;
+  return data||[];
 }
 
 // ═══ Cloud: Realtime subscriptions + refresh banner ═══
@@ -723,6 +793,8 @@ function handleUpload(key,inp){
     try{
       await cloudUploadCSV(key,text,file.name,rows,cols);
       toast(key.charAt(0).toUpperCase()+key.slice(1)+' synced · '+fmt(rows)+' rows');
+      const labelMap={inventory:'Inventory',sales:'L52W Sales',linelist:'Linelist',wip:'WIP'};
+      cloudLogEvent('csv_upload','csv',key,'updated '+(labelMap[key]||key)+' CSV',{filename:file.name,rows,cols});
     }catch(err){
       console.error('Cloud upload failed:',err);
       toast('Cloud upload failed: '+err.message);
@@ -797,7 +869,7 @@ async function loadFromCloud(){
     const rows=await cloudListPresMins();
     A.presMins={};A.presMinsMeta={};A.pmMeta={};
     rows.forEach(r=>{
-      A.presMinsMeta[r.scale_name]={div:r.division||'Mens',sizes:r.sizes||[]};
+      A.presMinsMeta[r.scale_name]={div:r.division||'Mens',sizes:r.sizes||[],onlineOnly:r.online_only_sizes||[]};
       A.presMins[r.scale_name]=r.mins||{};
       A.pmMeta[r.scale_name]={updated_by_name:r.updated_by_name,updated_by_email:r.updated_by_email,updated_at:r.updated_at};
     });
@@ -1011,15 +1083,31 @@ function buildCurve(rec,hierSource){
   const curve={};rec.sizes.forEach(s=>{curve[s]=1/rec.sizes.length});return{curve,level:'Even distribution',total:0,trail,acceptedKey:null};
 }
 
+function getOnlineOnlySizes(rec){
+  const meta=A.presMinsMeta[rec.sizeScale];
+  return(meta&&meta.onlineOnly)||[];
+}
+
 function getPresMin(rec){
   const cfg=A.presMins[rec.sizeScale]||{};const fl={};
-  rec.sizes.forEach(s=>{fl[s]=Math.ceil((cfg[s]!==undefined?cfg[s]:0)*rec.storeCount)});
+  const online=new Set(getOnlineOnlySizes(rec));
+  rec.sizes.forEach(s=>{
+    // Online-only sizes contribute 0 to retail (no store presence)
+    if(online.has(s)){fl[s]=0;return}
+    fl[s]=Math.ceil((cfg[s]!==undefined?cfg[s]:0)*rec.storeCount);
+  });
   return fl;
 }
 
 function getPresMinRate(rec){
   const cfg=A.presMins[rec.sizeScale]||{};const r={};
-  rec.sizes.forEach(s=>{r[s]=cfg[s]!==undefined?cfg[s]:0});return r;
+  const online=new Set(getOnlineOnlySizes(rec));
+  rec.sizes.forEach(s=>{
+    // Online-only sizes display 0 per-store rate too (they don't go to stores)
+    if(online.has(s)){r[s]=0;return}
+    r[s]=cfg[s]!==undefined?cfg[s]:0;
+  });
+  return r;
 }
 
 function getPendingBeforeDelivery(rec){
@@ -1314,7 +1402,16 @@ function computeAlloc(rec){
   });
 
   // ── Retail allocation (BOP-aware) ──
-  const retailCurve=retailCurveResult.curve;
+  // Online-only sizes get zero retail curve weight (they don't go to stores)
+  const onlineOnlySet=new Set(getOnlineOnlySizes(rec));
+  const retailCurve={};
+  let retailCurveSum=0;
+  rec.sizes.forEach(s=>{
+    if(onlineOnlySet.has(s))retailCurve[s]=0;
+    else{retailCurve[s]=retailCurveResult.curve[s]||0;retailCurveSum+=retailCurve[s]}
+  });
+  // Renormalize so non-online-only weights sum to 1
+  if(retailCurveSum>0){rec.sizes.forEach(s=>{retailCurve[s]=retailCurve[s]/retailCurveSum})}
   const retailIdeals={};
   const retailBopTotal=rec.sizes.reduce((a,s)=>a+retailBop[s],0);
   const retailTotalTgt=retailBopTotal+effRetailPool;
@@ -1543,6 +1640,7 @@ function render(){
   try{
     if(A.module==='presmins'){renderPresMins(main);return}
     if(A.module==='datasources'){renderDataSources(main);return}
+    if(A.module==='changelog'){renderChangelog(main);return}
     if(A.view==='detail'&&A.selectedSKU&&A.skus[A.selectedSKU]){
       renderDetail(main,A.skus[A.selectedSKU]);
       // Overlay flows modal on top if open
@@ -1917,11 +2015,13 @@ function renderGridCards(){
     let pmFlag='';
     if(pmConfigured){
       const sizes=A.presMinsMeta[r.sizeScale].sizes||[];
+      const onlineOnly=A.presMinsMeta[r.sizeScale].onlineOnly||[];
       const cfg=A.presMins[r.sizeScale]||{};
       const totalSizes=sizes.length;
-      const retailSizes=sizes.filter(s=>(cfg[s]||0)>0).length;
-      const totalMin=sizes.reduce((a,s)=>a+(cfg[s]||0),0);
-      pmFlag='<div class="pm-flag pm-flag-ok">✓ '+r.sizeScale+': '+totalSizes+'sz · '+retailSizes+'rt · min '+totalMin+'</div>';
+      const retailSizes=sizes.filter(s=>!onlineOnly.includes(s)&&(cfg[s]||0)>0).length;
+      const totalMin=sizes.filter(s=>!onlineOnly.includes(s)).reduce((a,s)=>a+(cfg[s]||0),0);
+      const onlineSuffix=onlineOnly.length?' · '+onlineOnly.length+' online':'';
+      pmFlag='<div class="pm-flag pm-flag-ok">✓ '+r.sizeScale+': '+totalSizes+'sz · '+retailSizes+'rt · min '+totalMin+onlineSuffix+'</div>';
     } else {
       pmFlag='<div class="pm-flag pm-flag-bad">⚠ '+esc(r.sizeScale||'NO SCALE')+' not configured</div>';
     }
@@ -2179,7 +2279,9 @@ function renderDetail(el,rec){
     const hasOv=A.overrides[rec.sku]&&A.overrides[rec.sku][s]!==undefined;
     const inp=locked?'<span class="c-o">'+fmt(a)+'</span>':'<input class="ai'+(hasOv?' ov':'')+'" type="number" value="'+a+'" onchange="setOvr(\''+esc(rec.sku)+'\',\''+esc(s)+'\',this.value)">';
     const retCv=retailCurve[s]||0,onCv=onlineCurve[s]||0;
-    tBody+='<tr><td>'+esc(s)+'</td>';
+    const isOnlineOnly=(getOnlineOnlySizes(rec)||[]).includes(s);
+    const sizeLabel=isOnlineOnly?'<span class="size-row-online" title="Online-only size — no retail allocation">'+esc(s)+' 🌐</span>':esc(s);
+    tBody+='<tr'+(isOnlineOnly?' class="size-row-online-row"':'')+'><td>'+sizeLabel+'</td>';
     tBody+='<td class="cbl">'+fmt(sd.sales)+'</td>';
     tBody+='<td class="cbd">'+fmt(curveSales[s]||0)+'</td>';
     if(showChannelCols)tBody+='<td class="cbd-ch">'+fmt(retailCurveSales[s]||0)+'</td><td class="cbd-ch">'+fmt(onlineCurveSales[s]||0)+'</td>';
@@ -2281,20 +2383,22 @@ function renderPresMins(el){
     '<div class="pm-cards">';
 
   scales.forEach(scale=>{
-    // Use ONLY the sizes the user defined when creating/editing this scale
+    // Use ONLY the sizes the user defined when creating/editing this scale, in their defined order
     const meta=A.presMinsMeta[scale]||{};
-    const sizes=(meta.sizes||[]).slice().sort(ssort);
+    const sizes=(meta.sizes||[]).slice(); // preserve user-defined order
     if(!sizes.length)return;
+    const onlineOnly=meta.onlineOnly||[];
+    const onlineOnlySet=new Set(onlineOnly);
 
     const cfg=A.presMins[scale]||{};
     const staged=pmStaged[scale]||{};
     const divCls=meta.div==='Womens'?'div-w':meta.div==='Non-Apparel'?'div-n':'div-m';
     const divTag=meta.div==='Womens'?'pm-div-w':meta.div==='Non-Apparel'?'pm-div-n':'pm-div-m';
-    const storeSizes=sizes.filter(s=>(cfg[s]||0)>0).length;
+    const storeSizes=sizes.filter(s=>!onlineOnlySet.has(s)&&(cfg[s]||0)>0).length;
     const hasStagedChanges=Object.keys(staged).length>0&&Object.keys(staged).some(s=>{const sv=staged[s];const cv=cfg[s];return sv!==cv});
 
     h+='<div class="pm-card '+divCls+'" style="position:relative"><button class="pm-delete" onclick="deleteScale(\''+esc(scale)+'\')" title="Delete scale">✕</button>'+
-      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><h3 style="margin:0">'+esc(scale)+' <span style="font-weight:400;color:var(--txt3)">('+sizes.length+' sizes · '+storeSizes+' store)</span></h3>'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><h3 style="margin:0">'+esc(scale)+' <span style="font-weight:400;color:var(--txt3)">('+sizes.length+' sizes · '+storeSizes+' store'+(onlineOnly.length?' · '+onlineOnly.length+' online-only':'')+')</span></h3>'+
       '<button class="btn btn-g btn-sm" onclick="openEditScaleModal(\''+esc(scale)+'\')">Edit Sizes</button></div>';
     if(meta.div)h+='<span class="pm-div-tag '+divTag+'">'+esc(meta.div)+'</span>';
     // Attribution
@@ -2303,13 +2407,23 @@ function renderPresMins(el){
       h+='<div style="font-family:var(--mono);font-size:9px;color:var(--txt3);margin:6px 0 10px;letter-spacing:.3px">Last updated by <b style="color:var(--navy);font-family:var(--sans)">'+esc(pmm.updated_by_name)+'</b> · '+formatRelTime(pmm.updated_at)+'</div>';
     }
     h+='<table class="pm-tbl"><thead><tr><th></th>';
-    sizes.forEach(s=>{h+='<th>'+esc(s)+'</th>'});
+    sizes.forEach(s=>{
+      const oo=onlineOnlySet.has(s);
+      h+='<th'+(oo?' class="pm-th-online" title="Online-only size"':'')+'>'+esc(s)+(oo?' 🌐':'')+'</th>';
+    });
     h+='</tr></thead><tbody>';
     h+='<tr><td class="pm-row-lbl">Current</td>';
-    sizes.forEach(s=>{const v=cfg[s]!==undefined?cfg[s]:'—';h+='<td><span class="pm-val">'+v+'</span></td>'});
+    sizes.forEach(s=>{
+      const oo=onlineOnlySet.has(s);
+      if(oo){h+='<td class="pm-cell-online"><span class="pm-val pm-val-online">—</span></td>';return}
+      const v=cfg[s]!==undefined?cfg[s]:'—';
+      h+='<td><span class="pm-val">'+v+'</span></td>';
+    });
     h+='</tr>';
     h+='<tr class="pm-sep"><td class="pm-row-lbl">Overwrite</td>';
     sizes.forEach(s=>{
+      const oo=onlineOnlySet.has(s);
+      if(oo){h+='<td class="pm-cell-online"><span style="color:var(--pink);font-family:var(--mono);font-size:10px">online-only</span></td>';return}
       const sv=staged[s]!==undefined?staged[s]:(cfg[s]!==undefined?cfg[s]:'');
       h+='<td><input class="pm-input" type="number" step="0.5" min="0" value="'+sv+'" onchange="stagePM(\''+esc(scale)+'\',\''+esc(s)+'\',this.value)"></td>';
     });
@@ -2334,14 +2448,28 @@ function stagePM(scale,size,val){
 
 async function acceptPMOverwrites(scale){
   const staged=pmStaged[scale]||{};
+  // Capture before-state for diff
+  const before={};
+  if(A.presMins[scale])for(const s in A.presMins[scale])before[s]=A.presMins[scale][s];
   if(!A.presMins[scale])A.presMins[scale]={};
-  for(const s in staged)A.presMins[scale][s]=staged[s];
+  // Build the actual diff (only sizes whose value changed)
+  const diff=[];
+  for(const s in staged){
+    const old=before[s];
+    const nu=staged[s];
+    if(old!==nu)diff.push({size:s,from:old===undefined?null:old,to:nu});
+    A.presMins[scale][s]=nu;
+  }
   delete pmStaged[scale];
-  const meta=A.presMinsMeta[scale]||{div:'Mens',sizes:[]};
+  const meta=A.presMinsMeta[scale]||{div:'Mens',sizes:[],onlineOnly:[]};
   try{
-    await cloudSavePresMin(scale,meta.div,meta.sizes||[],A.presMins[scale]);
+    await cloudSavePresMin(scale,meta.div,meta.sizes||[],A.presMins[scale],meta.onlineOnly||[]);
     A.pmMeta[scale]={updated_by_name:Auth.displayName,updated_by_email:Auth.email,updated_at:new Date().toISOString()};
     toast(scale+' pres mins updated');
+    if(diff.length){
+      const summary='adjusted pres mins for '+scale;
+      cloudLogEvent('presmins_update','presmins',scale,summary,{changes:diff});
+    }
   }catch(err){
     console.error('cloudSavePresMin failed:',err);toast('Save failed: '+err.message);
   }
@@ -2352,10 +2480,12 @@ function clearPMStaged(scale){delete pmStaged[scale];render()}
 
 async function deleteScale(scale){
   if(!confirm('Delete size scale "'+scale+'"? This cannot be undone.'))return;
+  const sizesCount=(A.presMinsMeta[scale]&&(A.presMinsMeta[scale].sizes||[]).length)||0;
   delete A.presMins[scale];delete A.presMinsMeta[scale];delete A.scaleSizes[scale];delete A.scaleSizeCount[scale];delete A.pmMeta[scale];
   try{
     await cloudDeletePresMin(scale);
     toast(scale+' deleted');
+    cloudLogEvent('presmins_delete','presmins',scale,'deleted '+scale+' size scale',{sizes_removed:sizesCount});
   }catch(err){
     console.error('cloudDeletePresMin failed:',err);toast('Delete failed: '+err.message);
   }
@@ -2363,21 +2493,56 @@ async function deleteScale(scale){
 }
 
 // ─── Add/Edit Scale Modal ───
-let modalState={name:'',div:'Mens',copyFrom:'',sizes:[],sizeInput:'',editing:null};
+let modalState={name:'',div:'Mens',copyFrom:'',sizes:[],sizeInput:'',editing:null,onlineOnly:[],reorderMode:false};
 
 function openAddScaleModal(){
-  modalState={name:'',div:'Mens',copyFrom:'',sizes:[],sizeInput:'',editing:null};renderModal();
+  modalState={name:'',div:'Mens',copyFrom:'',sizes:[],sizeInput:'',editing:null,onlineOnly:[],reorderMode:false};renderModal();
 }
 
 function openEditScaleModal(scale){
   const meta=A.presMinsMeta[scale]||{};
   // Use ONLY the user-defined sizes from meta — NOT scaleSizes (data-derived)
   const sizes=meta.sizes||Object.keys(A.presMins[scale]||{});
-  modalState={name:scale,div:meta.div||'Mens',copyFrom:'',sizes:[...sizes],sizeInput:'',editing:scale};
+  const onlineOnly=meta.onlineOnly||[];
+  modalState={name:scale,div:meta.div||'Mens',copyFrom:'',sizes:[...sizes],sizeInput:'',editing:scale,onlineOnly:[...onlineOnly],reorderMode:false};
   renderModal();
 }
 
 function closeModal(){document.getElementById('modal-root').innerHTML=''}
+
+function toggleOnlineOnly(size){
+  const ms=modalState;
+  const i=ms.onlineOnly.indexOf(size);
+  if(i>=0)ms.onlineOnly.splice(i,1);else ms.onlineOnly.push(size);
+  renderModal();
+}
+
+function moveSizeUp(idx){
+  const ms=modalState;
+  if(idx<=0)return;
+  const tmp=ms.sizes[idx-1];ms.sizes[idx-1]=ms.sizes[idx];ms.sizes[idx]=tmp;
+  renderModal();
+}
+
+function moveSizeDown(idx){
+  const ms=modalState;
+  if(idx>=ms.sizes.length-1)return;
+  const tmp=ms.sizes[idx+1];ms.sizes[idx+1]=ms.sizes[idx];ms.sizes[idx]=tmp;
+  renderModal();
+}
+
+function toggleReorderMode(){
+  modalState.reorderMode=!modalState.reorderMode;renderModal();
+}
+
+function removeSizeAt(idx){
+  const ms=modalState;
+  const removed=ms.sizes[idx];
+  ms.sizes.splice(idx,1);
+  const oi=ms.onlineOnly.indexOf(removed);
+  if(oi>=0)ms.onlineOnly.splice(oi,1);
+  renderModal();
+}
 
 function renderModal(){
   const ms=modalState;
@@ -2408,11 +2573,34 @@ function renderModal(){
   if(hasExisting&&ms.copyFrom){
     h+='<div class="modal-label">Copied from '+esc(ms.copyFrom)+' <a href="#" onclick="modalState.copyFrom=\'\';renderModal();return false" style="color:var(--red);font-size:10px">clear</a></div>';
   }
-  // Tag input for sizes
-  h+='<div class="modal-label">Sizes</div><div class="tag-area" onclick="this.querySelector(\'.tag-input\')?.focus()">';
-  ms.sizes.forEach((s,i)=>{h+='<span class="size-tag">'+esc(s)+'<span class="tag-x" onclick="event.stopPropagation();modalState.sizes.splice('+i+',1);renderModal()">×</span></span>'});
-  h+='<input class="tag-input" type="text" placeholder="Type + Enter" value="'+esc(ms.sizeInput)+'" oninput="modalState.sizeInput=this.value" onkeydown="handleTagKey(event)">';
-  h+='</div><div style="font-size:10px;color:var(--txt3);margin-top:4px">Press Enter or comma to add. Click × to remove.</div>';
+  // Tag input for sizes — with optional reorder mode and online-only flags
+  h+='<div class="modal-label" style="display:flex;justify-content:space-between;align-items:center">'+
+    '<span>Sizes <span style="color:var(--txt3);font-weight:400">· click 🌐 to mark online-only</span></span>'+
+    '<button class="sb'+(ms.reorderMode?' on':'')+'" style="padding:3px 9px;font-size:9px" onclick="toggleReorderMode()">'+(ms.reorderMode?'Done Reordering':'↕ Reorder')+'</button>'+
+    '</div>';
+  h+='<div class="tag-area'+(ms.reorderMode?' tag-area-reorder':'')+'" onclick="if(!modalState.reorderMode)this.querySelector(\'.tag-input\')?.focus()">';
+  ms.sizes.forEach((s,i)=>{
+    const isOnly=ms.onlineOnly.includes(s);
+    if(ms.reorderMode){
+      h+='<span class="size-tag size-tag-reorder'+(isOnly?' size-tag-online':'')+'">'+
+         '<button class="tag-arrow" '+(i===0?'disabled':'')+' onclick="event.stopPropagation();moveSizeUp('+i+')" title="Move earlier">←</button>'+
+         '<span class="tag-label">'+esc(s)+(isOnly?' 🌐':'')+'</span>'+
+         '<button class="tag-arrow" '+(i===ms.sizes.length-1?'disabled':'')+' onclick="event.stopPropagation();moveSizeDown('+i+')" title="Move later">→</button>'+
+         '</span>';
+    } else {
+      h+='<span class="size-tag'+(isOnly?' size-tag-online':'')+'">'+
+         '<span class="tag-label" onclick="event.stopPropagation();toggleOnlineOnly(\''+esc(s)+'\')" title="Click to '+(isOnly?'unmark':'mark')+' as online-only">'+esc(s)+(isOnly?' 🌐':'')+'</span>'+
+         '<span class="tag-x" onclick="event.stopPropagation();removeSizeAt('+i+')">×</span>'+
+         '</span>';
+    }
+  });
+  if(!ms.reorderMode)h+='<input class="tag-input" type="text" placeholder="Type + Enter" value="'+esc(ms.sizeInput)+'" oninput="modalState.sizeInput=this.value" onkeydown="handleTagKey(event)">';
+  h+='</div>';
+  if(ms.reorderMode){
+    h+='<div style="font-size:10px;color:var(--txt3);margin-top:4px">Use ← → to reorder sizes. Click "Done Reordering" when finished.</div>';
+  } else {
+    h+='<div style="font-size:10px;color:var(--txt3);margin-top:4px">Press Enter or comma to add. Click size label to toggle online-only. Click × to remove.</div>';
+  }
   const canSave=(isEdit||ms.name.trim())&&ms.sizes.length>0;
   h+='<div class="modal-footer"><button class="btn btn-g" onclick="closeModal()">Cancel</button>'+
     '<button class="btn btn-b"'+(canSave?'':' disabled')+' onclick="saveScale()">'+(isEdit?'Save Changes':'Create Scale')+'</button></div></div></div>';
@@ -2432,21 +2620,124 @@ function handleTagKey(e){
 async function saveScale(){
   const ms=modalState;
   const name=ms.editing||ms.name.trim().toUpperCase();if(!name||!ms.sizes.length)return;
+  // Capture before-state for diff (only relevant for edits)
+  const isEdit=!!ms.editing;
+  const prevSizes=isEdit?[...((A.presMinsMeta[name]&&A.presMinsMeta[name].sizes)||[])]:[];
+  const prevOnlineOnly=isEdit?[...((A.presMinsMeta[name]&&A.presMinsMeta[name].onlineOnly)||[])]:[];
+  // Validate online-only list against current sizes (drop stale entries)
+  const onlineOnly=(ms.onlineOnly||[]).filter(s=>ms.sizes.includes(s));
   A.scaleSizes[name]=[...ms.sizes];A.scaleSizeCount[name]=ms.sizes.length;
   if(!A.presMins[name])A.presMins[name]={};
-  A.presMinsMeta[name]={div:ms.div,sizes:[...ms.sizes]};
-  if(!ms.editing&&ms.copyFrom&&A.presMins[ms.copyFrom])A.presMins[name]={...A.presMins[ms.copyFrom]};
+  A.presMinsMeta[name]={div:ms.div,sizes:[...ms.sizes],onlineOnly};
+  if(!isEdit&&ms.copyFrom&&A.presMins[ms.copyFrom])A.presMins[name]={...A.presMins[ms.copyFrom]};
   try{
-    await cloudSavePresMin(name,ms.div,ms.sizes,A.presMins[name]);
+    await cloudSavePresMin(name,ms.div,ms.sizes,A.presMins[name],onlineOnly);
     A.pmMeta[name]={updated_by_name:Auth.displayName,updated_by_email:Auth.email,updated_at:new Date().toISOString()};
-    closeModal();toast(name+(ms.editing?' updated':' created'));
+    // Log
+    if(isEdit){
+      const added=ms.sizes.filter(s=>!prevSizes.includes(s));
+      const removed=prevSizes.filter(s=>!ms.sizes.includes(s));
+      const onlineAdded=onlineOnly.filter(s=>!prevOnlineOnly.includes(s));
+      const onlineRemoved=prevOnlineOnly.filter(s=>!onlineOnly.includes(s));
+      const reorderedOnly=!added.length&&!removed.length&&JSON.stringify(prevSizes)!==JSON.stringify(ms.sizes);
+      if(added.length||removed.length){
+        const parts=[];
+        if(added.length)parts.push(added.length+' size'+(added.length===1?'':'s')+' added ['+added.join(', ')+']');
+        if(removed.length)parts.push(removed.length+' size'+(removed.length===1?'':'s')+' removed ['+removed.join(', ')+']');
+        cloudLogEvent('presmins_update','presmins',name,'edited '+name+' size scale: '+parts.join(', '),{added,removed,sizes_after:ms.sizes});
+      } else if(reorderedOnly){
+        cloudLogEvent('presmins_reorder','presmins',name,'reordered sizes in '+name,{before:prevSizes,after:ms.sizes});
+      }
+      if(onlineAdded.length||onlineRemoved.length){
+        const parts=[];
+        if(onlineAdded.length)parts.push('marked online-only: '+onlineAdded.join(', '));
+        if(onlineRemoved.length)parts.push('removed online-only flag: '+onlineRemoved.join(', '));
+        cloudLogEvent('presmins_online_only','presmins',name,parts.join('; ')+' ('+name+')',{added:onlineAdded,removed:onlineRemoved});
+      }
+    } else {
+      cloudLogEvent('presmins_create','presmins',name,'added '+name+' size scale ['+ms.sizes.length+' size'+(ms.sizes.length===1?'':'s')+' added]',{sizes:ms.sizes,onlineOnly,division:ms.div});
+    }
+    closeModal();toast(name+(isEdit?' updated':' created'));
   }catch(err){
     console.error('cloudSavePresMin failed:',err);toast('Save failed: '+err.message);
   }
   render();
 }
 
-// ═══ DATA SOURCES ═══
+// ═══ CHANGELOG ═══
+let _changelogState={category:'all',expanded:{}}; // category: 'all' | 'csv' | 'presmins'
+
+function setChangelogCategory(cat){
+  _changelogState.category=cat;
+  _changelogState.expanded={};
+  render();
+}
+
+function toggleChangelogExpanded(id){
+  _changelogState.expanded[id]=!_changelogState.expanded[id];
+  render();
+}
+
+async function renderChangelog(el){
+  el.innerHTML='<div class="cl-page anim"><button class="d-back" onclick="goBackFromModule()">← Back</button>'+
+    '<h2 style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:4px">Changelog</h2>'+
+    '<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Recent activity from all team members. Last 100 events.</p>'+
+    '<div class="cl-filters">'+
+      '<button class="sb'+(_changelogState.category==='all'?' on':'')+'" onclick="setChangelogCategory(\'all\')">All</button>'+
+      '<button class="sb'+(_changelogState.category==='csv'?' on':'')+'" onclick="setChangelogCategory(\'csv\')">CSV Uploads</button>'+
+      '<button class="sb'+(_changelogState.category==='presmins'?' on':'')+'" onclick="setChangelogCategory(\'presmins\')">Pres Mins</button>'+
+    '</div>'+
+    '<div id="cl-list" class="cl-list"><div class="cl-loading">Loading...</div></div>'+
+    '</div>';
+
+  let events=[];
+  try{
+    events=await cloudListChanges(_changelogState.category,100);
+  }catch(err){
+    console.error('cloudListChanges failed:',err);
+    document.getElementById('cl-list').innerHTML='<div class="cl-empty">Failed to load changelog: '+esc(err.message)+'</div>';
+    return;
+  }
+
+  if(!events.length){
+    document.getElementById('cl-list').innerHTML='<div class="cl-empty">No events yet.</div>';
+    return;
+  }
+
+  let h='';
+  events.forEach(ev=>{
+    const cat=ev.category;
+    const catCls=cat==='csv'?'cl-cat-csv':'cl-cat-pm';
+    const catLabel=cat==='csv'?'CSV':'PRES MINS';
+    const isExpandable=cat==='presmins'&&ev.event_type==='presmins_update'&&ev.details&&Array.isArray(ev.details.changes)&&ev.details.changes.length>0;
+    const expanded=isExpandable&&_changelogState.expanded[ev.id];
+    const when=new Date(ev.created_at);
+    const whenAbs=when.toLocaleString();
+    const whenRel=formatRelTime(ev.created_at);
+    h+='<div class="cl-row '+catCls+(isExpandable?' cl-expandable':'')+'"'+(isExpandable?' onclick="toggleChangelogExpanded('+ev.id+')"':'')+'>'+
+      '<div class="cl-row-main">'+
+        '<span class="cl-cat-tag '+catCls+'">'+catLabel+'</span>'+
+        '<span class="cl-actor">'+esc(ev.actor_name||ev.actor_email||'Unknown')+'</span>'+
+        '<span class="cl-summary">'+esc(ev.summary||'')+'</span>'+
+        '<span class="cl-time" title="'+esc(whenAbs)+'">'+esc(whenRel)+'</span>'+
+        (isExpandable?'<span class="cl-chevron">'+(expanded?'▾':'▸')+'</span>':'')+
+      '</div>';
+    if(isExpandable&&expanded){
+      h+='<div class="cl-detail" onclick="event.stopPropagation()">'+
+        '<table class="cl-diff"><thead><tr><th>Size</th><th>From</th><th>→</th><th>To</th></tr></thead><tbody>';
+      ev.details.changes.forEach(c=>{
+        const from=c.from===null||c.from===undefined?'—':c.from;
+        const to=c.to===null||c.to===undefined?'—':c.to;
+        h+='<tr><td class="cl-diff-size">'+esc(c.size)+'</td><td class="cl-diff-from">'+esc(String(from))+'</td><td class="cl-diff-arrow">→</td><td class="cl-diff-to">'+esc(String(to))+'</td></tr>';
+      });
+      h+='</tbody></table></div>';
+    }
+    h+='</div>';
+  });
+  document.getElementById('cl-list').innerHTML=h;
+}
+
+
 function renderDataSources(el){
   const tabs=['inventory','sales','linelist','wip'];
   let h='<div class="dv-page anim"><button class="d-back" onclick="goBackFromModule()">← Back</button>'+
