@@ -99,10 +99,11 @@ input,select,button,textarea{font-family:inherit}
 .w-center .sub{color:var(--txt2);font-size:14px;margin-bottom:36px}
 .s-wait{color:var(--txt3);font-family:var(--mono);font-size:12px}
 .s-grid{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-.s-btn{padding:24px 44px;background:var(--wh);border:2px solid var(--bdr-lt);border-radius:var(--rl);cursor:pointer;transition:all .2s;text-align:center;min-width:160px}
+.s-btn{padding:20px 36px;background:var(--wh);border:2px solid var(--bdr-lt);border-radius:var(--rl);cursor:pointer;transition:all .2s;text-align:center;min-width:200px}
 .s-btn:hover{border-color:var(--blue);background:var(--blue-pl);transform:translateY(-2px);box-shadow:var(--shlg)}
-.s-btn .code{font-family:var(--mono);font-size:24px;font-weight:700;color:var(--navy);margin-bottom:4px}
-.s-btn .ct{font-size:12px;color:var(--txt3)}
+.s-btn .code{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--navy);margin-bottom:8px}
+.s-btn .ct{font-size:11px;color:var(--txt3);font-family:var(--mono);letter-spacing:.3px;line-height:1.5}
+.s-btn .ct-buy{color:var(--green);font-weight:600}
 .u-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;background:var(--wh);border:1px solid var(--bdr-lt);border-radius:var(--r);cursor:pointer;transition:all var(--t);font-size:11px;font-weight:500;color:var(--txt3);position:relative}
 .u-chip:hover{border-color:var(--blue);color:var(--txt2)}.u-chip.ok{border-color:var(--green-bd);color:var(--green);background:var(--green-pl)}
 .u-chip input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer}.u-chip .meta{font-family:var(--mono);font-size:9px}
@@ -123,6 +124,23 @@ input,select,button,textarea{font-family:inherit}
 .sbar{padding:7px 12px;font-size:12px;background:var(--wh);color:var(--txt);border:1px solid var(--bdr-lt);border-radius:var(--r);outline:none;width:220px}.sbar:focus{border-color:var(--blue)}.sbar::placeholder{color:var(--txt3)}
 .sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
 .sc{padding:14px 16px;background:var(--wh);border:2px solid var(--bdr-lt);border-radius:var(--rl);cursor:pointer;transition:all .15s;position:relative}
+.sc-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:1px}
+.sc-deliv{font-family:var(--mono);font-size:9px;color:var(--orange);font-weight:700;letter-spacing:.5px;background:var(--orange-pl);padding:2px 6px;border-radius:3px;flex-shrink:0}
+.sc-buy{font-family:var(--mono);margin:4px 0 2px;line-height:1.2;display:flex;align-items:baseline;gap:4px;flex-wrap:wrap}
+.sc-sized{font-size:14px;font-weight:700;color:var(--navy)}
+.sc-sized-bad{font-size:14px;font-weight:700;color:var(--red);animation:flashRed 1.2s ease-in-out infinite}
+.sc-slash{color:var(--txt3);font-size:11px}
+.sc-bought{font-size:11px;font-weight:600;color:var(--txt2)}
+.sc-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.sc-commit{font-family:var(--mono);font-size:9px;color:var(--txt2);background:var(--sand-lt);padding:3px 8px;border-radius:3px;letter-spacing:.3px;font-weight:600;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1}
+@keyframes flashRed{0%,100%{opacity:1}50%{opacity:.45}}
+
+/* Mass action buttons */
+.sb.mass-btn{font-size:11px;font-weight:700;letter-spacing:.3px;padding:6px 12px;border-radius:var(--rs);transition:all .15s}
+.sb.mass-acc{background:var(--green);color:#fff;border:1px solid var(--green)}
+.sb.mass-acc:hover{background:#246e4c;border-color:#246e4c}
+.sb.mass-unacc{background:var(--wh);color:var(--red);border:1px solid var(--red)}
+.sb.mass-unacc:hover{background:var(--red);color:#fff}
 .sc:hover{border-color:var(--blue);box-shadow:var(--shmd);transform:translateY(-1px)}
 .sc.dv-m{border-left:4px solid var(--blue)}.sc.dv-w{border-left:4px solid var(--pink)}.sc.dv-n{border-left:4px solid var(--slate)}
 .sc .chk{position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;transition:all var(--t)}
@@ -138,6 +156,8 @@ input,select,button,textarea{font-family:inherit}
 .d-back{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;font-size:11px;font-weight:600;color:var(--blue);background:var(--blue-pl);border:1px solid var(--blue-md);border-radius:var(--r);cursor:pointer;margin-bottom:12px}.d-back:hover{background:var(--blue-md)}
 .detail-sticky{position:sticky;top:52px;z-index:15;background:var(--sand);padding:12px 0 10px;border-bottom:1px solid var(--bdr-lt);margin-bottom:14px}
 .ds-row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.ch-mismatch{background:#fdf3e6;border:1px solid #c4572a;color:#8a3d1e;padding:10px 14px;border-radius:var(--rs);font-size:12px;margin-bottom:12px;line-height:1.5}
+.ch-mismatch b{color:#c4572a}
 .ds-name{font-size:14px;color:var(--txt2);font-weight:500;margin-bottom:8px}
 .ds-color{color:var(--orange);font-weight:600}
 .ds-left{display:flex;align-items:center;gap:10px}.ds-left h2{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--navy)}
@@ -273,7 +293,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V7.1.1 · TOAST POSITION</div>
+<div class="version-tag">V7.2.1 · VARIANCE FIX</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -587,6 +607,15 @@ function numP(v){if(!v)return 0;return parseInt(String(v).replace(/[^0-9\-]/g,''
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function fmt(n){return n.toLocaleString()}
 function pct(n){return(n*100).toFixed(1)+'%'}
+function formatDeliveryShort(deliveryMonth){
+  if(!deliveryMonth)return '';
+  const m=String(deliveryMonth).match(/^([A-Za-z]+)(_(\d+))?$/);
+  if(!m)return deliveryMonth;
+  const abbr=m[1].slice(0,3);
+  const cap=abbr.charAt(0).toUpperCase()+abbr.slice(1).toLowerCase();
+  const suffix=m[3]||'1';
+  return cap+'_'+suffix;
+}
 
 // ─── Size sort ───
 const SO={XXS:1,XS:2,S:3,M:4,L:5,XL:6,XXL:7,XXXL:8,'2XL':7,'3XL':8,MT:5,LT:6,XLT:7,XXLT:8,OS:0};
@@ -640,7 +669,7 @@ const A={
   view:'grid',module:null,
   overrides:{},accepted:{},
   searchTerm:'',sortKey:'dtcBuy',sortDir:'desc',
-  filters:{type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All'},
+  filters:{type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All'},
   presMins:{},
   presMinsMeta:{},
   scaleSizes:{},scaleSizeCount:{},hierSales:{},salSKU:{},cols:{},
@@ -762,10 +791,25 @@ function trySeasons(){
   const el=document.getElementById('s-area');if(!el)return;
   if(!allUp()){el.innerHTML='<div class="s-wait">Upload all 4 data sources to continue</div>';return}
   const ll=A.raw.linelist,sc=findCol(ll[0],['Season Code']);
-  const ct={};ll.forEach(r=>{const s=r[sc]||'';if(s)ct[s]=(ct[s]||0)+1});
-  A.seasons=Object.keys(ct).sort();
+  const dbCol=findCol(ll[0],['Total DTC Buy']);
+  // Per season: total SKUs + count with non-zero DTC buy
+  const totals={},withBuy={};
+  ll.forEach(r=>{
+    const s=r[sc]||'';if(!s)return;
+    totals[s]=(totals[s]||0)+1;
+    const buy=numP(r[dbCol]);
+    if(buy>0)withBuy[s]=(withBuy[s]||0)+1;
+  });
+  A.seasons=Object.keys(totals).sort();
   let h='<div class="s-grid">';
-  A.seasons.forEach(s=>{h+='<div class="s-btn" onclick="goSeason(\''+esc(s)+'\')"><div class="code">'+esc(s)+'</div><div class="ct">'+ct[s]+' SKUs</div></div>'});
+  A.seasons.forEach(s=>{
+    const tot=totals[s]||0,wb=withBuy[s]||0;
+    h+='<div class="s-btn" onclick="goSeason(\''+esc(s)+'\')">'+
+       '<div class="code">'+esc(s)+'</div>'+
+       '<div class="ct">Total SKUs: '+fmt(tot)+'</div>'+
+       '<div class="ct ct-buy">SKUs with Buys: '+fmt(wb)+'</div>'+
+       '</div>';
+  });
   el.innerHTML=h+'</div>';
 }
 
@@ -774,7 +818,7 @@ function goSeason(s){
   A.activeSeason=s;A.selectedSKU=null;A.view='grid';A.module=null;
   if(!sameSeason){
     A.overrides={};A.accepted={};A.sortKey='dtcBuy';A.sortDir='desc';
-    A.filters={type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All'};
+    A.filters={type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All'};
   }
   processData();
   document.getElementById('welcome').classList.add('hidden');
@@ -1007,7 +1051,7 @@ function allocateBuy(rec,pool,curve,floors,ideals){
     if(wantSum>0&&remaining>0){
       rec.sizes.forEach(s=>{const extra=Math.round(want[s]/wantSum*remaining);alloc[s]+=extra});
     }
-    // Reconcile rounding without dipping below floor
+    // Phase 1: reconcile preferring to keep the floor intact
     let allocTotal=rec.sizes.reduce((a,s)=>a+alloc[s],0);
     let diff=pool-allocTotal;
     while(diff!==0){
@@ -1015,6 +1059,32 @@ function allocateBuy(rec,pool,curve,floors,ideals){
       if(!eligible.length)break;
       if(diff>0){const best=eligible.reduce((a,b)=>curve[a]>=curve[b]?a:b);alloc[best]++;diff--}
       else{const best=eligible.reduce((a,b)=>(alloc[a]-(floors[a]||0))>=(alloc[b]-(floors[b]||0))?a:b);if(alloc[best]>(floors[best]||0)){alloc[best]--;diff++}else break}
+    }
+  }
+  // Phase 2 (FINAL GUARANTEE): force the sum to match the pool exactly, even if it means
+  // dipping a size below its floor. Total accuracy beats a 1u floor violation since the
+  // user trusts the total to roundtrip cleanly through the export.
+  let total=rec.sizes.reduce((a,s)=>a+alloc[s],0);
+  let diff=pool-total;
+  while(diff!==0&&rec.sizes.length){
+    if(diff>0){
+      // Need to add — bump the size with the highest curve weight
+      const best=rec.sizes.reduce((a,b)=>curve[a]>=curve[b]?a:b);
+      alloc[best]++;diff--;
+    } else {
+      // Need to subtract — pull from the size that's furthest above its floor;
+      // if all are at/below floor, pull from the largest non-zero allocation
+      const aboveFloor=rec.sizes.filter(s=>alloc[s]>(floors[s]||0));
+      let target;
+      if(aboveFloor.length){
+        target=aboveFloor.reduce((a,b)=>(alloc[a]-(floors[a]||0))>=(alloc[b]-(floors[b]||0))?a:b);
+      } else {
+        // Fallback: pull from the size with the largest allocation (still > 0)
+        const nonZero=rec.sizes.filter(s=>alloc[s]>0);
+        if(!nonZero.length)break;
+        target=nonZero.reduce((a,b)=>alloc[a]>=alloc[b]?a:b);
+      }
+      alloc[target]--;diff++;
     }
   }
   return alloc;
@@ -1301,6 +1371,18 @@ function setOvr(sku,sz,v){if(!A.overrides[sku])A.overrides[sku]={};A.overrides[s
 function clrOvr(sku){delete A.overrides[sku];render()}
 function toggleAcc(sku){A.accepted[sku]?delete A.accepted[sku]:A.accepted[sku]=true;updateExpCt();render()}
 function toggleAccGrid(sku){A.accepted[sku]?delete A.accepted[sku]:A.accepted[sku]=true;updateExpCt();renderGridCards()}
+function massAccept(){
+  const list=getFiltered();
+  list.forEach(r=>{A.accepted[r.sku]=true});
+  updateExpCt();renderGridCards();
+  toast('Accepted '+list.length+' SKU'+(list.length===1?'':'s'));
+}
+function massUnaccept(){
+  const list=getFiltered();
+  let n=0;list.forEach(r=>{if(A.accepted[r.sku]){delete A.accepted[r.sku];n++}});
+  updateExpCt();renderGridCards();
+  toast('Reverted '+n+' SKU'+(n===1?'':'s')+' to pending');
+}
 function toggleWipExpand(sku){A.expandedWipSku=A.expandedWipSku===sku?null:sku;render()}
 function toggleChannelExpand(sku){A.expandedChannelSku=A.expandedChannelSku===sku?null:sku;render()}
 function openFlowsModal(sku){A.flowsModalSku=sku;render()}
@@ -1479,6 +1561,11 @@ function getFiltered(){
   if(f.category!=='All')list=list.filter(r=>r.category===f.category);
   if(f.subcategory!=='All')list=list.filter(r=>r.subcategory===f.subcategory);
   if(f.sizeScale&&f.sizeScale!=='All')list=list.filter(r=>r.sizeScale===f.sizeScale);
+  if(f.commitCoding&&f.commitCoding!=='All')list=list.filter(r=>(r.commitCoding||'')===f.commitCoding);
+  if(f.ssConfigured&&f.ssConfigured!=='All'){
+    const want=f.ssConfigured==='Configured';
+    list=list.filter(r=>{const c=A.presMinsMeta[r.sizeScale]&&(A.presMinsMeta[r.sizeScale].sizes||[]).length>0;return want===c});
+  }
   if(A.searchTerm){const st=A.searchTerm.toLowerCase();list=list.filter(r=>r.sku.toLowerCase().includes(st)||r.styleDescription.toLowerCase().includes(st)||r.colorDescription.toLowerCase().includes(st))}
   const sk=A.sortKey;const dir=A.sortDir==='asc'?1:-1;
   list.sort((a,b)=>{
@@ -1509,11 +1596,13 @@ function getFilterOptions(){
   // Size scales: filtered by all of the above
   let scaleBase=subBase;if(f.subcategory!=='All')scaleBase=scaleBase.filter(r=>r.subcategory===f.subcategory);
   const scales=[...new Set(scaleBase.map(r=>r.sizeScale).filter(Boolean))].sort();
-  return{divs,cats,subs,scales};
+  // Commit codes: independent of cascade; just unique values across the season
+  const commits=[...new Set(all.map(r=>r.commitCoding).filter(Boolean))].sort();
+  return{divs,cats,subs,scales,commits};
 }
 
 function renderGrid(el){
-  const{divs,cats,subs,scales}=getFilterOptions();
+  const{divs,cats,subs,scales,commits}=getFilterOptions();
   function opts(arr,lbl,cur){let h='<option value="All">'+lbl+': All</option>';arr.forEach(v=>{h+='<option value="'+esc(v)+'"'+(cur===v?' selected':'')+'>'+esc(v)+'</option>'});return h}
   function sb(k,l){
     const on=A.sortKey===k;
@@ -1524,9 +1613,9 @@ function renderGrid(el){
   if(A.filters.category!=='All'&&!cats.includes(A.filters.category))A.filters.category='All';
   if(A.filters.subcategory!=='All'&&!subs.includes(A.filters.subcategory))A.filters.subcategory='All';
   if(A.filters.sizeScale!=='All'&&!scales.includes(A.filters.sizeScale))A.filters.sizeScale='All';
+  if(A.filters.commitCoding!=='All'&&!commits.includes(A.filters.commitCoding))A.filters.commitCoding='All';
   let h='<div class="gv"><div class="gc"><div class="gc-row">'+
     '<span class="gc-lbl">Sort</span>'+sb('dtcBuy',A.activeSeason+' Buy')+sb('postBuy','Post-Buy OH')+sb('currentOH','Current OH')+
-    sb('storeCount','Store Count')+sb('sizeScale','Size Scale')+sb('type','CF / Initials')+sb('accepted','Accepted / Pending')+
     '<div style="flex:1"></div><input class="sbar" id="grid-search" type="text" placeholder="Search..." value="'+esc(A.searchTerm)+'" oninput="A.searchTerm=this.value;renderGridCards()">'+
   '</div><div class="gc-row"><span class="gc-lbl">Filter</span>'+
     '<select class="fsel" onchange="setFilter(\'type\',this.value)"><option value="All">Type: All</option><option value="cf"'+(A.filters.type==='cf'?' selected':'')+'>CF</option><option value="initials"'+(A.filters.type==='initials'?' selected':'')+'>Initials</option></select>'+
@@ -1534,7 +1623,12 @@ function renderGrid(el){
     '<select class="fsel'+(cats.length<=1?' dim':'')+'" onchange="setFilter(\'category\',this.value)">'+opts(cats,'Category',A.filters.category)+'</select>'+
     '<select class="fsel'+(subs.length<=1?' dim':'')+'" onchange="setFilter(\'subcategory\',this.value)">'+opts(subs,'Subcategory',A.filters.subcategory)+'</select>'+
     '<select class="fsel'+(scales.length<=1?' dim':'')+'" onchange="setFilter(\'sizeScale\',this.value)">'+opts(scales,'Size Scale',A.filters.sizeScale)+'</select>'+
-    '<span class="gc-lbl" style="margin-left:8px" id="sku-count"></span></div></div>';
+    '<select class="fsel'+(commits.length<=1?' dim':'')+'" onchange="setFilter(\'commitCoding\',this.value)">'+opts(commits,'Commit Code',A.filters.commitCoding)+'</select>'+
+    '<select class="fsel" onchange="setFilter(\'ssConfigured\',this.value)"><option value="All">SS Configured: All</option><option value="Configured"'+(A.filters.ssConfigured==='Configured'?' selected':'')+'>Configured</option><option value="Not Configured"'+(A.filters.ssConfigured==='Not Configured'?' selected':'')+'>Not Configured</option></select>'+
+    '<div style="flex:1"></div><span class="gc-lbl" id="sku-count"></span>'+
+    '<button class="sb mass-btn mass-acc" onclick="massAccept()" title="Accept all SKUs in current filter">✓ Accept All Filtered</button>'+
+    '<button class="sb mass-btn mass-unacc" onclick="massUnaccept()" title="Revert all filtered SKUs to pending">✕ Unaccept All Filtered</button>'+
+    '</div></div>';
   h+='<div class="sg" id="sku-cards-container"></div></div>';
   el.innerHTML=h;
   renderGridCards();
@@ -1557,7 +1651,11 @@ function renderGridCards(){
   const countEl=document.getElementById('sku-count');
   if(!container)return;
   const list=getFiltered();
-  if(countEl)countEl.textContent=list.length+' SKUs';
+  // Update count + accepted-of-filtered display
+  if(countEl){
+    const accInList=list.filter(r=>A.accepted[r.sku]).length;
+    countEl.textContent=fmt(list.length)+' SKUs · '+fmt(accInList)+' accepted';
+  }
   let h='';
   list.slice(0,500).forEach(r=>{
     const acc=A.accepted[r.sku];
@@ -1577,14 +1675,39 @@ function renderGridCards(){
     } else {
       pmFlag='<div class="pm-flag pm-flag-bad">⚠ '+esc(r.sizeScale||'NO SCALE')+' not configured</div>';
     }
+
+    // Compute sized total — only sized SKUs have an allocation; if pres min isn't configured, sized=0
+    let sizedTotal=0;
+    if(pmConfigured&&r.sizes&&r.sizes.length){
+      try{
+        const res=computeAlloc(r);
+        if(res&&res.alloc)sizedTotal=r.sizes.reduce((a,s)=>a+(res.alloc[s]||0),0);
+      }catch(e){sizedTotal=0}
+    }
+    const bought=r.dtcBuy||0;
+    const mismatch=pmConfigured&&sizedTotal!==bought;
+
+    // Delivery month (short form)
+    const dShort=formatDeliveryShort(r.deliveryMonth);
+    // Commit code
+    const commit=r.commitCoding||'';
+
     h+='<div class="sc '+divCls+'" onclick="goDetail(\''+esc(r.sku)+'\')">';
     if(acc)h+='<div class="chk chk-g" onclick="event.stopPropagation();toggleAccGrid(\''+esc(r.sku)+'\')" title="Click to revert to pending">✓</div>';
     else h+='<div class="chk chk-e" onclick="event.stopPropagation();toggleAccGrid(\''+esc(r.sku)+'\')" title="Click to accept"></div>';
-    h+='<div class="sid">'+esc(r.sku)+'</div><div class="snm">'+esc(r.styleDescription)+(r.colorDescription?' · '+esc(r.colorDescription):'')+'</div>'+
-    '<div class="sbu">'+fmt(r.dtcBuy)+' u</div><div class="ssb">OH: '+fmt(r.totalOH)+' · Stores: '+r.storeCount+'</div>'+
-    '<div class="bdg '+bc+'" style="font-size:10px;padding:3px 8px">'+bl+'</div>'+pmFlag+'</div>';
+    // Top row: SKU id + delivery
+    h+='<div class="sc-top"><div class="sid">'+esc(r.sku)+'</div>'+(dShort?'<div class="sc-deliv">'+esc(dShort)+'</div>':'')+'</div>';
+    h+='<div class="snm">'+esc(r.styleDescription)+(r.colorDescription?' · '+esc(r.colorDescription):'')+'</div>';
+    // Sized / bought line
+    h+='<div class="sc-buy"><span class="'+(mismatch?'sc-sized-bad':'sc-sized')+'">'+fmt(sizedTotal)+' sized</span> <span class="sc-slash">/</span> <span class="sc-bought">'+fmt(bought)+' u bought</span></div>';
+    h+='<div class="ssb">OH: '+fmt(r.totalOH)+' · Stores: '+r.storeCount+'</div>';
+    // Commit code (truncated via CSS) + sizing type badge
+    h+='<div class="sc-foot">';
+    if(commit)h+='<span class="sc-commit" title="'+esc(commit)+'">'+esc(commit)+'</span>';
+    h+='<span class="bdg '+bc+'" style="font-size:10px;padding:3px 8px">'+bl+'</span>';
+    h+='</div>'+pmFlag+'</div>';
   });
-  if(list.length>500)h+='<div class="gnote">Showing 500 of '+list.length+'</div>';
+  if(list.length>500)h+='<div class="gnote">Showing 500 of '+fmt(list.length)+'</div>';
   if(!list.length)h+='<div class="gnote">No SKUs match filters</div>';
   container.innerHTML=h;
 }
@@ -1833,8 +1956,19 @@ function renderDetail(el,rec){
   const apsRtotal=Math.round(apsR*stCt);
   const apsRpill=stCt>0?'Retail APS: '+apsR_disp+' × '+fmt(stCt)+' = '+fmt(apsRtotal):'Retail APS: '+apsR_disp;
 
+  // Channel buy mismatch detection — surfaces planning data error
+  const retailBuyVal=rec.retailBuy||0,onlineBuyVal=rec.onlineBuy||0;
+  const channelSum=retailBuyVal+onlineBuyVal;
+  const channelMismatch=channelSum>0&&channelSum!==pool;
+  let mismatchBanner='';
+  if(channelMismatch){
+    const diff=pool-channelSum;
+    mismatchBanner='<div class="ch-mismatch">⚠ <b>Planning data discrepancy:</b> Retail Buy ('+fmt(retailBuyVal)+') + Online Buy ('+fmt(onlineBuyVal)+') = '+fmt(channelSum)+', but Total DTC Buy = '+fmt(pool)+' ('+(diff>0?'+':'')+fmt(diff)+'u gap). Sized output will follow channel buys; please verify with the planner.</div>';
+  }
+
   el.innerHTML='<div class="dv anim">'+
     '<button class="d-back" onclick="goGrid()">← Back to '+esc(A.activeSeason)+'</button>'+
+    mismatchBanner+
     '<div class="detail-sticky"><div class="ds-row1"><div class="ds-left"><h2>'+esc(rec.sku)+'</h2><span class="bdg '+(isCF?'bdg-cf':'bdg-in')+'">'+rec.sizingType.toUpperCase()+'</span></div>'+
     '<div class="ds-right">'+resetBtn+flowsBtn+lockBtn+'</div></div>'+
     '<div class="ds-name">'+esc(rec.styleDescription||'')+(rec.colorDescription?' · <span class="ds-color">'+esc(rec.colorDescription)+'</span>':'')+'</div>'+
