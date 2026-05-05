@@ -280,9 +280,15 @@ input,select,button,textarea{font-family:inherit}
 .size-tag .tag-label:hover{text-decoration:underline}
 .size-tag .tag-x{cursor:pointer;font-size:13px;color:var(--txt3);line-height:1;margin-left:2px}
 .size-tag .tag-x:hover{color:var(--red)}
-.size-tag-reorder{padding:2px 4px}
-.size-tag-reorder .tag-label{cursor:default;padding:0 4px}
+.size-tag-reorder{padding:5px 10px;cursor:grab;user-select:none;border:1px solid var(--bdr);background:var(--wh);transition:all 80ms ease}
+.size-tag-reorder:hover{border-color:var(--blue);background:var(--blue-pl);transform:translateY(-1px);box-shadow:var(--shsm)}
+.size-tag-reorder.size-tag-online:hover{border-color:var(--pink);background:rgba(192,90,138,.18)}
+.size-tag-reorder:active,.size-tag-reorder.size-tag-dragging{cursor:grabbing;opacity:.4}
+.size-tag-reorder .drag-grip{font-family:var(--mono);color:var(--txt3);font-size:10px;letter-spacing:-2px;padding-right:2px;line-height:1}
+.size-tag-reorder .tag-label{cursor:grab;padding:0 2px;user-select:none}
 .size-tag-reorder .tag-label:hover{text-decoration:none}
+.size-tag-drop-before{box-shadow:-3px 0 0 var(--blue)!important}
+.size-tag-drop-after{box-shadow:3px 0 0 var(--blue)!important}
 .tag-arrow{background:var(--wh);border:1px solid var(--bdr);border-radius:3px;padding:1px 6px;font-size:10px;cursor:pointer;color:var(--blue);font-weight:700}
 .tag-arrow:hover:not(:disabled){background:var(--blue);color:#fff}
 .tag-arrow:disabled{opacity:.3;cursor:not-allowed}
@@ -360,7 +366,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V7.4 · CHANGELOG + ONLINE-ONLY + REORDER</div>
+<div class="version-tag">V7.4.1 · DRAG REORDER + OMNI</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -2018,10 +2024,11 @@ function renderGridCards(){
       const onlineOnly=A.presMinsMeta[r.sizeScale].onlineOnly||[];
       const cfg=A.presMins[r.sizeScale]||{};
       const totalSizes=sizes.length;
-      const retailSizes=sizes.filter(s=>!onlineOnly.includes(s)&&(cfg[s]||0)>0).length;
+      const omniCount=totalSizes-onlineOnly.length;
+      // Pres min total only counts non-online-only sizes (those go to stores with floors)
       const totalMin=sizes.filter(s=>!onlineOnly.includes(s)).reduce((a,s)=>a+(cfg[s]||0),0);
-      const onlineSuffix=onlineOnly.length?' · '+onlineOnly.length+' online':'';
-      pmFlag='<div class="pm-flag pm-flag-ok">✓ '+r.sizeScale+': '+totalSizes+'sz · '+retailSizes+'rt · min '+totalMin+onlineSuffix+'</div>';
+      const ooSuffix=onlineOnly.length?' · '+onlineOnly.length+' OO':'';
+      pmFlag='<div class="pm-flag pm-flag-ok">✓ '+r.sizeScale+': '+totalSizes+'sz · '+omniCount+' OMNI'+ooSuffix+' · min '+totalMin+'</div>';
     } else {
       pmFlag='<div class="pm-flag pm-flag-bad">⚠ '+esc(r.sizeScale||'NO SCALE')+' not configured</div>';
     }
@@ -2394,11 +2401,14 @@ function renderPresMins(el){
     const staged=pmStaged[scale]||{};
     const divCls=meta.div==='Womens'?'div-w':meta.div==='Non-Apparel'?'div-n':'div-m';
     const divTag=meta.div==='Womens'?'pm-div-w':meta.div==='Non-Apparel'?'pm-div-n':'pm-div-m';
-    const storeSizes=sizes.filter(s=>!onlineOnlySet.has(s)&&(cfg[s]||0)>0).length;
+    // OMNI = sizes that go to both retail and online (i.e., everything except online-only).
+    // Even sizes with pres min = 0 are OMNI — they still receive curve-driven retail allocation, just no floor.
+    const omniCount=sizes.length-onlineOnly.length;
+    const ooCount=onlineOnly.length;
     const hasStagedChanges=Object.keys(staged).length>0&&Object.keys(staged).some(s=>{const sv=staged[s];const cv=cfg[s];return sv!==cv});
 
     h+='<div class="pm-card '+divCls+'" style="position:relative"><button class="pm-delete" onclick="deleteScale(\''+esc(scale)+'\')" title="Delete scale">✕</button>'+
-      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><h3 style="margin:0">'+esc(scale)+' <span style="font-weight:400;color:var(--txt3)">('+sizes.length+' sizes · '+storeSizes+' store'+(onlineOnly.length?' · '+onlineOnly.length+' online-only':'')+')</span></h3>'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><h3 style="margin:0">'+esc(scale)+' <span style="font-weight:400;color:var(--txt3)">('+sizes.length+' sizes · '+omniCount+' OMNI'+(ooCount?' · '+ooCount+' OO':'')+')</span></h3>'+
       '<button class="btn btn-g btn-sm" onclick="openEditScaleModal(\''+esc(scale)+'\')">Edit Sizes</button></div>';
     if(meta.div)h+='<span class="pm-div-tag '+divTag+'">'+esc(meta.div)+'</span>';
     // Attribution
@@ -2517,22 +2527,62 @@ function toggleOnlineOnly(size){
   renderModal();
 }
 
-function moveSizeUp(idx){
-  const ms=modalState;
-  if(idx<=0)return;
-  const tmp=ms.sizes[idx-1];ms.sizes[idx-1]=ms.sizes[idx];ms.sizes[idx]=tmp;
-  renderModal();
-}
-
-function moveSizeDown(idx){
-  const ms=modalState;
-  if(idx>=ms.sizes.length-1)return;
-  const tmp=ms.sizes[idx+1];ms.sizes[idx+1]=ms.sizes[idx];ms.sizes[idx]=tmp;
-  renderModal();
-}
-
 function toggleReorderMode(){
-  modalState.reorderMode=!modalState.reorderMode;renderModal();
+  modalState.reorderMode=!modalState.reorderMode;
+  modalState._dragIdx=null;
+  renderModal();
+}
+
+// Drag-and-drop reorder helpers
+function dragSizeStart(ev,idx){
+  modalState._dragIdx=idx;
+  // Hint to the browser this is a move operation
+  if(ev.dataTransfer){
+    ev.dataTransfer.effectAllowed='move';
+    ev.dataTransfer.setData('text/plain',String(idx));
+  }
+  // Visual feedback: tag the dragged element with a class via setTimeout
+  // (setting it synchronously cancels the drag in some browsers)
+  setTimeout(()=>{const el=ev.target.closest('.size-tag');if(el)el.classList.add('size-tag-dragging')},0);
+}
+
+function dragSizeOver(ev,idx){
+  ev.preventDefault();
+  if(ev.dataTransfer)ev.dataTransfer.dropEffect='move';
+  // Visual: mark which slot is the current drop target
+  const ms=modalState;
+  if(ms._dragOverIdx!==idx){
+    ms._dragOverIdx=idx;
+    // Lightweight refresh of indicators only — no full renderModal to avoid janky redraws mid-drag
+    const tags=document.querySelectorAll('.tag-area .size-tag');
+    tags.forEach((t,i)=>{
+      t.classList.toggle('size-tag-drop-before',i===idx&&ms._dragIdx!==null&&i<ms._dragIdx);
+      t.classList.toggle('size-tag-drop-after',i===idx&&ms._dragIdx!==null&&i>ms._dragIdx);
+    });
+  }
+}
+
+function dragSizeDrop(ev,targetIdx){
+  ev.preventDefault();
+  const ms=modalState;
+  const fromIdx=ms._dragIdx;
+  ms._dragIdx=null;ms._dragOverIdx=null;
+  if(fromIdx===null||fromIdx===undefined||fromIdx===targetIdx){renderModal();return}
+  // Move the size from fromIdx → targetIdx, preserving relative order of the rest
+  const moved=ms.sizes.splice(fromIdx,1)[0];
+  // Adjust target if we removed something before it
+  const insertAt=fromIdx<targetIdx?targetIdx:targetIdx;
+  ms.sizes.splice(insertAt,0,moved);
+  renderModal();
+}
+
+function dragSizeEnd(){
+  const ms=modalState;
+  ms._dragIdx=null;ms._dragOverIdx=null;
+  // Clean up classes
+  document.querySelectorAll('.size-tag').forEach(t=>{
+    t.classList.remove('size-tag-dragging','size-tag-drop-before','size-tag-drop-after');
+  });
 }
 
 function removeSizeAt(idx){
@@ -2582,10 +2632,15 @@ function renderModal(){
   ms.sizes.forEach((s,i)=>{
     const isOnly=ms.onlineOnly.includes(s);
     if(ms.reorderMode){
-      h+='<span class="size-tag size-tag-reorder'+(isOnly?' size-tag-online':'')+'">'+
-         '<button class="tag-arrow" '+(i===0?'disabled':'')+' onclick="event.stopPropagation();moveSizeUp('+i+')" title="Move earlier">←</button>'+
+      h+='<span class="size-tag size-tag-reorder'+(isOnly?' size-tag-online':'')+'" '+
+         'draggable="true" '+
+         'ondragstart="dragSizeStart(event,'+i+')" '+
+         'ondragover="dragSizeOver(event,'+i+')" '+
+         'ondrop="dragSizeDrop(event,'+i+')" '+
+         'ondragend="dragSizeEnd()" '+
+         'title="Drag to reorder">'+
+         '<span class="drag-grip">⋮⋮</span>'+
          '<span class="tag-label">'+esc(s)+(isOnly?' 🌐':'')+'</span>'+
-         '<button class="tag-arrow" '+(i===ms.sizes.length-1?'disabled':'')+' onclick="event.stopPropagation();moveSizeDown('+i+')" title="Move later">→</button>'+
          '</span>';
     } else {
       h+='<span class="size-tag'+(isOnly?' size-tag-online':'')+'">'+
@@ -2597,7 +2652,7 @@ function renderModal(){
   if(!ms.reorderMode)h+='<input class="tag-input" type="text" placeholder="Type + Enter" value="'+esc(ms.sizeInput)+'" oninput="modalState.sizeInput=this.value" onkeydown="handleTagKey(event)">';
   h+='</div>';
   if(ms.reorderMode){
-    h+='<div style="font-size:10px;color:var(--txt3);margin-top:4px">Use ← → to reorder sizes. Click "Done Reordering" when finished.</div>';
+    h+='<div style="font-size:10px;color:var(--txt3);margin-top:4px">Drag any size to a new position. Click "Done Reordering" when finished.</div>';
   } else {
     h+='<div style="font-size:10px;color:var(--txt3);margin-top:4px">Press Enter or comma to add. Click size label to toggle online-only. Click × to remove.</div>';
   }
