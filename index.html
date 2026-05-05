@@ -124,16 +124,20 @@ input,select,button,textarea{font-family:inherit}
 .sbar{padding:7px 12px;font-size:12px;background:var(--wh);color:var(--txt);border:1px solid var(--bdr-lt);border-radius:var(--r);outline:none;width:220px}.sbar:focus{border-color:var(--blue)}.sbar::placeholder{color:var(--txt3)}
 .sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
 .sc{padding:14px 16px;background:var(--wh);border:2px solid var(--bdr-lt);border-radius:var(--rl);cursor:pointer;transition:all .15s;position:relative}
-.sc-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:1px}
-.sc-deliv{font-family:var(--mono);font-size:9px;color:var(--orange);font-weight:700;letter-spacing:.5px;background:var(--orange-pl);padding:2px 6px;border-radius:3px;flex-shrink:0}
-.sc-buy{font-family:var(--mono);margin:4px 0 2px;line-height:1.2;display:flex;align-items:baseline;gap:4px;flex-wrap:wrap}
-.sc-sized{font-size:14px;font-weight:700;color:var(--navy)}
+.sc-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:1px;padding-right:0}
+.sc-deliv-wrap{flex:1;display:flex;justify-content:center;min-width:0}
+.sc-deliv{font-family:var(--mono);font-size:9px;color:var(--orange);font-weight:700;letter-spacing:.5px;background:var(--orange-pl);padding:2px 6px;border-radius:3px;white-space:nowrap}
+.sc-buy{font-family:var(--mono);margin:4px 0 2px;line-height:1.2;display:flex;align-items:baseline;gap:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-sized-ok{font-size:14px;font-weight:700;color:var(--green)}
+.sc-sized-warn{font-size:14px;font-weight:700;color:#b8800c;animation:flashAmber 1.4s ease-in-out infinite}
 .sc-sized-bad{font-size:14px;font-weight:700;color:var(--red);animation:flashRed 1.2s ease-in-out infinite}
 .sc-slash{color:var(--txt3);font-size:11px}
 .sc-bought{font-size:11px;font-weight:600;color:var(--txt2)}
 .sc-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
 .sc-commit{font-family:var(--mono);font-size:9px;color:var(--txt2);background:var(--sand-lt);padding:3px 8px;border-radius:3px;letter-spacing:.3px;font-weight:600;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1}
+.sc-commit-empty{color:var(--txt3);background:transparent;padding-left:2px}
 @keyframes flashRed{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes flashAmber{0%,100%{opacity:1}50%{opacity:.6}}
 
 /* Mass action buttons */
 .sb.mass-btn{font-size:11px;font-weight:700;letter-spacing:.3px;padding:6px 12px;border-radius:var(--rs);transition:all .15s}
@@ -143,7 +147,7 @@ input,select,button,textarea{font-family:inherit}
 .sb.mass-unacc:hover{background:var(--red);color:#fff}
 .sc:hover{border-color:var(--blue);box-shadow:var(--shmd);transform:translateY(-1px)}
 .sc.dv-m{border-left:4px solid var(--blue)}.sc.dv-w{border-left:4px solid var(--pink)}.sc.dv-n{border-left:4px solid var(--slate)}
-.sc .chk{position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;transition:all var(--t)}
+.sc .chk{position:relative;width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;transition:all var(--t);flex-shrink:0}
 .sc .chk:hover{transform:scale(1.1)}
 .sc .chk-g{background:var(--green);color:#fff}.sc .chk-e{background:var(--wh);border:2px solid var(--bdr);color:transparent}
 .sc .chk-e:hover{border-color:var(--green)}
@@ -293,7 +297,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V7.2.1 · VARIANCE FIX</div>
+<div class="version-tag">V7.3 · PILL/BUTTON/EXPORT FIXES</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -669,7 +673,7 @@ const A={
   view:'grid',module:null,
   overrides:{},accepted:{},
   searchTerm:'',sortKey:'dtcBuy',sortDir:'desc',
-  filters:{type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All'},
+  filters:{type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All'},
   presMins:{},
   presMinsMeta:{},
   scaleSizes:{},scaleSizeCount:{},hierSales:{},salSKU:{},cols:{},
@@ -818,7 +822,7 @@ function goSeason(s){
   A.activeSeason=s;A.selectedSKU=null;A.view='grid';A.module=null;
   if(!sameSeason){
     A.overrides={};A.accepted={};A.sortKey='dtcBuy';A.sortDir='desc';
-    A.filters={type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All'};
+    A.filters={type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All'};
   }
   processData();
   document.getElementById('welcome').classList.add('hidden');
@@ -1391,21 +1395,81 @@ function updateExpCt(){const n=Object.keys(A.accepted).length;const el=document.
 
 function exportCSV(){
   const acc=Object.keys(A.accepted);if(!acc.length)return;
-  const SIZE_COLS=['2T','3T','4T','5','6','8','10','OS','XXS','XS','S','M','L','XL','XXL','XXXL','XS/S','S/M','M/L','L/XL','MT','LT','XLT','XXLT','00','0','2','4','6','8','10','12','14','16','24','25','26','27','28','29','30','31','32','33','34','35','36','38','40','42','30T','32T','34T','36T','38T','40T','28WX30L','29WX30L','30WX30L','31WX30L','32WX30L','33WX30L','34WX30L','35WX30L','36WX30L','38WX30L','40WX30L','42WX30L','28WX32L','29WX32L','30WX32L','31WX32L','32WX32L','33WX32L','34WX32L','35WX32L','36WX32L','38WX32L','40WX32L','42WX32L','28WX34L','29WX34L','30WX34L','31WX34L','32WX34L','33WX34L','34WX34L','35WX34L','36WX34L','38WX34L','40WX34L','42WX34L','1XL','2XL','3XL','4XL','5XL','1XLT','2XLT','3XLT','4XLT','40W36L','42W32L','42W34L','44W30L','44W32L','44W34L','46W30L','46W32L','48W30L','48W32L','50W30L','52W30L','36_','38_','40_','42_','44_','46_','48_','50_'];
 
-  const uploadHeader=['SIZING TYPE','Year','Season Code','Department','SKU','Location','Delivery','Customer','From Sales Tier','Sales Tier','Total',...SIZE_COLS];
-  const linesGlobal=[uploadHeader.join(',')];
-  const linesFlows=[uploadHeader.join(',')];
+  // SIZE_COLS now includes a section tag for each column.
+  // section: 'kidsOS' (Kids & OS — sizes 2T-XXXL plus shared 6/8/10 for kids), 'mw' (Mens & Womens)
+  // For the previously-duplicated sizes (6, 8, 10), we keep a single canonical column for each
+  // and tag it as 'mw' (since adult women's 6/8/10 is the more common use case in apparel).
+  // Kids' 6/8/10 sizes are not represented separately in this dataset; if needed later, suffix would distinguish.
+  // We rename women's "00"/"0" to "00W"/"0W" so Excel won't render them indistinguishably from numeric "0".
+  const SIZE_DEFS=[
+    // Kids & OS
+    {col:'2T',sec:'kidsOS'},{col:'3T',sec:'kidsOS'},{col:'4T',sec:'kidsOS'},{col:'5',sec:'kidsOS'},{col:'OS',sec:'kidsOS'},
+    // Mens & Womens — letter sizes
+    {col:'XXS',sec:'mw'},{col:'XS',sec:'mw'},{col:'S',sec:'mw'},{col:'M',sec:'mw'},{col:'L',sec:'mw'},{col:'XL',sec:'mw'},{col:'XXL',sec:'mw'},{col:'XXXL',sec:'mw'},
+    {col:'XS/S',sec:'mw'},{col:'S/M',sec:'mw'},{col:'M/L',sec:'mw'},{col:'L/XL',sec:'mw'},
+    {col:'MT',sec:'mw'},{col:'LT',sec:'mw'},{col:'XLT',sec:'mw'},{col:'XXLT',sec:'mw'},
+    // Mens & Womens — Womens dress sizes (renamed to avoid Excel's leading-zero collapse on 00/0)
+    {col:'00W',sec:'mw',match:'00'},{col:'0W',sec:'mw',match:'0'},
+    {col:'2',sec:'mw'},{col:'4',sec:'mw'},{col:'6',sec:'mw'},{col:'8',sec:'mw'},{col:'10',sec:'mw'},
+    {col:'12',sec:'mw'},{col:'14',sec:'mw'},{col:'16',sec:'mw'},
+    // Mens & Womens — numeric (waist/etc.)
+    {col:'24',sec:'mw'},{col:'25',sec:'mw'},{col:'26',sec:'mw'},{col:'27',sec:'mw'},{col:'28',sec:'mw'},{col:'29',sec:'mw'},
+    {col:'30',sec:'mw'},{col:'31',sec:'mw'},{col:'32',sec:'mw'},{col:'33',sec:'mw'},{col:'34',sec:'mw'},{col:'35',sec:'mw'},
+    {col:'36',sec:'mw'},{col:'38',sec:'mw'},{col:'40',sec:'mw'},{col:'42',sec:'mw'},
+    // Tall variants
+    {col:'30T',sec:'mw'},{col:'32T',sec:'mw'},{col:'34T',sec:'mw'},{col:'36T',sec:'mw'},{col:'38T',sec:'mw'},{col:'40T',sec:'mw'},
+    // Mens denim WxL combos
+    {col:'28WX30L',sec:'mw'},{col:'29WX30L',sec:'mw'},{col:'30WX30L',sec:'mw'},{col:'31WX30L',sec:'mw'},{col:'32WX30L',sec:'mw'},{col:'33WX30L',sec:'mw'},{col:'34WX30L',sec:'mw'},{col:'35WX30L',sec:'mw'},{col:'36WX30L',sec:'mw'},{col:'38WX30L',sec:'mw'},{col:'40WX30L',sec:'mw'},{col:'42WX30L',sec:'mw'},
+    {col:'28WX32L',sec:'mw'},{col:'29WX32L',sec:'mw'},{col:'30WX32L',sec:'mw'},{col:'31WX32L',sec:'mw'},{col:'32WX32L',sec:'mw'},{col:'33WX32L',sec:'mw'},{col:'34WX32L',sec:'mw'},{col:'35WX32L',sec:'mw'},{col:'36WX32L',sec:'mw'},{col:'38WX32L',sec:'mw'},{col:'40WX32L',sec:'mw'},{col:'42WX32L',sec:'mw'},
+    {col:'28WX34L',sec:'mw'},{col:'29WX34L',sec:'mw'},{col:'30WX34L',sec:'mw'},{col:'31WX34L',sec:'mw'},{col:'32WX34L',sec:'mw'},{col:'33WX34L',sec:'mw'},{col:'34WX34L',sec:'mw'},{col:'35WX34L',sec:'mw'},{col:'36WX34L',sec:'mw'},{col:'38WX34L',sec:'mw'},{col:'40WX34L',sec:'mw'},{col:'42WX34L',sec:'mw'},
+    {col:'1XL',sec:'mw'},{col:'2XL',sec:'mw'},{col:'3XL',sec:'mw'},{col:'4XL',sec:'mw'},{col:'5XL',sec:'mw'},
+    {col:'1XLT',sec:'mw'},{col:'2XLT',sec:'mw'},{col:'3XLT',sec:'mw'},{col:'4XLT',sec:'mw'},
+    {col:'40W36L',sec:'mw'},{col:'42W32L',sec:'mw'},{col:'42W34L',sec:'mw'},{col:'44W30L',sec:'mw'},{col:'44W32L',sec:'mw'},{col:'44W34L',sec:'mw'},
+    {col:'46W30L',sec:'mw'},{col:'46W32L',sec:'mw'},{col:'48W30L',sec:'mw'},{col:'48W32L',sec:'mw'},{col:'50W30L',sec:'mw'},{col:'52W30L',sec:'mw'},
+    {col:'36_',sec:'mw'},{col:'38_',sec:'mw'},{col:'40_',sec:'mw'},{col:'42_',sec:'mw'},{col:'44_',sec:'mw'},{col:'46_',sec:'mw'},{col:'48_',sec:'mw'},{col:'50_',sec:'mw'}
+  ];
+  const SIZE_COLS=SIZE_DEFS.map(d=>d.col);
+
+  // Info columns (everything before size columns)
+  const INFO_COLS=['SIZING TYPE','Year','Season Code','Department','SKU','Location','Delivery','Customer','From Sales Tier','Sales Tier','Sizing Tab Total','Unit Variance','Total'];
+
+  // Section header row: Info | Kids & OS | Mens & Womens
+  const sectionRow=[];
+  INFO_COLS.forEach(()=>sectionRow.push('Info'));
+  SIZE_DEFS.forEach(d=>sectionRow.push(d.sec==='kidsOS'?'Kids & OS':'Mens & Womens'));
+
+  // Header row
+  const headerRow=[...INFO_COLS,...SIZE_COLS];
+
+  const linesGlobal=[sectionRow.join(','),headerRow.join(',')];
+  const linesFlows=[sectionRow.join(','),headerRow.join(',')];
 
   const yrMatch=A.activeSeason.match(/(\d{2})$/);
   const year=yrMatch?'20'+yrMatch[1]:'2026';
+
   function makeRow(r,sku,sizeMap,total,salesTier,delivery){
     const tl=r.sizingType==='initials'?'Initials PO':'CF PO';
-    const sizeVals=SIZE_COLS.map(sc=>{
-      const match=Object.keys(sizeMap).find(k=>k.toUpperCase()===String(sc).toUpperCase());
-      return match?sizeMap[match]||'':'';
+    // Determine which division-group this SKU belongs to; populate only that section's columns.
+    // 'Kids & OS' is for Kids/OS sizes. 'Mens & Womens' is for adult Mens/Womens.
+    // Right now we don't size kids items (per user spec), so all output goes into 'mw' columns.
+    // If a SKU's division is Mens, Womens, or anything not explicitly Kids/Childrens, populate mw only.
+    const divLower=(r.division||'').toLowerCase();
+    const isKidsLike=divLower.includes('kid')||divLower.includes('children')||divLower.includes('child');
+    const isOSLike=(r.sizes||[]).some(s=>s==='OS');
+    const sizeVals=SIZE_DEFS.map(def=>{
+      // Match the SKU's actual size key against this column
+      // Use def.match if provided (renamed columns like 00W → match '00'), otherwise def.col
+      const lookupKey=def.match!==undefined?def.match:def.col;
+      const matchedSku=Object.keys(sizeMap).find(k=>k.toUpperCase()===String(lookupKey).toUpperCase());
+      if(!matchedSku)return '';
+      // Section gating: only populate columns belonging to this SKU's section
+      if(def.sec==='kidsOS'&&!isKidsLike&&!isOSLike)return '';
+      if(def.sec==='mw'&&isKidsLike&&!isOSLike)return '';
+      return sizeMap[matchedSku]||'';
     });
-    const row=[tl,year,A.activeSeason,r.division,sku,'DTC',delivery,'','Global',salesTier,total,...sizeVals];
+    // Sizing Tab Total + Unit Variance left blank — Linelist computes these on import
+    const row=[tl,year,A.activeSeason,r.division,sku,'DTC',delivery,'','Global',salesTier,'','',total,...sizeVals];
     return row.map(v=>typeof v==='string'&&v.includes(',')?'"'+v+'"':v).join(',');
   }
 
@@ -1424,13 +1488,11 @@ function exportCSV(){
         linesFlows.push(makeRow(r,sku,fb.sizeBreak,fb.units,fb.label,flowDelivery));
       });
     } else {
-      // Single flow — same as Global tab
       linesFlows.push(makeRow(r,sku,sizeMap,total,'Global',baseDelivery));
     }
   });
 
   // Download both files synchronously within the same user-activation window.
-  // setTimeout would push the 2nd click outside the user gesture and browsers silently drop it.
   function downloadCSV(text,filename){
     const blob=new Blob([text],{type:'text/csv'});
     const url=URL.createObjectURL(blob);
@@ -1561,22 +1623,54 @@ function getFiltered(){
   if(f.category!=='All')list=list.filter(r=>r.category===f.category);
   if(f.subcategory!=='All')list=list.filter(r=>r.subcategory===f.subcategory);
   if(f.sizeScale&&f.sizeScale!=='All')list=list.filter(r=>r.sizeScale===f.sizeScale);
-  if(f.commitCoding&&f.commitCoding!=='All')list=list.filter(r=>(r.commitCoding||'')===f.commitCoding);
+  if(f.commitCoding&&f.commitCoding!=='All'){
+    if(f.commitCoding==='—')list=list.filter(r=>!(r.commitCoding||'').trim());
+    else list=list.filter(r=>(r.commitCoding||'')===f.commitCoding);
+  }
   if(f.ssConfigured&&f.ssConfigured!=='All'){
     const want=f.ssConfigured==='Configured';
-    list=list.filter(r=>{const c=A.presMinsMeta[r.sizeScale]&&(A.presMinsMeta[r.sizeScale].sizes||[]).length>0;return want===c});
+    list=list.filter(r=>{
+      // A scale is configured only if it exists in presMinsMeta AND has at least one size
+      const scale=r.sizeScale||'';
+      const meta=scale?A.presMinsMeta[scale]:null;
+      const sizes=meta&&meta.sizes;
+      const isConfigured=Array.isArray(sizes)&&sizes.length>0;
+      return want===isConfigured;
+    });
+  }
+  if(f.storeCount&&f.storeCount!=='All'){
+    if(f.storeCount==='0')list=list.filter(r=>r.storeCount===0);
+    else if(f.storeCount==='1-25')list=list.filter(r=>r.storeCount>=1&&r.storeCount<=25);
+    else if(f.storeCount==='26-50')list=list.filter(r=>r.storeCount>=26&&r.storeCount<=50);
+    else if(f.storeCount==='51-90')list=list.filter(r=>r.storeCount>=51&&r.storeCount<=90);
+    else if(f.storeCount==='91+')list=list.filter(r=>r.storeCount>=91);
+  }
+  if(f.accepted&&f.accepted!=='All'){
+    if(f.accepted==='Accepted')list=list.filter(r=>!!A.accepted[r.sku]);
+    else if(f.accepted==='Pending')list=list.filter(r=>!A.accepted[r.sku]);
   }
   if(A.searchTerm){const st=A.searchTerm.toLowerCase();list=list.filter(r=>r.sku.toLowerCase().includes(st)||r.styleDescription.toLowerCase().includes(st)||r.colorDescription.toLowerCase().includes(st))}
   const sk=A.sortKey;const dir=A.sortDir==='asc'?1:-1;
+  // For sized sort: compute sized once per SKU and cache on the record (cleared when filters re-render)
+  if(sk==='sized'){
+    list.forEach(r=>{
+      if(r._sizedCache===undefined){
+        const meta=A.presMinsMeta[r.sizeScale];
+        const pmConfigured=!!(meta&&Array.isArray(meta.sizes)&&meta.sizes.length>0);
+        let sizedTotal=0;
+        if(pmConfigured&&r.sizes&&r.sizes.length){
+          try{const res=computeAlloc(r);if(res&&res.alloc)sizedTotal=r.sizes.reduce((a,s)=>a+(res.alloc[s]||0),0)}catch(e){}
+        }
+        r._sizedCache=sizedTotal;
+      }
+    });
+  }
   list.sort((a,b)=>{
     let cmp=0;
     if(sk==='dtcBuy')cmp=a.dtcBuy-b.dtcBuy;
     else if(sk==='postBuy')cmp=(a.totalOH+a.dtcBuy)-(b.totalOH+b.dtcBuy);
     else if(sk==='currentOH')cmp=a.totalOH-b.totalOH;
-    else if(sk==='storeCount')cmp=a.storeCount-b.storeCount;
-    else if(sk==='type'){const to={cf:0,initials:1};cmp=(to[a.sizingType]||9)-(to[b.sizingType]||9)}
-    else if(sk==='accepted')cmp=(A.accepted[a.sku]?0:1)-(A.accepted[b.sku]?0:1);
-    else if(sk==='sizeScale')cmp=(a.sizeScale||'').localeCompare(b.sizeScale||'');
+    else if(sk==='sized')cmp=(a._sizedCache||0)-(b._sizedCache||0);
     return cmp*dir;
   });return list;
 }
@@ -1597,7 +1691,10 @@ function getFilterOptions(){
   let scaleBase=subBase;if(f.subcategory!=='All')scaleBase=scaleBase.filter(r=>r.subcategory===f.subcategory);
   const scales=[...new Set(scaleBase.map(r=>r.sizeScale).filter(Boolean))].sort();
   // Commit codes: independent of cascade; just unique values across the season
-  const commits=[...new Set(all.map(r=>r.commitCoding).filter(Boolean))].sort();
+  // Include "—" entry if any SKU has empty commit code
+  const commitsRaw=[...new Set(all.map(r=>r.commitCoding).filter(Boolean))].sort();
+  const hasEmptyCommit=all.some(r=>!(r.commitCoding||'').trim());
+  const commits=hasEmptyCommit?['—',...commitsRaw]:commitsRaw;
   return{divs,cats,subs,scales,commits};
 }
 
@@ -1615,7 +1712,7 @@ function renderGrid(el){
   if(A.filters.sizeScale!=='All'&&!scales.includes(A.filters.sizeScale))A.filters.sizeScale='All';
   if(A.filters.commitCoding!=='All'&&!commits.includes(A.filters.commitCoding))A.filters.commitCoding='All';
   let h='<div class="gv"><div class="gc"><div class="gc-row">'+
-    '<span class="gc-lbl">Sort</span>'+sb('dtcBuy',A.activeSeason+' Buy')+sb('postBuy','Post-Buy OH')+sb('currentOH','Current OH')+
+    '<span class="gc-lbl">Sort</span>'+sb('dtcBuy',A.activeSeason+' Buy')+sb('postBuy','Post-Buy OH')+sb('currentOH','Current OH')+sb('sized','Units Sized')+
     '<div style="flex:1"></div><input class="sbar" id="grid-search" type="text" placeholder="Search..." value="'+esc(A.searchTerm)+'" oninput="A.searchTerm=this.value;renderGridCards()">'+
   '</div><div class="gc-row"><span class="gc-lbl">Filter</span>'+
     '<select class="fsel" onchange="setFilter(\'type\',this.value)"><option value="All">Type: All</option><option value="cf"'+(A.filters.type==='cf'?' selected':'')+'>CF</option><option value="initials"'+(A.filters.type==='initials'?' selected':'')+'>Initials</option></select>'+
@@ -1624,7 +1721,10 @@ function renderGrid(el){
     '<select class="fsel'+(subs.length<=1?' dim':'')+'" onchange="setFilter(\'subcategory\',this.value)">'+opts(subs,'Subcategory',A.filters.subcategory)+'</select>'+
     '<select class="fsel'+(scales.length<=1?' dim':'')+'" onchange="setFilter(\'sizeScale\',this.value)">'+opts(scales,'Size Scale',A.filters.sizeScale)+'</select>'+
     '<select class="fsel'+(commits.length<=1?' dim':'')+'" onchange="setFilter(\'commitCoding\',this.value)">'+opts(commits,'Commit Code',A.filters.commitCoding)+'</select>'+
+  '</div><div class="gc-row"><span class="gc-lbl"></span>'+
     '<select class="fsel" onchange="setFilter(\'ssConfigured\',this.value)"><option value="All">SS Configured: All</option><option value="Configured"'+(A.filters.ssConfigured==='Configured'?' selected':'')+'>Configured</option><option value="Not Configured"'+(A.filters.ssConfigured==='Not Configured'?' selected':'')+'>Not Configured</option></select>'+
+    '<select class="fsel" onchange="setFilter(\'storeCount\',this.value)"><option value="All">Store Count: All</option><option value="0"'+(A.filters.storeCount==='0'?' selected':'')+'>0</option><option value="1-25"'+(A.filters.storeCount==='1-25'?' selected':'')+'>1–25</option><option value="26-50"'+(A.filters.storeCount==='26-50'?' selected':'')+'>26–50</option><option value="51-90"'+(A.filters.storeCount==='51-90'?' selected':'')+'>51–90</option><option value="91+"'+(A.filters.storeCount==='91+'?' selected':'')+'>91+</option></select>'+
+    '<select class="fsel" onchange="setFilter(\'accepted\',this.value)"><option value="All">Status: All</option><option value="Accepted"'+(A.filters.accepted==='Accepted'?' selected':'')+'>Accepted</option><option value="Pending"'+(A.filters.accepted==='Pending'?' selected':'')+'>Pending</option></select>'+
     '<div style="flex:1"></div><span class="gc-lbl" id="sku-count"></span>'+
     '<button class="sb mass-btn mass-acc" onclick="massAccept()" title="Accept all SKUs in current filter">✓ Accept All Filtered</button>'+
     '<button class="sb mass-btn mass-unacc" onclick="massUnaccept()" title="Revert all filtered SKUs to pending">✕ Unaccept All Filtered</button>'+
@@ -1685,25 +1785,35 @@ function renderGridCards(){
       }catch(e){sizedTotal=0}
     }
     const bought=r.dtcBuy||0;
-    const mismatch=pmConfigured&&sizedTotal!==bought;
+    // 3-tier color: Green (match), Yellow (off by 1-2), Red (off by 3+)
+    let sizedCls='sc-sized-ok';
+    if(pmConfigured){
+      const variance=Math.abs(sizedTotal-bought);
+      if(variance===0)sizedCls='sc-sized-ok';
+      else if(variance<3)sizedCls='sc-sized-warn';
+      else sizedCls='sc-sized-bad';
+    }
 
     // Delivery month (short form)
     const dShort=formatDeliveryShort(r.deliveryMonth);
-    // Commit code
-    const commit=r.commitCoding||'';
+    // Commit code — display as dash if missing
+    const commit=(r.commitCoding||'').trim();
+    const commitDisplay=commit||'—';
 
     h+='<div class="sc '+divCls+'" onclick="goDetail(\''+esc(r.sku)+'\')">';
+    // Top row: SKU id (left) · delivery (middle) · accept checkbox (right)
+    h+='<div class="sc-top"><div class="sid">'+esc(r.sku)+'</div>'+
+       '<div class="sc-deliv-wrap">'+(dShort?'<span class="sc-deliv">'+esc(dShort)+'</span>':'')+'</div>';
     if(acc)h+='<div class="chk chk-g" onclick="event.stopPropagation();toggleAccGrid(\''+esc(r.sku)+'\')" title="Click to revert to pending">✓</div>';
     else h+='<div class="chk chk-e" onclick="event.stopPropagation();toggleAccGrid(\''+esc(r.sku)+'\')" title="Click to accept"></div>';
-    // Top row: SKU id + delivery
-    h+='<div class="sc-top"><div class="sid">'+esc(r.sku)+'</div>'+(dShort?'<div class="sc-deliv">'+esc(dShort)+'</div>':'')+'</div>';
+    h+='</div>';
     h+='<div class="snm">'+esc(r.styleDescription)+(r.colorDescription?' · '+esc(r.colorDescription):'')+'</div>';
-    // Sized / bought line
-    h+='<div class="sc-buy"><span class="'+(mismatch?'sc-sized-bad':'sc-sized')+'">'+fmt(sizedTotal)+' sized</span> <span class="sc-slash">/</span> <span class="sc-bought">'+fmt(bought)+' u bought</span></div>';
+    // Sized / bought single-line: "1,614 sized / 1,614"
+    h+='<div class="sc-buy"><span class="'+sizedCls+'">'+fmt(sizedTotal)+' sized</span> <span class="sc-slash">/</span> <span class="sc-bought">'+fmt(bought)+'</span></div>';
     h+='<div class="ssb">OH: '+fmt(r.totalOH)+' · Stores: '+r.storeCount+'</div>';
-    // Commit code (truncated via CSS) + sizing type badge
+    // Footer: commit code (left, always) + INITIALS/CF (right, always)
     h+='<div class="sc-foot">';
-    if(commit)h+='<span class="sc-commit" title="'+esc(commit)+'">'+esc(commit)+'</span>';
+    h+='<span class="sc-commit'+(commit?'':' sc-commit-empty')+'" title="'+esc(commit||'No commit code')+'">'+esc(commitDisplay)+'</span>';
     h+='<span class="bdg '+bc+'" style="font-size:10px;padding:3px 8px">'+bl+'</span>';
     h+='</div>'+pmFlag+'</div>';
   });
