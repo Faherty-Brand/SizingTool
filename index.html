@@ -384,7 +384,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V7.5.1 · CURVE HIERARCHY LOCK</div>
+<div class="version-tag">V7.6 · FLOW MIN 1200</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -1367,7 +1367,11 @@ function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve){
   });
 
   // For CF: use the simpler rule (no per-size floor enforcement; OH covers presentation)
+  // Per V7.6: only split into 2 flows if the post-global remainder exceeds 1,200u.
+  // Otherwise demote to a single flow (or no flow if remainder < 300).
   if(!isInitials){
+    // 2-flow split requires the remaining portion (60% of pool when global is 40%) to be ≥ 1,200u.
+    // 0.6 × pool ≥ 1200  ⇔  pool ≥ 2000. Below that, fall back to single-flow 60/40.
     let splits;
     if(totalPool>=2000)splits=[0.4,0.3,0.3];
     else splits=[0.6,0.4];
@@ -1395,9 +1399,12 @@ function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve){
     result.reason='Global floor ('+globalFloorTotal+'u) exceeds total pool';return result;
   }
   let remaining=totalPool-globalFloorTotal;
-  // Determine how many flows we can support (each ≥ 300)
+  // Determine how many flows we can support
+  // Per V7.6: 2-flow split requires the remaining (after the global PO) to exceed 1,200u.
+  // Otherwise, one big flow is more economical than two ~400u flows.
+  // Each flow must still be ≥ 300u individually.
   let numFlows=0;
-  if(remaining>=600)numFlows=2;
+  if(remaining>=1200)numFlows=2;
   else if(remaining>=300)numFlows=1;
   if(numFlows===0){result.reason='Remaining after global floor ('+remaining+'u) too small to flow';return result}
 
