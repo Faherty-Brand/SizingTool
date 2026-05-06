@@ -384,7 +384,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V7.5 · CONFIRMED + CURVE ADJ</div>
+<div class="version-tag">V7.5.1 · CURVE HIERARCHY LOCK</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -1152,8 +1152,12 @@ function processData(){
 }
 
 // ═══ SIZE CURVE ═══
-function buildCurve(rec,hierSource){
+function buildCurve(rec,hierSource,forceLevel){
   // hierSource: A.hierSales (DTC, default), A.hierSalesRet (Retail), or A.hierSalesOnline (Online)
+  // forceLevel (optional): if provided, skip the threshold walk and use this hierarchy level directly.
+  //   Used to keep channel curves consistent with the DTC curve's resolved level — even when the
+  //   channel's sales at that level are below the 100×sizeCount threshold individually.
+  //   Value should be one of: 'Program','Subcategory','Category','Division'
   const src=hierSource||A.hierSales;
   const eligible=new Set(rec.sizes),thresh=100*rec.sizeCount;
   const adj=A.curveAdjustments[rec.sku]||{};
@@ -1163,6 +1167,28 @@ function buildCurve(rec,hierSource){
     {key:rec._hk.cat,label:rec.category,level:'Category'},
     {key:rec._hk.div,label:rec.division,level:'Division'}
   ];
+
+  // If forceLevel is set, build the curve at that exact level and return — no walk.
+  if(forceLevel){
+    const lv=levels.find(l=>l.level===forceLevel);
+    if(lv){
+      const sbs=src[lv.key]||{};
+      let rawTotal=0;const rawFilt={};
+      for(const s in sbs){if(eligible.has(s)){rawFilt[s]=sbs[s];rawTotal+=sbs[s]}}
+      let adjTotal=0;const adjFilt={};
+      rec.sizes.forEach(s=>{
+        const factor=(adj[s]!==undefined&&adj[s]!==null)?Number(adj[s])||1:1;
+        const v=(rawFilt[s]||0)*factor;
+        adjFilt[s]=v;adjTotal+=v;
+      });
+      const curve={};
+      // If the forced level has zero data for this channel, fall back to even distribution
+      // (rare edge case; happens if a SKU has DTC sales but truly no online sales at the resolved level)
+      rec.sizes.forEach(s=>{curve[s]=adjTotal>0?(adjFilt[s]||0)/adjTotal:1/rec.sizes.length});
+      return{curve,level:lv.level+' ('+lv.label+') [forced]',total:adjTotal,rawTotal,trail:[{...lv,total:rawTotal,thresh,pass:rawTotal>=thresh,forced:true}],acceptedKey:lv.key,acceptedLevel:lv.level,acceptedLabel:lv.label,rawFilt,adjFilt};
+    }
+  }
+
   const trail=[];
   for(const lv of levels){
     const sbs=src[lv.key];
@@ -1590,9 +1616,16 @@ function computeAlloc(rec){
   if(useBOP){const bp=projBOP(rec);wtr=bp._w;delete bp._w;bop=bp}
   const totalBOP=useBOP?Object.values(bop).reduce((a,b)=>a+b,0):0;
 
-  // ── Build channel curves first (used by both alloc and BOP split) ──
-  const retailCurveResult=buildCurve(rec,A.hierSalesRet);
-  const onlineCurveResult=buildCurve(rec,A.hierSalesOnline);
+  // ── Build curves with hierarchy locked to DTC's resolved level ──
+  // The DTC curve is the anchor: it picks the most granular level where TOTAL DTC sales
+  // pass 100×sizeCount. Retail and Online curves then evaluate at that SAME level, even if
+  // their individual channel sales fall below the threshold there. This guarantees the three
+  // curve totals are coherent (DTC ≈ Retail + Online at the same hierarchy level) and avoids
+  // the misleading "DTC=487, Retail=2,501, Online=445" mismatch that comes from independent walks.
+  const dtcCurveAnchor=buildCurve(rec,A.hierSales);
+  const forcedLevel=dtcCurveAnchor.acceptedLevel; // 'Program'|'Subcategory'|'Category'|'Division' or undefined
+  const retailCurveResult=buildCurve(rec,A.hierSalesRet,forcedLevel);
+  const onlineCurveResult=buildCurve(rec,A.hierSalesOnline,forcedLevel);
 
   // ── BOP allocation between channels ──
   // BOP is warehouse-level (untagged). Split it between channels by the buy pool ratio
@@ -1649,7 +1682,7 @@ function computeAlloc(rec){
 
   // ── Curve sales (DTC, Retail, Online) at the level the curve resolved to ──
   // Use the DTC curve trail for the primary "Curve Sales" display
-  const dtcCurveResult=buildCurve(rec,A.hierSales);
+  const dtcCurveResult=dtcCurveAnchor;
   const dtcCurveSales={};
   if(dtcCurveResult.acceptedKey&&A.hierSales[dtcCurveResult.acceptedKey]){
     const hs=A.hierSales[dtcCurveResult.acceptedKey];
