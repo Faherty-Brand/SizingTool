@@ -104,6 +104,7 @@ input,select,button,textarea{font-family:inherit}
 .s-btn .code{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--navy);margin-bottom:8px}
 .s-btn .ct{font-size:11px;color:var(--txt3);font-family:var(--mono);letter-spacing:.3px;line-height:1.5}
 .s-btn .ct-buy{color:var(--green);font-weight:600}
+.s-btn .ct-conf{color:var(--blue);font-weight:600}
 .u-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;background:var(--wh);border:1px solid var(--bdr-lt);border-radius:var(--r);cursor:pointer;transition:all var(--t);font-size:11px;font-weight:500;color:var(--txt3);position:relative}
 .u-chip:hover{border-color:var(--blue);color:var(--txt2)}.u-chip.ok{border-color:var(--green-bd);color:var(--green);background:var(--green-pl)}
 .u-chip input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer}.u-chip .meta{font-family:var(--mono);font-size:9px}
@@ -225,6 +226,23 @@ input,select,button,textarea{font-family:inherit}
 .size-row-online{color:var(--pink);font-weight:700}
 .dt tr.size-row-online-row{background:rgba(192,90,138,.04)}
 .dt tr.size-row-online-row:hover{background:rgba(192,90,138,.09)}
+
+/* Curve adjustment styling */
+.dt th.ca-col,.dt td.ca-col{background:rgba(59,123,192,.04);border-left:1px dashed var(--blue-md);border-right:1px dashed var(--blue-md)}
+.ca-input{width:50px;font-family:var(--mono);font-size:10px;font-weight:600;text-align:center;border:1px solid var(--bdr-lt);border-radius:3px;padding:3px 5px;background:var(--wh);color:var(--txt2)}
+.ca-input.ca-input-active{background:#fdf3e6;border-color:#c4572a;color:#8a3d1e;font-weight:700}
+.ca-input:focus{outline:none;border-color:var(--blue);background:var(--wh)}
+.ca-locked{font-family:var(--mono);font-size:10px;color:var(--txt3)}
+.ca-diff{white-space:nowrap}
+.ca-diff .ca-before{font-family:var(--mono);font-size:9px;color:#b8800c;text-decoration:line-through;background:#fff8e1;padding:1px 3px;border-radius:2px;margin-right:3px}
+.ca-diff .ca-arrow{color:var(--txt3);font-size:9px;margin:0 1px}
+.ca-diff .ca-after{font-family:var(--mono);font-weight:700;color:var(--green);background:rgba(58,138,87,.1);padding:1px 3px;border-radius:2px}
+.ca-bar{margin-top:10px;padding:10px 14px;background:#fdf3e6;border:1px solid #c4572a;border-radius:var(--rs);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ca-bar .ca-bar-text{font-size:12px;color:#8a3d1e;font-weight:600}
+.ca-bar .ca-bar-text.c-g{color:var(--green)}
+.ca-bar .ca-bar-actions{display:flex;gap:6px}
+/* SKU grid card badge for active curve adjustments */
+.sc-adj-badge{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:2px;background:#fdf3e6;color:#c4572a;border:1px solid #c4572a;margin-left:4px}
 .dt td.cod-date{background:rgba(196,87,42,.04);font-family:var(--mono);font-size:10px;text-align:right;border-left:1px dashed var(--orange-md);border-right:1px dashed var(--orange-md)}
 .dt .rt td.cod-date{background:rgba(196,87,42,.13);color:var(--orange)}
 
@@ -366,7 +384,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V7.4.1 · DRAG REORDER + OMNI</div>
+<div class="version-tag">V7.5 · CONFIRMED + CURVE ADJ</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -767,9 +785,9 @@ const A={
   seasons:[],activeSeason:null,
   skus:{},selectedSKU:null,
   view:'grid',module:null,
-  overrides:{},accepted:{},
+  overrides:{},accepted:{},curveAdjustments:{},curveAdjStaged:{},
   searchTerm:'',sortKey:'dtcBuy',sortDir:'desc',
-  filters:{type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All'},
+  filters:{type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All',deliveryMonth:'All'},
   presMins:{},
   presMinsMeta:{},
   scaleSizes:{},scaleSizeCount:{},hierSales:{},salSKU:{},cols:{},
@@ -807,6 +825,12 @@ function handleUpload(key,inp){
     }
     // Build scaleSizes from data whenever linelist or sales/inv is uploaded
     if(allUp())buildScaleSizes();
+    // Wipe curve adjustments — the underlying sales data has shifted, so prior factors are stale
+    if(Object.keys(A.curveAdjustments).length>0){
+      A.curveAdjustments={};A.curveAdjStaged={};
+      try{localStorage.removeItem(CURVE_ADJ_KEY)}catch(e){}
+      toast('Curve adjustments reset (CSV uploaded)');
+    }
     trySeasons();
     inp.value='';
   };reader.readAsText(file);
@@ -844,6 +868,49 @@ function buildScaleSizes(){
   for(const s in A.scaleSizes){A.scaleSizes[s]=[...A.scaleSizes[s]].sort(ssort);A.scaleSizeCount[s]=A.scaleSizes[s].length}
   // Cache scaleSizes locally (best-effort; not persisted to cloud since it's derived)
   try{dbPut('config','scaleSizes',Object.fromEntries(Object.entries(A.scaleSizes).map(([k,v])=>[k,Array.isArray(v)?v:[...v]])))}catch(e){}
+}
+
+// ═══ Curve adjustments persistence (per-user, in localStorage) ═══
+// Tied to a "data fingerprint" computed from current CSV metadata. Whenever any CSV is
+// reuploaded by anyone (which propagates via realtime → loadFromCloud), the fingerprint
+// changes and stale adjustments are discarded.
+const CURVE_ADJ_KEY='posizing_curve_adjustments_v1';
+
+function computeDataFingerprint(){
+  // Use the cloud metadata `updated_at` for each file. If any is missing, skip with empty string.
+  const keys=['inventory','sales','linelist','wip'];
+  return keys.map(k=>{
+    const m=A.cloudMeta&&A.cloudMeta[k];
+    return m&&m.updated_at?m.updated_at:'';
+  }).join('|');
+}
+
+function loadCurveAdjustments(){
+  try{
+    const raw=localStorage.getItem(CURVE_ADJ_KEY);
+    if(!raw){A.curveAdjustments={};return}
+    const parsed=JSON.parse(raw);
+    if(!parsed||typeof parsed!=='object'){A.curveAdjustments={};return}
+    // Drop if fingerprint mismatched (user is on different CSVs than when they saved)
+    const currentFp=computeDataFingerprint();
+    if(parsed.fingerprint!==currentFp){
+      A.curveAdjustments={};
+      try{localStorage.removeItem(CURVE_ADJ_KEY)}catch(e){}
+      return;
+    }
+    A.curveAdjustments=parsed.adjustments||{};
+  }catch(err){
+    console.warn('Could not load curve adjustments:',err);
+    A.curveAdjustments={};
+  }
+}
+
+function saveCurveAdjustments(){
+  try{
+    const fp=computeDataFingerprint();
+    const payload={fingerprint:fp,adjustments:A.curveAdjustments,savedAt:new Date().toISOString()};
+    localStorage.setItem(CURVE_ADJ_KEY,JSON.stringify(payload));
+  }catch(err){console.warn('Could not save curve adjustments:',err)}
 }
 
 async function loadFromCloud(){
@@ -885,6 +952,9 @@ async function loadFromCloud(){
   // 3. Rebuild derived caches
   A.scaleSizes={};A.scaleSizeCount={};
   if(allUp())buildScaleSizes();
+  // 4. Load any persisted curve adjustments — but only if their data fingerprint matches.
+  // If any CSV has been re-uploaded since the user last saved adjustments, they're discarded.
+  loadCurveAdjustments();
   trySeasons();
 }
 
@@ -894,22 +964,28 @@ function trySeasons(){
   if(!allUp()){el.innerHTML='<div class="s-wait">Upload all 4 data sources to continue</div>';return}
   const ll=A.raw.linelist,sc=findCol(ll[0],['Season Code']);
   const dbCol=findCol(ll[0],['Total DTC Buy']);
-  // Per season: total SKUs + count with non-zero DTC buy
-  const totals={},withBuy={};
+  const bsCol=findCol(ll[0],['Total Buy | Buy Status','Buy Status']);
+  // Per season: total SKUs, SKUs with non-zero buy, Confirmed buys (the actual sized-eligible set)
+  const totals={},withBuy={},confirmed={};
   ll.forEach(r=>{
     const s=r[sc]||'';if(!s)return;
     totals[s]=(totals[s]||0)+1;
     const buy=numP(r[dbCol]);
-    if(buy>0)withBuy[s]=(withBuy[s]||0)+1;
+    if(buy>0){
+      withBuy[s]=(withBuy[s]||0)+1;
+      const bs=String(r[bsCol]||'').trim().toLowerCase();
+      if(bs==='confirmed')confirmed[s]=(confirmed[s]||0)+1;
+    }
   });
   A.seasons=Object.keys(totals).sort();
   let h='<div class="s-grid">';
   A.seasons.forEach(s=>{
-    const tot=totals[s]||0,wb=withBuy[s]||0;
+    const tot=totals[s]||0,wb=withBuy[s]||0,cb=confirmed[s]||0;
     h+='<div class="s-btn" onclick="goSeason(\''+esc(s)+'\')">'+
        '<div class="code">'+esc(s)+'</div>'+
        '<div class="ct">Total SKUs: '+fmt(tot)+'</div>'+
        '<div class="ct ct-buy">SKUs with Buys: '+fmt(wb)+'</div>'+
+       '<div class="ct ct-conf">Confirmed Buys: '+fmt(cb)+'</div>'+
        '</div>';
   });
   el.innerHTML=h+'</div>';
@@ -920,7 +996,7 @@ function goSeason(s){
   A.activeSeason=s;A.selectedSKU=null;A.view='grid';A.module=null;
   if(!sameSeason){
     A.overrides={};A.accepted={};A.sortKey='dtcBuy';A.sortDir='desc';
-    A.filters={type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All'};
+    A.filters={type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All',deliveryMonth:'All'};
   }
   processData();
   document.getElementById('welcome').classList.add('hidden');
@@ -955,6 +1031,7 @@ function processData(){
   c.lLC=findCol(ll[0],['Seasonal Life Cycle']);c.lCm=findCol(ll[0],['Commit Coding']);
   c.lRo=findCol(ll[0],['Roll Out Code - Retail','Roll Out Code']);c.lPS=findCol(ll[0],['PST PLANNING ATTRIBUTE 1']);
   c.lDM=findCol(ll[0],['Delivery Month']);
+  c.lBs=findCol(ll[0],['Total Buy | Buy Status','Buy Status']);
   c.wS=findCol(wip[0],['SKU']);c.wZ=findCol(wip[0],['Size']);c.wO=findCol(wip[0],['Ordered']);
   c.wSt=findCol(wip[0],['Shipment Status']);c.wPS=findCol(wip[0],['PO Status']);
   c.wLoc=findCol(wip[0],['Location']);
@@ -1023,7 +1100,13 @@ function processData(){
   });
 
   A.skus={};
-  ll.filter(r=>r[c.lSe]===A.activeSeason).forEach(r=>{
+  ll.filter(r=>{
+    if(r[c.lSe]!==A.activeSeason)return false;
+    // Only include SKUs with Buy Status = "Confirmed". Match Linelist behavior — anything else
+    // (Pending, Hold, blank) is excluded entirely from the season view.
+    const bs=String(r[c.lBs]||'').trim().toLowerCase();
+    return bs==='confirmed';
+  }).forEach(r=>{
     const sku=r[c.lS],scale=r[c.lSS]||'';
     // ENFORCE: sizes come ONLY from the user-configured presMinsMeta. No data-derived fallback.
     let sizes=[];
@@ -1052,6 +1135,7 @@ function processData(){
       apsRetail,apsOnline,apsTotal:apsRetail+apsOnline,
       storeCount:stCt,storeTier:r[c.lTr]||'',
       lifecycle:r[c.lLC]||'',commitCoding:r[c.lCm]||'',
+      buyStatus:String(r[c.lBs]||'').trim(),
       rollout:r[c.lRo]||'',pst:r[c.lPS]||'',deliveryMonth:dm,
       sizingType:sType,sizes,sizeData:sd,
       totalOH:tOH,totalSales:tSl,totalWIP:tWIP,
@@ -1072,6 +1156,7 @@ function buildCurve(rec,hierSource){
   // hierSource: A.hierSales (DTC, default), A.hierSalesRet (Retail), or A.hierSalesOnline (Online)
   const src=hierSource||A.hierSales;
   const eligible=new Set(rec.sizes),thresh=100*rec.sizeCount;
+  const adj=A.curveAdjustments[rec.sku]||{};
   const levels=[
     {key:rec._hk.prog,label:rec.styleDescription,level:'Program'},
     {key:rec._hk.sub,label:rec.subcategory,level:'Subcategory'},
@@ -1082,9 +1167,23 @@ function buildCurve(rec,hierSource){
   for(const lv of levels){
     const sbs=src[lv.key];
     if(!sbs){trail.push({...lv,total:0,thresh,pass:false});continue}
-    let total=0;const filt={};for(const s in sbs){if(eligible.has(s)){filt[s]=sbs[s];total+=sbs[s]}}
-    if(total>=thresh){trail.push({...lv,total,thresh,pass:true});const curve={};rec.sizes.forEach(s=>{curve[s]=total>0?(filt[s]||0)/total:1/rec.sizes.length});return{curve,level:lv.level+' ('+lv.label+')',total,trail,acceptedKey:lv.key,acceptedLevel:lv.level,acceptedLabel:lv.label}}
-    trail.push({...lv,total,thresh,pass:false});
+    // Compute the unadjusted total against the eligibility threshold.
+    // We use raw (unadjusted) sales for the threshold check so adjustments don't change which hierarchy level is selected.
+    let rawTotal=0;const rawFilt={};for(const s in sbs){if(eligible.has(s)){rawFilt[s]=sbs[s];rawTotal+=sbs[s]}}
+    if(rawTotal>=thresh){
+      // Apply per-size adjustment factors (default 1.0) when computing the curve weighting
+      let adjTotal=0;const adjFilt={};
+      rec.sizes.forEach(s=>{
+        const factor=(adj[s]!==undefined&&adj[s]!==null)?Number(adj[s])||1:1;
+        const v=(rawFilt[s]||0)*factor;
+        adjFilt[s]=v;adjTotal+=v;
+      });
+      trail.push({...lv,total:rawTotal,thresh,pass:true});
+      const curve={};
+      rec.sizes.forEach(s=>{curve[s]=adjTotal>0?(adjFilt[s]||0)/adjTotal:1/rec.sizes.length});
+      return{curve,level:lv.level+' ('+lv.label+')',total:adjTotal,rawTotal,trail,acceptedKey:lv.key,acceptedLevel:lv.level,acceptedLabel:lv.label,rawFilt,adjFilt};
+    }
+    trail.push({...lv,total:rawTotal,thresh,pass:false});
   }
   const curve={};rec.sizes.forEach(s=>{curve[s]=1/rec.sizes.length});return{curve,level:'Even distribution',total:0,trail,acceptedKey:null};
 }
@@ -1353,6 +1452,107 @@ function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve){
     onlineFlatPerSize:ONLINE_FLAT
   };
   return result;
+}
+
+// Returns { adjusted: result, raw: result } where raw is what would be computed
+// if no curve adjustments were applied. Used by the SKU detail table to show before→after diffs.
+function computeAllocWithRawCompare(rec){
+  const adjusted=computeAlloc(rec);
+  const sav=A.curveAdjustments[rec.sku];
+  if(!sav||!Object.keys(sav).length||!adjusted)return{adjusted,raw:adjusted};
+  // Temporarily strip the adjustments for this SKU and re-run
+  delete A.curveAdjustments[rec.sku];
+  const raw=computeAlloc(rec);
+  A.curveAdjustments[rec.sku]=sav;
+  return{adjusted,raw};
+}
+
+function hasCurveAdjustment(sku){
+  const a=A.curveAdjustments[sku];
+  if(!a)return false;
+  for(const k in a){if(Number(a[k])!==1)return true}
+  return false;
+}
+
+function getStagedAdj(sku,size){
+  const st=A.curveAdjStaged[sku];
+  if(st&&st[size]!==undefined)return st[size];
+  const a=A.curveAdjustments[sku];
+  return a&&a[size]!==undefined?a[size]:1;
+}
+
+function setStagedAdj(sku,size,val){
+  if(!A.curveAdjStaged[sku])A.curveAdjStaged[sku]={};
+  // Normalize: empty / non-numeric / 0 = treat as 1.0
+  let n=parseFloat(val);
+  if(!isFinite(n)||n<=0)n=1;
+  A.curveAdjStaged[sku][size]=n;
+  // Re-render the detail page so before/after preview updates
+  if(A.selectedSKU===sku)render();
+}
+
+function hasStagedAdjChanges(sku){
+  const st=A.curveAdjStaged[sku];if(!st)return false;
+  for(const k in st){
+    const cur=(A.curveAdjustments[sku]&&A.curveAdjustments[sku][k])||1;
+    if(Number(st[k])!==Number(cur))return true;
+  }
+  return false;
+}
+
+function acceptCurveAdj(sku){
+  const st=A.curveAdjStaged[sku];if(!st){render();return}
+  if(!A.curveAdjustments[sku])A.curveAdjustments[sku]={};
+  for(const k in st){
+    const v=Number(st[k]);
+    if(v===1){delete A.curveAdjustments[sku][k]}
+    else A.curveAdjustments[sku][k]=v;
+  }
+  if(!Object.keys(A.curveAdjustments[sku]).length)delete A.curveAdjustments[sku];
+  delete A.curveAdjStaged[sku];
+  saveCurveAdjustments();
+  toast('Curve adjustments applied');
+  render();
+}
+
+function discardCurveAdj(sku){
+  delete A.curveAdjStaged[sku];
+  render();
+}
+
+function resetCurveAdj(sku){
+  if(!confirm('Reset all curve adjustments for this SKU?'))return;
+  delete A.curveAdjustments[sku];
+  delete A.curveAdjStaged[sku];
+  saveCurveAdjustments();
+  toast('Curve adjustments reset');
+  render();
+}
+
+// Returns a new record-like object where curve adjustments are replaced with the staged ones,
+// so the renderer can preview "what would happen if you accepted the staged values"
+function applyStagedToCompute(rec){
+  const st=A.curveAdjStaged[rec.sku];
+  if(!st)return computeAllocWithRawCompare(rec);
+  const original=A.curveAdjustments[rec.sku];
+  // Build merged adjustment set: base + staged overrides (staged 1.0 means "remove")
+  const merged={...(original||{})};
+  for(const k in st){
+    if(Number(st[k])===1)delete merged[k];
+    else merged[k]=Number(st[k]);
+  }
+  if(Object.keys(merged).length)A.curveAdjustments[rec.sku]=merged;
+  else delete A.curveAdjustments[rec.sku];
+  const adjusted=computeAlloc(rec);
+  // Restore originals
+  if(original)A.curveAdjustments[rec.sku]=original;
+  else delete A.curveAdjustments[rec.sku];
+  // Compute raw (no adjustments at all) for before-comparison
+  const sav=A.curveAdjustments[rec.sku];
+  if(sav)delete A.curveAdjustments[rec.sku];
+  const raw=computeAlloc(rec);
+  if(sav)A.curveAdjustments[rec.sku]=sav;
+  return{adjusted,raw};
 }
 
 function computeAlloc(rec){
@@ -1780,6 +1980,7 @@ function getFiltered(){
     if(f.accepted==='Accepted')list=list.filter(r=>!!A.accepted[r.sku]);
     else if(f.accepted==='Pending')list=list.filter(r=>!A.accepted[r.sku]);
   }
+  if(f.deliveryMonth&&f.deliveryMonth!=='All')list=list.filter(r=>formatDeliveryShort(r.deliveryMonth)===f.deliveryMonth);
   if(A.searchTerm){const st=A.searchTerm.toLowerCase();list=list.filter(r=>r.sku.toLowerCase().includes(st)||r.styleDescription.toLowerCase().includes(st)||r.colorDescription.toLowerCase().includes(st))}
   const sk=A.sortKey;const dir=A.sortDir==='asc'?1:-1;
   // For sized sort: compute sized once per SKU and cache on the record (cleared when filters re-render)
@@ -1841,6 +2042,9 @@ function getFilterOptions(){
         if(f.accepted==='Accepted'&&!A.accepted[r.sku])return false;
         if(f.accepted==='Pending'&&A.accepted[r.sku])return false;
       }
+      if(skipKey!=='deliveryMonth'&&f.deliveryMonth!=='All'){
+        if(formatDeliveryShort(r.deliveryMonth)!==f.deliveryMonth)return false;
+      }
       return true;
     });
   }
@@ -1879,7 +2083,19 @@ function getFilterOptions(){
   const accBase=applyFiltersExcept('accepted');
   const accHasAccepted=accBase.some(r=>!!A.accepted[r.sku]);
   const accHasPending=accBase.some(r=>!A.accepted[r.sku]);
-  return{divs,cats,subs,scales,commits,
+  // Delivery month: distinct short-formatted values, sorted chronologically by month + suffix
+  const dmBase=applyFiltersExcept('deliveryMonth');
+  const dmsRaw=new Set();
+  dmBase.forEach(r=>{const sm=formatDeliveryShort(r.deliveryMonth);if(sm)dmsRaw.add(sm)});
+  const monthOrder={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+  const dms=[...dmsRaw].sort((a,b)=>{
+    const ma=a.match(/^([A-Z][a-z]{2})_(\d+)$/);const mb=b.match(/^([A-Z][a-z]{2})_(\d+)$/);
+    if(!ma||!mb)return a.localeCompare(b);
+    const ma1=monthOrder[ma[1]]||99,mb1=monthOrder[mb[1]]||99;
+    if(ma1!==mb1)return ma1-mb1;
+    return parseInt(ma[2],10)-parseInt(mb[2],10);
+  });
+  return{divs,cats,subs,scales,commits,dms,
     ssOptions:{Configured:ssHasConfigured,'Not Configured':ssHasUnconfigured},
     stOptions:stPossible,
     typeOptions:{cf:typeHasCF,initials:typeHasInitials},
@@ -1889,7 +2105,7 @@ function getFilterOptions(){
 
 function renderGrid(el){
   const fo=getFilterOptions();
-  const{divs,cats,subs,scales,commits,ssOptions,stOptions,typeOptions,accOptions}=fo;
+  const{divs,cats,subs,scales,commits,dms,ssOptions,stOptions,typeOptions,accOptions}=fo;
   function opts(arr,lbl,cur){let h='<option value="All">'+lbl+': All</option>';arr.forEach(v=>{h+='<option value="'+esc(v)+'"'+(cur===v?' selected':'')+'>'+esc(v)+'</option>'});return h}
   function sb(k,l){
     const on=A.sortKey===k;
@@ -1901,11 +2117,13 @@ function renderGrid(el){
   if(A.filters.subcategory!=='All'&&!subs.includes(A.filters.subcategory))A.filters.subcategory='All';
   if(A.filters.sizeScale!=='All'&&!scales.includes(A.filters.sizeScale))A.filters.sizeScale='All';
   if(A.filters.commitCoding!=='All'&&!commits.includes(A.filters.commitCoding))A.filters.commitCoding='All';
+  if(A.filters.deliveryMonth!=='All'&&!dms.includes(A.filters.deliveryMonth))A.filters.deliveryMonth='All';
   // Auto-snap singletons: if only ONE option exists for a cascadable filter and current=All, auto-select
   if(A.filters.category==='All'&&cats.length===1)A.filters.category=cats[0];
   if(A.filters.subcategory==='All'&&subs.length===1)A.filters.subcategory=subs[0];
   if(A.filters.sizeScale==='All'&&scales.length===1)A.filters.sizeScale=scales[0];
   if(A.filters.commitCoding==='All'&&commits.length===1)A.filters.commitCoding=commits[0];
+  if(A.filters.deliveryMonth==='All'&&dms.length===1)A.filters.deliveryMonth=dms[0];
   // Helper for "active filter" highlight
   function fcls(active){return 'fsel'+(active?' on':'')}
   // Helper that conditionally disables an option
@@ -1936,6 +2154,7 @@ function renderGrid(el){
     '<select class="'+fcls(A.filters.subcategory!=='All')+(subs.length<=1?' dim':'')+'" onchange="setFilter(\'subcategory\',this.value)">'+opts(subs,'Subcategory',A.filters.subcategory)+'</select>'+
     '<select class="'+fcls(A.filters.sizeScale!=='All')+(scales.length<=1?' dim':'')+'" onchange="setFilter(\'sizeScale\',this.value)">'+opts(scales,'Size Scale',A.filters.sizeScale)+'</select>'+
     '<select class="'+fcls(A.filters.commitCoding!=='All')+(commits.length<=1?' dim':'')+'" onchange="setFilter(\'commitCoding\',this.value)">'+opts(commits,'Commit Code',A.filters.commitCoding)+'</select>'+
+    '<select class="'+fcls(A.filters.deliveryMonth!=='All')+(dms.length<=1?' dim':'')+'" onchange="setFilter(\'deliveryMonth\',this.value)">'+opts(dms,'Delivery',A.filters.deliveryMonth)+'</select>'+
     '<select class="'+fcls(A.filters.ssConfigured!=='All')+'" onchange="setFilter(\'ssConfigured\',this.value)"><option value="All">SS Configured: All</option>'+ssOpt('Configured')+ssOpt('Not Configured')+'</select>'+
     '<select class="'+fcls(A.filters.storeCount!=='All')+'" onchange="setFilter(\'storeCount\',this.value)"><option value="All">Store Count: All</option>'+stOpt('0','0')+stOpt('1-25','1–25')+stOpt('26-50','26–50')+stOpt('51-90','51–90')+stOpt('91+','91+')+'</select>'+
     '<select class="'+fcls(A.filters.accepted!=='All')+'" onchange="setFilter(\'accepted\',this.value)"><option value="All">Status: All</option>'+accOpt('Accepted','Accepted')+accOpt('Pending','Pending')+'</select>'+
@@ -1971,7 +2190,7 @@ function setDivision(div){
 function clearAllFilters(){
   // Reset every filter EXCEPT division (which is now controlled by header pills)
   const keepDiv=A.filters.division;
-  A.filters={type:'All',division:keepDiv,category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All'};
+  A.filters={type:'All',division:keepDiv,category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All',deliveryMonth:'All'};
   A.searchTerm='';
   renderGrid(document.getElementById('main-area'));
 }
@@ -2064,7 +2283,8 @@ function renderGridCards(){
 
     h+='<div class="sc '+divCls+'" onclick="goDetail(\''+esc(r.sku)+'\')">';
     // Top row: SKU id (left) · delivery (middle) · accept checkbox (right)
-    h+='<div class="sc-top"><div class="sid">'+esc(r.sku)+'</div>'+
+    const hasAdj=hasCurveAdjustment(r.sku);
+    h+='<div class="sc-top"><div class="sid">'+esc(r.sku)+(hasAdj?'<span class="sc-adj-badge" title="Curve adjustments active">ADJ</span>':'')+'</div>'+
        '<div class="sc-deliv-wrap">'+(dShort?'<span class="sc-deliv">'+esc(dShort)+'</span>':'')+'</div>';
     if(acc)h+='<div class="chk chk-g" onclick="event.stopPropagation();toggleAccGrid(\''+esc(r.sku)+'\')" title="Click to revert to pending">✓</div>';
     else h+='<div class="chk chk-e" onclick="event.stopPropagation();toggleAccGrid(\''+esc(r.sku)+'\')" title="Click to accept"></div>';
@@ -2101,7 +2321,9 @@ function toggleChartMetric(key){
 }
 
 function renderDetail(el,rec){
-  const res=computeAlloc(rec);
+  const compareResults=applyStagedToCompute(rec);
+  const res=compareResults.adjusted;
+  const rawRes=compareResults.raw;
   if(!res&&rec.sizingType!=='nosize'){
     const issues=[];
     if(rec.dtcBuy<=0)issues.push('DTC Buy is 0');
@@ -2211,13 +2433,14 @@ function renderDetail(el,rec){
   let invColspan=7;
   if(useBOP)invColspan+=2+dateColCount;
   if(showChannelCols)invColspan+=2;
-  // Sales metrics col count: base 4 (SKU Sales, Curve Sales, Curve %, Wkly Rate)
+  // Sales metrics col count: base 5 (Adjustment, SKU Sales, Curve Sales, Curve %, Wkly Rate)
   // + 4 if showChannelCols (Retail Curve Sales, Online Curve Sales, Retail Curve %, Online Curve %)
-  let salesColspan=4;
+  let salesColspan=5;
   if(showChannelCols)salesColspan+=4;
   let thead='<tr class="gr"><th></th><th class="gs" colspan="'+salesColspan+'">Sales Metrics</th>';
   thead+='<th class="gi" colspan="'+invColspan+'">Inventory Metrics</th>';
   thead+='</tr><tr><th style="text-align:left">Size</th>';
+  thead+='<th class="cbl ca-col" title="Multiplier applied to historical curve sales for this size. Default 1.0.">Adjust</th>';
   thead+='<th class="cbl">SKU Sales</th>';
   // Curve Sales (with channel expand chevron)
   const channelChevron=useChannelSplit?' <span class="rcpt-expand" onclick="toggleChannelExpand(\''+esc(rec.sku)+'\')" title="'+(channelExpanded?'Hide':'Show')+' channel split">'+(channelExpanded?'▼':'▶')+'</span>':'';
@@ -2256,11 +2479,41 @@ function renderDetail(el,rec){
     totRetAlloc+=(retailAlloc[s]||0);totOnlineAlloc+=(onlineAlloc[s]||0);
   });
 
+  // Helper: render a numeric cell with before/after diff if values differ
+  // `before` is the unadjusted value (rawRes), `after` is the live/staged value
+  function diffCell(before,after,formatter,extraCls){
+    formatter=formatter||fmt;
+    extraCls=extraCls||'';
+    const bDisp=formatter(before);
+    const aDisp=formatter(after);
+    if(bDisp===aDisp)return '<td class="'+extraCls+'">'+aDisp+'</td>';
+    return '<td class="'+extraCls+' ca-diff"><span class="ca-before">'+bDisp+'</span><span class="ca-arrow">→</span><span class="ca-after">'+aDisp+'</span></td>';
+  }
+  // Helper: get raw (unadjusted) value safely
+  function rawVal(obj,s){return rawRes&&rawRes[obj]?(rawRes[obj][s]||0):0}
+
+  // Compute raw totals for the totals row's diff
+  let rawTotCurve=0,rawTotRetCurve=0,rawTotOnlineCurve=0,rawTotAl=0,rawTotRetAlloc=0,rawTotOnlineAlloc=0;
+  if(rawRes){
+    rec.sizes.forEach(s=>{
+      rawTotCurve+=(rawRes.curveSales&&rawRes.curveSales[s])||0;
+      rawTotRetCurve+=(rawRes.retailCurveSales&&rawRes.retailCurveSales[s])||0;
+      rawTotOnlineCurve+=(rawRes.onlineCurveSales&&rawRes.onlineCurveSales[s])||0;
+      rawTotAl+=rawRes.alloc[s]||0;
+      rawTotRetAlloc+=(rawRes.retailAlloc&&rawRes.retailAlloc[s])||0;
+      rawTotOnlineAlloc+=(rawRes.onlineAlloc&&rawRes.onlineAlloc[s])||0;
+    });
+  }
+
   // Totals row first
   let tBody='<tr class="rt"><td>TOTAL</td>';
+  tBody+='<td class="cbl ca-col"></td>'; // Adjustment col blank in totals row
   tBody+='<td class="cbl">'+fmt(totSkuSl)+'</td>';
-  tBody+='<td class="cbd">'+fmt(totCurveSl)+'</td>';
-  if(showChannelCols)tBody+='<td class="cbd-ch">'+fmt(totRetCurve)+'</td><td class="cbd-ch">'+fmt(totOnlineCurve)+'</td>';
+  tBody+=diffCell(rawTotCurve||totCurveSl,totCurveSl,fmt,'cbd');
+  if(showChannelCols){
+    tBody+=diffCell(rawTotRetCurve||totRetCurve,totRetCurve,fmt,'cbd-ch');
+    tBody+=diffCell(rawTotOnlineCurve||totOnlineCurve,totOnlineCurve,fmt,'cbd-ch');
+  }
   tBody+='<td class="cbl">100%</td>';
   if(showChannelCols)tBody+='<td class="cbl-ch">100%</td><td class="cbl-ch">100%</td>';
   tBody+='<td class="cbd"></td>';
@@ -2271,8 +2524,11 @@ function renderDetail(el,rec){
     tBody+='<td class="col c-t">'+fmt(totBOP)+'</td>';
   }
   tBody+='<td class="cod">'+fmt(totIdeal)+'</td><td class="col"></td><td class="cod">'+fmt(totMinRet)+'</td>';
-  tBody+='<td class="col c-o">'+fmt(totAl)+'</td>';
-  if(showChannelCols)tBody+='<td class="col-ch">'+fmt(totRetAlloc)+'</td><td class="col-ch">'+fmt(totOnlineAlloc)+'</td>';
+  tBody+=diffCell(rawTotAl||totAl,totAl,fmt,'col c-o');
+  if(showChannelCols){
+    tBody+=diffCell(rawTotRetAlloc||totRetAlloc,totRetAlloc,fmt,'col-ch');
+    tBody+=diffCell(rawTotOnlineAlloc||totOnlineAlloc,totOnlineAlloc,fmt,'col-ch');
+  }
   tBody+='<td class="cod">100%</td>';
   tBody+='<td class="col c-g" style="font-weight:700">'+fmt(totPost)+'</td></tr>';
 
@@ -2288,12 +2544,34 @@ function renderDetail(el,rec){
     const retCv=retailCurve[s]||0,onCv=onlineCurve[s]||0;
     const isOnlineOnly=(getOnlineOnlySizes(rec)||[]).includes(s);
     const sizeLabel=isOnlineOnly?'<span class="size-row-online" title="Online-only size — no retail allocation">'+esc(s)+' 🌐</span>':esc(s);
+    // Adjustment factor for this size (staged or accepted; defaults to 1)
+    const adjFactor=getStagedAdj(rec.sku,s);
+    const adjInp=locked?'<span class="ca-locked">'+adjFactor.toFixed(2)+'</span>':
+      '<input class="ai ca-input'+(adjFactor!==1?' ca-input-active':'')+'" type="number" step="0.05" min="0.1" value="'+adjFactor+'" onchange="setStagedAdj(\''+esc(rec.sku)+'\',\''+esc(s)+'\',this.value)" title="Multiplier on this size\'s historical sales">';
+    // Raw values for diff display
+    const rawCurveSales=rawVal('curveSales',s);
+    const rawCv=rawRes&&rawRes.curve?rawRes.curve[s]||0:0;
+    const rawRetCv=rawRes&&rawRes.retailCurve?rawRes.retailCurve[s]||0:0;
+    const rawOnCv=rawRes&&rawRes.onlineCurve?rawRes.onlineCurve[s]||0:0;
+    const rawRetCurveSales=rawVal('retailCurveSales',s);
+    const rawOnlineCurveSales=rawVal('onlineCurveSales',s);
+    const rawA=rawRes?rawRes.alloc[s]||0:a;
+    const rawRetAlloc=rawVal('retailAlloc',s);
+    const rawOnlineAlloc=rawVal('onlineAlloc',s);
+
     tBody+='<tr'+(isOnlineOnly?' class="size-row-online-row"':'')+'><td>'+sizeLabel+'</td>';
+    tBody+='<td class="cbl ca-col">'+adjInp+'</td>';
     tBody+='<td class="cbl">'+fmt(sd.sales)+'</td>';
-    tBody+='<td class="cbd">'+fmt(curveSales[s]||0)+'</td>';
-    if(showChannelCols)tBody+='<td class="cbd-ch">'+fmt(retailCurveSales[s]||0)+'</td><td class="cbd-ch">'+fmt(onlineCurveSales[s]||0)+'</td>';
-    tBody+='<td class="cbl c-d">'+pct(cv)+'</td>';
-    if(showChannelCols)tBody+='<td class="cbl-ch c-d">'+pct(retCv)+'</td><td class="cbl-ch c-d">'+pct(onCv)+'</td>';
+    tBody+=diffCell(rawCurveSales,curveSales[s]||0,fmt,'cbd');
+    if(showChannelCols){
+      tBody+=diffCell(rawRetCurveSales,retailCurveSales[s]||0,fmt,'cbd-ch');
+      tBody+=diffCell(rawOnlineCurveSales,onlineCurveSales[s]||0,fmt,'cbd-ch');
+    }
+    tBody+=diffCell(rawCv,cv,pct,'cbl c-d');
+    if(showChannelCols){
+      tBody+=diffCell(rawRetCv,retCv,pct,'cbl-ch c-d');
+      tBody+=diffCell(rawOnCv,onCv,pct,'cbl-ch c-d');
+    }
     tBody+='<td class="cbd c-d">'+wr+'</td>';
     tBody+='<td class="col">'+fmt(sd.onHand)+'</td>';
     if(useBOP){
@@ -2309,8 +2587,11 @@ function renderDetail(el,rec){
     tBody+='<td class="cod">'+fmt(useBOP?(ideal[s]||0):Math.round(cv*pool))+'</td>';
     tBody+='<td class="col c-d">'+(pmRate[s]||'—')+'</td>';
     tBody+='<td class="cod'+(a<minRetail&&minRetail>0?' c-r':'')+'">'+fmt(minRetail)+'</td>';
-    tBody+='<td class="col">'+inp+'</td>';
-    if(showChannelCols)tBody+='<td class="col-ch">'+fmt(retailAlloc[s]||0)+'</td><td class="col-ch">'+fmt(onlineAlloc[s]||0)+'</td>';
+    tBody+=diffCell(rawA,a,fmt,'col'); // Size Break with diff
+    if(showChannelCols){
+      tBody+=diffCell(rawRetAlloc,retailAlloc[s]||0,fmt,'col-ch');
+      tBody+=diffCell(rawOnlineAlloc,onlineAlloc[s]||0,fmt,'col-ch');
+    }
     tBody+='<td class="cod c-d">'+pct(sbPct)+'</td>';
     tBody+='<td class="col c-g" style="font-weight:600">'+fmt(postBuy)+'</td></tr>';
   });
@@ -2320,6 +2601,24 @@ function renderDetail(el,rec){
   const lockBtn=locked?'<button class="btn-grn" style="opacity:.6" onclick="toggleAcc(\''+esc(rec.sku)+'\')">✓ Accepted</button>':'<button class="btn-grn" onclick="toggleAcc(\''+esc(rec.sku)+'\')">Accept</button>';
   const hasOvrs=A.overrides[rec.sku]&&Object.keys(A.overrides[rec.sku]).length>0;
   const resetBtn=hasOvrs&&!locked?'<button class="btn btn-g btn-sm" onclick="clrOvr(\''+esc(rec.sku)+'\')">Reset</button>':'';
+  // Curve adjustment control bar — appears below the data table when changes are staged or applied
+  const stagedAdjDirty=hasStagedAdjChanges(rec.sku);
+  const hasAcceptedAdj=hasCurveAdjustment(rec.sku);
+  let adjBar='';
+  if(!locked&&(stagedAdjDirty||hasAcceptedAdj)){
+    let adjMsg='';
+    if(stagedAdjDirty)adjMsg='<span class="ca-bar-text">Curve adjustments staged — review the yellow→green changes above before accepting.</span>';
+    else if(hasAcceptedAdj)adjMsg='<span class="ca-bar-text c-g">✓ Curve adjustments active for this SKU.</span>';
+    let adjBtns='';
+    if(stagedAdjDirty){
+      adjBtns+='<button class="btn btn-grn btn-sm" onclick="acceptCurveAdj(\''+esc(rec.sku)+'\')">Accept Adjustments</button>';
+      adjBtns+='<button class="btn btn-g btn-sm" onclick="discardCurveAdj(\''+esc(rec.sku)+'\')">Discard</button>';
+    }
+    if(hasAcceptedAdj&&!stagedAdjDirty){
+      adjBtns+='<button class="btn btn-g btn-sm" onclick="resetCurveAdj(\''+esc(rec.sku)+'\')">Reset to 1.0</button>';
+    }
+    adjBar='<div class="ca-bar">'+adjMsg+'<div class="ca-bar-actions">'+adjBtns+'</div></div>';
+  }
   const flowsBtn=flows.eligible&&flows.count>1?'<button class="btn btn-pk btn-sm" onclick="openFlowsModal(\''+esc(rec.sku)+'\')" title="View flow breakdown">Flows ('+flows.count+')</button>':'';
   const skuL52W=rec.skuSalesTotal;
   const totalBOPv=useBOP?totBOP:0;
@@ -2362,7 +2661,9 @@ function renderDetail(el,rec){
     trail+
     // Table
     '<div class="tb"><div class="tbh"><div class="slbl" style="margin:0">Data Table</div>'+vNote+'</div>'+
-    '<div class="tbs"><table class="dt"><thead>'+thead+'</thead><tbody>'+tBody+'</tbody></table></div></div>'+
+    '<div class="tbs"><table class="dt"><thead>'+thead+'</thead><tbody>'+tBody+'</tbody></table></div>'+
+    adjBar+
+    '</div>'+
     '</div>';
 }
 
