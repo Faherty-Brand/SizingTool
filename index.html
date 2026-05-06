@@ -385,7 +385,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V7.7 · XLSX EXPORT</div>
+<div class="version-tag">V7.7.1 · CHANNEL BY SIZE</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -1814,7 +1814,7 @@ function exportCSV(){
   const aoaFlows=[sectionRow.slice(),headerRow.slice()];
 
   // Channel Buys tab — simpler structure, single header row
-  const CHANNEL_HEADER=['SKU','Division','Category','Style Description','Color Description','Retail Units','Online Units','Total DTC Units'];
+  const CHANNEL_HEADER=['SKU','Division','Category','Style Description','Color Description','Size','Retail Units','Online Units','Total DTC Units'];
   const aoaChannel=[CHANNEL_HEADER.slice()];
 
   const yrMatch=A.activeSeason.match(/(\d{2})$/);
@@ -1861,25 +1861,25 @@ function exportCSV(){
     } else {
       aoaFlows.push(makeRow(r,sku,sizeMap,total,'Global',baseDelivery));
     }
-    // Tab 3 (Channel Buys): one row per SKU with retail/online split
-    let retailUnits=0,onlineUnits=0;
+    // Tab 3 (Channel Buys): one row per SKU+size combination, with per-size retail/online split.
+    // Lets the merch team review channel allocation at the size grain.
     if(res.retailAlloc&&res.onlineAlloc){
-      r.sizes.forEach(s=>{retailUnits+=(res.retailAlloc[s]||0);onlineUnits+=(res.onlineAlloc[s]||0)});
+      r.sizes.forEach(s=>{
+        const ru=res.retailAlloc[s]||0;
+        const ou=res.onlineAlloc[s]||0;
+        const tu=ru+ou;
+        aoaChannel.push([
+          sku,r.division||'',r.category||'',r.styleDescription||'',r.colorDescription||'',
+          s,ru,ou,tu
+        ]);
+      });
     } else {
-      // No channel split available — fall back to Linelist's Retail/Online Buy values (best-effort)
-      retailUnits=r.retailBuy||0;
-      onlineUnits=r.onlineBuy||0;
+      // No channel split available — fall back to a single row using Linelist's Retail/Online Buy values
+      aoaChannel.push([
+        sku,r.division||'',r.category||'',r.styleDescription||'',r.colorDescription||'',
+        '',(r.retailBuy||0),(r.onlineBuy||0),total
+      ]);
     }
-    aoaChannel.push([
-      sku,
-      r.division||'',
-      r.category||'',
-      r.styleDescription||'',
-      r.colorDescription||'',
-      retailUnits,
-      onlineUnits,
-      total
-    ]);
   });
 
   // Build the workbook with all three sheets
@@ -1930,6 +1930,7 @@ function exportCSV(){
     {wch:18}, // Category
     {wch:30}, // Style Description
     {wch:24}, // Color Description
+    {wch:10}, // Size
     {wch:13}, // Retail
     {wch:13}, // Online
     {wch:15}  // Total DTC
