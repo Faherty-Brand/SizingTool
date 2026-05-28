@@ -257,6 +257,7 @@ input,select,button,textarea{font-family:inherit}
 .rcpt-expand:hover{color:var(--blue)}
 .ai{width:64px;padding:3px 6px;font-family:var(--mono);font-size:11px;text-align:right;background:var(--sand-lt);color:var(--txt);border:1px solid var(--bdr);border-radius:3px;outline:none}.ai:focus{border-color:var(--blue)}.ai.ov{background:var(--blue-pl);color:var(--blue);border-color:var(--blue-st)}
 .c-g{color:var(--green)!important}.c-b{color:var(--blue)!important}.c-o{color:var(--orange)!important}.c-r{color:var(--red)!important}.c-n{color:var(--navy)!important}.c-d{color:var(--txt3)!important}.c-t{color:var(--teal)!important}
+.bop-cell{cursor:help;border-bottom:1px dotted var(--teal)!important}
 /* Pres Mins */
 .pm-page{padding:24px 28px 60px}.pm-actions{display:flex;gap:8px;margin-bottom:16px}
 .pm-cards{display:flex;flex-direction:column;gap:12px}
@@ -385,7 +386,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V8 · SEG + WKS-LIVE + ONLINE FLAT</div>
+<div class="version-tag">V8.2 · UI POLISH</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -2838,12 +2839,20 @@ function renderDetail(el,rec){
   }
   tBody+='<td class="cbl">100%</td>';
   if(showChannelCols)tBody+='<td class="cbl-ch">100%</td><td class="cbl-ch">100%</td>';
-  tBody+='<td class="cbd"></td>';
+  // Cumulative weekly rate: SKU-total sales ÷ weeksLive. Only meaningful for CF SKUs with actual sales.
+  const cumWkly=(rec.weeksLive&&totSkuSl>0)?(totSkuSl/rec.weeksLive).toFixed(1):'';
+  tBody+='<td class="cbd c-d" style="font-weight:700">'+cumWkly+'</td>';
   tBody+='<td class="col">'+fmt(totOH)+'</td>';
   if(useBOP){
     tBody+='<td class="cod">'+fmt(totPend)+'</td>';
     if(showDateCols){dateRows.forEach(dr=>{tBody+='<td class="cod-date" style="font-weight:700">'+fmt(dr.total)+'</td>'})}
-    tBody+='<td class="col c-t">'+fmt(totBOP)+'</td>';
+    // BOP tooltip on totals row: same calc, totals-level
+    const totProjSales=cumWkly?Math.round(parseFloat(cumWkly)*wks):0;
+    const totBopTip='Weekly rate × weeks until order = projected sales\n'+
+      (cumWkly||'0')+' × '+wks+'w = '+fmt(totProjSales)+' projected sales\n\n'+
+      'Current OH − Projected sales + Pending receipts = Projected BOP\n'+
+      fmt(totOH)+' − '+fmt(totProjSales)+' + '+fmt(totPend)+' = '+fmt(totBOP);
+    tBody+='<td class="col c-t bop-cell" title="'+esc(totBopTip)+'">'+fmt(totBOP)+'</td>';
   }
   tBody+='<td class="cod">'+fmt(totIdeal)+'</td><td class="col"></td><td class="cod">'+fmt(totMinRet)+'</td>';
   tBody+=diffCell(rawTotAl||totAl,totAl,fmt,'col c-o');
@@ -2904,7 +2913,15 @@ function renderDetail(el,rec){
           tBody+='<td class="cod-date">'+(v>0?fmt(v):'<span class="c-d">—</span>')+'</td>';
         });
       }
-      tBody+='<td class="col c-t">'+fmt(bop[s]||0)+'</td>';
+      // BOP tooltip: weekly rate × wks = proj sales; oh − proj sales + pending = bop
+      const szWr=sd.sales/(rec.weeksLive||52);
+      const szProjSales=Math.round(szWr*wks);
+      const szBop=bop[s]||0;
+      const szBopTip='Weekly rate × weeks until order = projected sales\n'+
+        szWr.toFixed(1)+' × '+wks+'w = '+fmt(szProjSales)+' projected sales\n\n'+
+        'Current OH − Projected sales + Pending receipts = Projected BOP\n'+
+        fmt(sd.onHand)+' − '+fmt(szProjSales)+' + '+fmt(pendingForSize)+' = '+fmt(szBop);
+      tBody+='<td class="col c-t bop-cell" title="'+esc(szBopTip)+'">'+fmt(szBop)+'</td>';
     }
     tBody+='<td class="cod">'+fmt(useBOP?(ideal[s]||0):Math.round(cv*pool))+'</td>';
     tBody+='<td class="col c-d">'+(pmRate[s]||'—')+'</td>';
@@ -2993,7 +3010,7 @@ function attrPills(rec){
   return '<span class="attr-pill">'+esc(rec.division)+'</span>'+
     '<span class="attr-pill">'+esc(rec.category)+'</span>'+
     '<span class="attr-pill">'+esc(rec.subcategory)+'</span>'+
-    (rec.segment?'<span class="attr-pill" style="background:rgba(192,90,138,.08);color:var(--pink)">'+esc(rec.segment)+'</span>':'')+
+    (rec.segment?'<span class="attr-pill">'+esc(rec.segment)+'</span>':'')+
     '<span class="attr-pill">'+esc(rec.sizeScale)+'</span>'+
     '<span class="attr-pill">'+esc(rec.storeTier||'—')+'</span>'+
     (rec.deliveryMonth?'<span class="attr-pill">'+esc(rec.deliveryMonth)+'</span>':'');
