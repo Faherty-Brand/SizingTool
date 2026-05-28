@@ -386,7 +386,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V8.2 · UI POLISH</div>
+<div class="version-tag">V8.3 · BOP SIMULATION</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -1225,6 +1225,7 @@ function processData(){
   // V7.8: hierarchy now has Segment level between Program and Subcategory.
   // V7.8: also track weeksLive per SKU = count of distinct weeks with sales > 0
   const salI={},hS={},hSr={},hSo={};A.salSKU={};A.salSKURet={};A.salSKUOnline={};
+  const hierSkus={};  // V8.3: hierarchy key -> Set<sku> with sales > 0 (denominator for parent-rate fallback)
   const skuWeeks={};         // SKU -> Set<weekLabel> with sales > 0
   const hasWeekCol=c.sWk!==null&&c.sWk!==undefined;
   const hasSegCol=c.sSeg!==null&&c.sSeg!==undefined;
@@ -1256,6 +1257,11 @@ function processData(){
       if(!hS[k])hS[k]={};hS[k][sz]=(hS[k][sz]||0)+u;
       if(isRetail){if(!hSr[k])hSr[k]={};hSr[k][sz]=(hSr[k][sz]||0)+u}
       if(isOnline){if(!hSo[k])hSo[k]={};hSo[k][sz]=(hSo[k][sz]||0)+u}
+      // V8.3: track distinct SKUs that contributed sales > 0 at each level (for parent-rate fallback denominator)
+      if(u>0){
+        if(!hierSkus[k])hierSkus[k]=new Set();
+        hierSkus[k].add(sku);
+      }
     });
   });
   A.hierSales=hS;A.hierSalesRet=hSr;A.hierSalesOnline=hSo;
@@ -1266,6 +1272,14 @@ function processData(){
   }
   A.hasWeeklyData=hasWeekCol;   // engine flag — falls back to 52 if false (legacy sales file)
   A.hasSegmentData=hasSegCol;   // engine flag — skips segment level if false
+  // V8.3: build per-hierarchy-level metadata for parent-rate fallback
+  // Each entry: {skuCount, sumWeeksLive} so we can compute "average SKU weekly rate" at that level
+  A.hierMeta={};
+  for(const k in hierSkus){
+    const skus=hierSkus[k];
+    let sumW=0;skus.forEach(s=>{sumW+=(A.skuWeeksLive[s]||4)});
+    A.hierMeta[k]={skuCount:skus.size,sumWeeksLive:sumW,avgWeeksLive:skus.size>0?sumW/skus.size:52};
+  }
 
   // ─── WIP / Pending Receipts ───
   // Per-SKU: { totalOrdered, bySize:{size:total}, byDate:[{date,size,ordered,daysOut}], byDateAgg:{date:{size:qty,total:n}} }
@@ -1329,7 +1343,10 @@ function processData(){
       sd[s]={onHand:oh,sales:sl,wipOrd:wo};
       tOH+=oh;tSl+=sl;tWIP+=wo;
     });
-    let sType=dtcBuy===0?'nosize':(tOH===0&&tSl===0?'initials':'cf');
+    // V8.3: SKU is CF if it has OH, sales, OR pending receipts (any inventory presence past or future).
+    // Previously, a SKU with zero OH and zero sales but pending receipts was incorrectly tagged Initials.
+    // The presence of a pending receipt means we'll have stock to burn down before the new buy lands.
+    let sType=dtcBuy===0?'nosize':(tOH===0&&tSl===0&&tWIP===0?'initials':'cf');
     const div=r[c.lDp]||'',cat=r[c.lCa]||'',sub=r[c.lSc]||'',prog=r[c.lSD]||'',dm=r[c.lDM]||'';
     const seg=c.lSeg?(r[c.lSeg]||''):'';
     A.skus[sku]={
@@ -1477,20 +1494,104 @@ function getBuyDeliveryDate(rec){
   return new Date(2000+parseInt(yrMatch[1]),mo-1,1);
 }
 
+// V8.3: Compute per-size weekly rate, with parent-rate fallback when the SKU's own data is thin.
+// Returns { rate:{size:rate}, sourceLevel:'SKU'|'Program'|'Subcategory'|...etc, sourceLabel:string }
+function getWeeklyRate(rec){
+  const skuWeeksLive=A.skuWeeksLive&&A.skuWeeksLive[rec.sku]||0;
+  const skuTotalSales=rec.totalSales||0;
+  const thresh=100*rec.sizeCount;
+  // First test: does the SKU's OWN data clear both the 4-week minimum AND the curve threshold (100×sizeCount)?
+  if(skuWeeksLive>=4&&skuTotalSales>=thresh){
+    const rate={};
+    rec.sizes.forEach(s=>{rate[s]=(rec.sizeData[s].sales||0)/skuWeeksLive});
+    return{rate,sourceLevel:'SKU',sourceLabel:rec.sku};
+  }
+  // Otherwise: walk the hierarchy. At each level, compute "average SKU weekly rate per size" =
+  //   (sum of sales at that level for that size) / (distinct SKU count) / (average SKU weeksLive at that level)
+  const levels=[
+    {key:rec._hk.prog,label:rec.styleDescription,level:'Program'},
+    {key:rec._hk.seg,label:rec.segment||'(no segment)',level:'Segment'},
+    {key:rec._hk.sub,label:rec.subcategory,level:'Subcategory'},
+    {key:rec._hk.cat,label:rec.category,level:'Category'},
+    {key:rec._hk.div,label:rec.division,level:'Division'}
+  ];
+  for(const lv of levels){
+    if(!lv.key)continue;
+    const sbs=A.hierSales[lv.key];if(!sbs)continue;
+    const meta=A.hierMeta[lv.key];if(!meta||meta.skuCount===0)continue;
+    // Total at this level (across all eligible sizes for this SKU)
+    let total=0;rec.sizes.forEach(s=>{total+=(sbs[s]||0)});
+    if(total<thresh)continue;
+    // Average SKU weekly rate at this level
+    const denom=meta.skuCount*meta.avgWeeksLive;
+    const rate={};
+    rec.sizes.forEach(s=>{rate[s]=denom>0?(sbs[s]||0)/denom:0});
+    return{rate,sourceLevel:lv.level,sourceLabel:lv.label};
+  }
+  // Nothing found — fall back to SKU's own rate even if thin (or 0 across the board)
+  const rate={};
+  const wl=Math.max(4,skuWeeksLive||4);
+  rec.sizes.forEach(s=>{rate[s]=(rec.sizeData[s].sales||0)/wl});
+  return{rate,sourceLevel:'SKU (sparse)',sourceLabel:rec.sku};
+}
+
 function projBOP(rec){
   const w=deliveryToWeeks(rec.deliveryMonth,rec.season);const bop={};
-  const pendingBefore=getPendingBeforeDelivery(rec);
-  // V8: weekly rate now uses actual weeks the SKU has been selling (min 4, max 52),
-  // not blanket 52. This fixes the over-counting bias for new items where dividing
-  // by 52 understated weekly rate and inflated projected BOP.
-  const weeksLive=rec.weeksLive||52;
+  // Get per-size weekly rate (SKU's own data, or parent-rate fallback)
+  const wkInfo=getWeeklyRate(rec);
+  const rates=wkInfo.rate;
+  // Get pending receipts AND when they arrive (week offset from today, 0 = this week).
+  // Filter to receipts arriving before the buy delivery, since later ones don't affect BOP.
+  const buyDelivery=getBuyDeliveryDate(rec);
+  const today=new Date();today.setHours(0,0,0,0);
+  // Build a per-size, per-week receipt schedule: receipts[size][weekOffset] = units arriving that week
+  const receiptsByWeek={};rec.sizes.forEach(s=>{receiptsByWeek[s]=[]});
+  if(rec.wipByDate){
+    for(const dKey in rec.wipByDate){
+      const entry=rec.wipByDate[dKey];
+      if(buyDelivery&&entry._sortDate&&entry._sortDate>buyDelivery)continue;
+      const d=entry._sortDate||today;
+      const weekOffset=Math.max(0,Math.floor((d-today)/(7*86400000)));
+      if(weekOffset>=w)continue; // arrives at or after delivery — doesn't help BOP
+      for(const s in entry.sizes){
+        if(receiptsByWeek[s]===undefined)continue;
+        if(!receiptsByWeek[s][weekOffset])receiptsByWeek[s][weekOffset]=0;
+        receiptsByWeek[s][weekOffset]+=entry.sizes[s]||0;
+      }
+    }
+  }
+  // Per-size week-by-week simulation
+  const stockoutWeeks={};
   rec.sizes.forEach(s=>{
-    const oh=rec.sizeData[s].onHand;
-    const pending=pendingBefore[s]||0;
-    const wr=rec.sizeData[s].sales/weeksLive;
-    bop[s]=Math.max(0,Math.round(oh+pending-wr*w));
+    const rate=rates[s]||0;
+    let avail=rec.sizeData[s].onHand||0;
+    let stockoutW=0;
+    for(let wk=0;wk<w;wk++){
+      // Receipts arriving this week land at the START of the week
+      const arriving=(receiptsByWeek[s]&&receiptsByWeek[s][wk])||0;
+      avail+=arriving;
+      if(avail<=0){
+        // No stock this week at all → full stockout
+        stockoutW+=1;
+        avail=0;
+      } else if(avail<rate){
+        // Partial week — we sell what we have, then run out for the rest of the week
+        const fillPct=avail/rate;
+        stockoutW+=(1-fillPct);
+        avail=0;
+      } else {
+        // Full week of sell-through
+        avail-=rate;
+      }
+    }
+    bop[s]=Math.max(0,Math.round(avail));
+    stockoutWeeks[s]=stockoutW;
   });
-  bop._w=w;return bop;
+  bop._w=w;
+  bop._rateInfo=wkInfo;
+  bop._stockoutWeeks=stockoutWeeks;
+  bop._rates=rates;
+  return bop;
 }
 
 // Inner helper: allocate a buy pool against a curve with a floor map. Returns per-size alloc.
@@ -1837,9 +1938,18 @@ function computeAlloc(rec){
   // ── BOP / Pending receipts (apply to RETAIL only) ──
   const pendingBefore=getPendingBeforeDelivery(rec);
   const totalPending=Object.values(pendingBefore).reduce((a,b)=>a+b,0);
-  const useBOP=rec.totalOH>0||totalPending>0;
-  let bop={},wtr=0;
-  if(useBOP){const bp=projBOP(rec);wtr=bp._w;delete bp._w;bop=bp}
+  // V8.3: a SKU is BOP-relevant if it has OH, sales, OR pending receipts (matches the new CF gate)
+  const useBOP=rec.totalOH>0||totalPending>0||rec.totalSales>0;
+  let bop={},wtr=0,bopRateInfo=null,bopStockoutWeeks={},bopRates={};
+  if(useBOP){
+    const bp=projBOP(rec);
+    wtr=bp._w;
+    bopRateInfo=bp._rateInfo;
+    bopStockoutWeeks=bp._stockoutWeeks||{};
+    bopRates=bp._rates||{};
+    delete bp._w;delete bp._rateInfo;delete bp._stockoutWeeks;delete bp._rates;
+    bop=bp;
+  }
   const totalBOP=useBOP?Object.values(bop).reduce((a,b)=>a+b,0):0;
 
   // ── Build curves with hierarchy locked to DTC's resolved level ──
@@ -1936,6 +2046,9 @@ function computeAlloc(rec){
   return{
     alloc,curve:dtcCurveResult.curve,cr,pm,pmRate,
     bop:useBOP?bop:null,wtr:useBOP?wtr:null,ideal:useBOP?ideal:null,
+    bopRateInfo:useBOP?bopRateInfo:null,
+    bopStockoutWeeks:useBOP?bopStockoutWeeks:null,
+    bopRates:useBOP?bopRates:null,
     pool,curveSales:dtcCurveSales,useBOP,
     // New channel-aware fields:
     retailAlloc,onlineAlloc,
@@ -2661,6 +2774,7 @@ function renderDetail(el,rec){
   if(rec.sizingType==='nosize'){
     el.innerHTML='<div class="dv anim"><button class="d-back" onclick="goGrid()">← Back to '+esc(A.activeSeason)+'</button><div class="detail-sticky"><div class="ds-row1"><div class="ds-left"><h2>'+esc(rec.sku)+'</h2><span class="bdg bdg-ns">NO BUY</span></div></div></div><p style="color:var(--txt3);margin-top:12px">No buy — sizing not required.</p></div>';return}
   const{alloc,curve,cr,pm,pmRate,bop,wtr,ideal,pool,curveSales,useBOP,
+    bopRateInfo,bopStockoutWeeks,bopRates,
     retailAlloc,onlineAlloc,retailCurveSales,onlineCurveSales,
     retailCurve,onlineCurve,retailCurveResult,onlineCurveResult,
     retailPool,onlinePool,useChannelSplit,flows,flowSizeBreaks}=res;
@@ -2839,19 +2953,31 @@ function renderDetail(el,rec){
   }
   tBody+='<td class="cbl">100%</td>';
   if(showChannelCols)tBody+='<td class="cbl-ch">100%</td><td class="cbl-ch">100%</td>';
-  // Cumulative weekly rate: SKU-total sales ÷ weeksLive. Only meaningful for CF SKUs with actual sales.
-  const cumWkly=(rec.weeksLive&&totSkuSl>0)?(totSkuSl/rec.weeksLive).toFixed(1):'';
+  // Cumulative weekly rate (V8.3): sum the per-size rates from bopRates (which apply parent fallback).
+  // Falls back to sku-total/weeksLive for non-BOP (Initials) SKUs.
+  let cumRate=0;
+  if(bopRates&&Object.keys(bopRates).length){
+    rec.sizes.forEach(s=>{cumRate+=(bopRates[s]||0)});
+  } else if(rec.weeksLive&&totSkuSl>0){
+    cumRate=totSkuSl/rec.weeksLive;
+  }
+  const cumWkly=cumRate>0?cumRate.toFixed(1):'';
   tBody+='<td class="cbd c-d" style="font-weight:700">'+cumWkly+'</td>';
   tBody+='<td class="col">'+fmt(totOH)+'</td>';
   if(useBOP){
     tBody+='<td class="cod">'+fmt(totPend)+'</td>';
     if(showDateCols){dateRows.forEach(dr=>{tBody+='<td class="cod-date" style="font-weight:700">'+fmt(dr.total)+'</td>'})}
-    // BOP tooltip on totals row: same calc, totals-level
-    const totProjSales=cumWkly?Math.round(parseFloat(cumWkly)*wks):0;
-    const totBopTip='Weekly rate × weeks until order = projected sales\n'+
-      (cumWkly||'0')+' × '+wks+'w = '+fmt(totProjSales)+' projected sales\n\n'+
+    // BOP tooltip on totals row (V8.3): includes rate source and total stockout weeks
+    const totProjSales=Math.round(cumRate*wks);
+    let totStockout=0;
+    if(bopStockoutWeeks)rec.sizes.forEach(s=>{totStockout+=(bopStockoutWeeks[s]||0)});
+    let totBopTip='Weekly rate × weeks until order = projected sales\n'+
+      cumRate.toFixed(1)+' × '+wks+'w = '+fmt(totProjSales)+' projected sales\n\n'+
       'Current OH − Projected sales + Pending receipts = Projected BOP\n'+
       fmt(totOH)+' − '+fmt(totProjSales)+' + '+fmt(totPend)+' = '+fmt(totBOP);
+    const avgStockout=totStockout/(rec.sizes.length||1);
+    if(avgStockout>=0.5)totBopTip+='\n\nAvg '+avgStockout.toFixed(1)+'w of expected stockout per size';
+    if(bopRateInfo&&bopRateInfo.sourceLevel!=='SKU')totBopTip+='\nRate source: '+bopRateInfo.sourceLevel+' avg ('+bopRateInfo.sourceLabel+')';
     tBody+='<td class="col c-t bop-cell" title="'+esc(totBopTip)+'">'+fmt(totBOP)+'</td>';
   }
   tBody+='<td class="cod">'+fmt(totIdeal)+'</td><td class="col"></td><td class="cod">'+fmt(totMinRet)+'</td>';
@@ -2866,7 +2992,9 @@ function renderDetail(el,rec){
   // Data rows
   rec.sizes.forEach(s=>{
     const sd=rec.sizeData[s],a=alloc[s]||0;
-    const wr=(sd.sales/(rec.weeksLive||52)).toFixed(1);const cv=curve[s];const sbPct=totAl>0?a/totAl:0;
+    // V8.3: prefer the engine's computed per-size rate (which includes parent fallback for sparse SKUs)
+    const rateForSize=(bopRates&&bopRates[s]!==undefined)?bopRates[s]:(sd.sales/(rec.weeksLive||52));
+    const wr=rateForSize.toFixed(1);const cv=curve[s];const sbPct=totAl>0?a/totAl:0;
     const postBuy=(useBOP?(bop[s]||0):0)+a;
     const minRetail=pm[s];
     const pendingForSize=useBOP?(pendingFiltered[s]||0):0;
@@ -2913,14 +3041,18 @@ function renderDetail(el,rec){
           tBody+='<td class="cod-date">'+(v>0?fmt(v):'<span class="c-d">—</span>')+'</td>';
         });
       }
-      // BOP tooltip: weekly rate × wks = proj sales; oh − proj sales + pending = bop
-      const szWr=sd.sales/(rec.weeksLive||52);
-      const szProjSales=Math.round(szWr*wks);
+      // BOP tooltip (V8.3): walks week-by-week, only depletes if stock present.
+      // Now shows the rate source (SKU's own data vs parent-level fallback) and total stockout weeks.
+      const szRate=(bopRates&&bopRates[s]!==undefined)?bopRates[s]:(sd.sales/(rec.weeksLive||52));
+      const szProjSales=Math.round(szRate*wks);
       const szBop=bop[s]||0;
-      const szBopTip='Weekly rate × weeks until order = projected sales\n'+
-        szWr.toFixed(1)+' × '+wks+'w = '+fmt(szProjSales)+' projected sales\n\n'+
+      const szStockout=bopStockoutWeeks&&bopStockoutWeeks[s]?bopStockoutWeeks[s]:0;
+      let szBopTip='Weekly rate × weeks until order = projected sales\n'+
+        szRate.toFixed(1)+' × '+wks+'w = '+fmt(szProjSales)+' projected sales\n\n'+
         'Current OH − Projected sales + Pending receipts = Projected BOP\n'+
         fmt(sd.onHand)+' − '+fmt(szProjSales)+' + '+fmt(pendingForSize)+' = '+fmt(szBop);
+      if(szStockout>=0.5)szBopTip+='\n\n'+szStockout.toFixed(1)+'w of expected stockout';
+      if(bopRateInfo&&bopRateInfo.sourceLevel!=='SKU')szBopTip+='\nRate source: '+bopRateInfo.sourceLevel+' avg ('+bopRateInfo.sourceLabel+')';
       tBody+='<td class="col c-t bop-cell" title="'+esc(szBopTip)+'">'+fmt(szBop)+'</td>';
     }
     tBody+='<td class="cod">'+fmt(useBOP?(ideal[s]||0):Math.round(cv*pool))+'</td>';
