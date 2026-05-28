@@ -385,7 +385,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V7.7.1 · CHANNEL BY SIZE</div>
+<div class="version-tag">V8 · SEG + WKS-LIVE + ONLINE FLAT</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -555,10 +555,11 @@ async function cloudListPresMins(){
   return data||[];
 }
 
-async function cloudSavePresMin(scaleName,division,sizes,mins,onlineOnlySizes){
+async function cloudSavePresMin(scaleName,division,sizes,mins,onlineOnlySizes,onlineFlat){
   const{error}=await SUPA.from('pres_mins').upsert({
     scale_name:scaleName,division,sizes,mins,
     online_only_sizes:onlineOnlySizes||[],
+    online_flat:(onlineFlat===undefined||onlineFlat===null)?5:onlineFlat,
     updated_by_email:Auth.email,updated_by_name:Auth.displayName,updated_at:new Date().toISOString()
   },{onConflict:'scale_name'});
   if(error)throw error;
@@ -594,46 +595,218 @@ async function cloudListChanges(category,limit){
   return data||[];
 }
 
-// ═══ Cloud: Realtime subscriptions + refresh banner ═══
+// ═══ Cloud: Realtime + auto-refresh ═══
 let _realtimeChannel=null;
-let _pendingRefreshes={csv:false,pm:false};
+let _pollIntervalId=null;
+let _lastFingerprint=null;
+let _refreshing=false;          // re-entrancy guard
+let _pendingActorByKey={};      // queue of {key: {who, what, rows, cols}} updates received via realtime, drained when refresh completes
+
+const POLL_INTERVAL_MS=60000;   // metadata poll fallback (60s)
+
 function setupRealtime(){
   if(_realtimeChannel)return;
   _realtimeChannel=SUPA.channel('shared-data')
     .on('postgres_changes',{event:'*',schema:'public',table:'csv_files'},payload=>{
-      const updatedBy=(payload.new&&payload.new.updated_by_email)||(payload.old&&payload.old.updated_by_email);
-      // Skip if it's our own update
-      if(updatedBy===Auth.email)return;
-      const who=(payload.new&&payload.new.updated_by_name)||'Someone';
-      const what=(payload.new&&payload.new.key)||(payload.old&&payload.old.key)||'data';
-      showRefreshBanner(who+' updated '+what+' CSV',()=>refreshAllFromCloud());
-      _pendingRefreshes.csv=true;
+      const newRow=payload.new||{};
+      const updatedBy=newRow.updated_by_email||(payload.old&&payload.old.updated_by_email);
+      if(updatedBy===Auth.email)return;          // skip our own writes
+      const key=newRow.key||(payload.old&&payload.old.key)||'data';
+      _pendingActorByKey[key]={
+        who:newRow.updated_by_name||'Someone',
+        what:formatCsvLabel(key),
+        rows:newRow.row_count||0,
+        cols:newRow.col_count||0,
+        when:newRow.updated_at||new Date().toISOString()
+      };
+      autoRefresh('csv');
     })
     .on('postgres_changes',{event:'*',schema:'public',table:'pres_mins'},payload=>{
-      const updatedBy=(payload.new&&payload.new.updated_by_email)||(payload.old&&payload.old.updated_by_email);
+      const newRow=payload.new||{};
+      const updatedBy=newRow.updated_by_email||(payload.old&&payload.old.updated_by_email);
       if(updatedBy===Auth.email)return;
-      const who=(payload.new&&payload.new.updated_by_name)||'Someone';
-      const what=(payload.new&&payload.new.scale_name)||(payload.old&&payload.old.scale_name)||'pres mins';
-      showRefreshBanner(who+' updated '+what+' pres mins',()=>refreshAllFromCloud());
-      _pendingRefreshes.pm=true;
+      const scale=newRow.scale_name||(payload.old&&payload.old.scale_name)||'pres mins';
+      _pendingActorByKey['pm:'+scale]={
+        who:newRow.updated_by_name||'Someone',
+        what:scale+' pres mins',
+        scale:true,
+        when:newRow.updated_at||new Date().toISOString()
+      };
+      autoRefresh('pm');
     })
     .subscribe();
 }
 
-function showRefreshBanner(text,onRefresh){
-  const host=document.getElementById('refresh-banner-host');
-  if(!host)return;
-  host.innerHTML='<div class="refresh-banner"><span>'+esc(text)+'</span><button onclick="(window.__bannerRefresh||(()=>{}))()">Refresh</button><span class="x" onclick="document.getElementById(\'refresh-banner-host\').innerHTML=\'\'">×</span></div>';
-  window.__bannerRefresh=()=>{host.innerHTML='';onRefresh()};
+function formatCsvLabel(key){
+  const map={inventory:'Inventory',sales:'L52W Sales',linelist:'Linelist',wip:'WIP'};
+  return map[key]||key;
 }
 
+// Tab-focus listener — when the tab becomes visible after being hidden, do a metadata sync.
+// This catches all cases where realtime dropped during inactivity (sleep, throttling, etc.)
+function setupVisibilityRefresh(){
+  if(typeof document==='undefined'||!document.addEventListener)return;
+  document.addEventListener('visibilitychange',()=>{
+    if(!document.hidden&&Auth.email){
+      checkAndAutoRefresh('focus');
+    }
+  });
+  window.addEventListener('focus',()=>{
+    if(Auth.email)checkAndAutoRefresh('focus');
+  });
+}
+
+// Polling fallback — every 60s while tab is visible, do a quick metadata check.
+// Bandwidth: ~1KB query against csv_files + pres_mins. Trivial.
+function setupPollingFallback(){
+  if(_pollIntervalId)clearInterval(_pollIntervalId);
+  _pollIntervalId=setInterval(()=>{
+    if(document.hidden||!Auth.email)return; // skip when tab inactive or signed out
+    checkAndAutoRefresh('poll');
+  },POLL_INTERVAL_MS);
+}
+
+// Compare in-memory CSV metadata against cloud's current state. If anything has shifted,
+// trigger a full refresh. Used by tab-focus listener and 60s polling.
+async function checkAndAutoRefresh(reason){
+  if(_refreshing)return;
+  try{
+    const cloudCsvMeta=await cloudListCSVMeta();
+    let changed=false;
+    let actorByKey={};
+    for(const key of['inventory','sales','linelist','wip']){
+      const cloud=cloudCsvMeta[key];
+      const local=A.cloudMeta&&A.cloudMeta[key];
+      if(!cloud)continue;
+      const cloudTs=cloud.updated_at||'';
+      const localTs=(local&&local.updated_at)||'';
+      if(cloudTs&&cloudTs!==localTs){
+        changed=true;
+        // Only show toast if not our own write
+        if(cloud.updated_by_email!==Auth.email){
+          actorByKey[key]={
+            who:cloud.updated_by_name||'Someone',
+            what:formatCsvLabel(key),
+            rows:cloud.row_count||0,
+            cols:cloud.col_count||0,
+            when:cloudTs
+          };
+        }
+      }
+    }
+    if(changed){
+      // Merge into pending toasts and trigger refresh
+      Object.assign(_pendingActorByKey,actorByKey);
+      autoRefresh(reason);
+    }
+  }catch(err){
+    // Silent fail — polling shouldn't surface errors to the user
+    console.warn('Auto-refresh check failed ('+reason+'):',err);
+  }
+}
+
+// Coalesces rapid-fire updates into a single refresh, then drains the toast queue.
+// Each pending update produces its own toast.
+let _refreshDebounceTimer=null;
+function autoRefresh(reason){
+  if(_refreshDebounceTimer)clearTimeout(_refreshDebounceTimer);
+  // Debounce ~400ms so a burst of writes (e.g. inventory + sales + linelist back-to-back)
+  // results in one refresh + multiple toasts, not multiple refreshes.
+  _refreshDebounceTimer=setTimeout(async()=>{
+    _refreshDebounceTimer=null;
+    if(_refreshing){
+      // Another refresh in flight — try again shortly
+      _refreshDebounceTimer=setTimeout(()=>autoRefresh(reason),500);
+      return;
+    }
+    _refreshing=true;
+    try{
+      await refreshAllFromCloud();
+      // Drain pending toasts (one per file/scale), most-recent first
+      const entries=Object.entries(_pendingActorByKey);
+      _pendingActorByKey={};
+      entries.forEach(([key,info])=>{
+        let msg;
+        if(info.scale){
+          msg=info.who+' updated '+info.what+' · just now';
+        } else {
+          // "Sera Borg replaced Linelist · 65r × 163c · just now"
+          msg=info.who+' replaced '+info.what+' · '+fmt(info.rows)+'r × '+info.cols+'c · just now';
+        }
+        toast(msg);
+      });
+    }catch(err){
+      console.error('Auto-refresh failed:',err);
+    }finally{
+      _refreshing=false;
+    }
+  },400);
+}
+
+// Refresh from cloud while preserving per-user state (accepted SKUs, overrides, expanded states, sort/filter prefs).
+// Curve adjustments will auto-wipe via fingerprint mismatch inside loadFromCloud → loadCurveAdjustments.
 async function refreshAllFromCloud(){
+  // Snapshot per-user ephemeral state
+  const savedAccepted={...A.accepted};
+  const savedOverrides=JSON.parse(JSON.stringify(A.overrides||{}));
+  const savedActiveSeason=A.activeSeason;
+  const savedSelectedSKU=A.selectedSKU;
+  const savedView=A.view;
+  const savedModule=A.module;
+  const savedFilters=JSON.parse(JSON.stringify(A.filters));
+  const savedSort={key:A.sortKey,dir:A.sortDir};
+  const savedSearch=A.searchTerm;
+  const savedExpandedWip=A.expandedWipSku;
+  const savedExpandedChannel=A.expandedChannelSku;
+
+  // Pull fresh data from cloud (this also re-applies curve adjustments via fingerprint check)
   await loadFromCloud();
-  toast('Data refreshed');
+
+  // Restore per-user state where it still applies
+  A.filters=savedFilters;
+  A.sortKey=savedSort.key;A.sortDir=savedSort.dir;
+  A.searchTerm=savedSearch;
+  A.expandedWipSku=savedExpandedWip;
+  A.expandedChannelSku=savedExpandedChannel;
+
+  // Reprocess the active season if applicable (rebuilds A.skus from new linelist)
+  if(savedActiveSeason){
+    A.activeSeason=savedActiveSeason;
+    A.module=savedModule;
+    if(allUp())processData(); // populates A.skus with the new data
+    // Restore accepted SKUs that still exist in the new data
+    A.accepted={};
+    for(const sku in savedAccepted){
+      if(A.skus&&A.skus[sku])A.accepted[sku]=true;
+    }
+    // Restore overrides for SKUs+sizes that still exist
+    A.overrides={};
+    for(const sku in savedOverrides){
+      if(A.skus&&A.skus[sku]){
+        const newSizes=new Set(A.skus[sku].sizes||[]);
+        const sizeOvr={};
+        for(const sz in savedOverrides[sku]){
+          if(newSizes.has(sz))sizeOvr[sz]=savedOverrides[sku][sz];
+        }
+        if(Object.keys(sizeOvr).length)A.overrides[sku]=sizeOvr;
+      }
+    }
+    // Re-enter the appropriate view
+    if(savedView==='detail'&&savedSelectedSKU&&A.skus[savedSelectedSKU]){
+      A.selectedSKU=savedSelectedSKU;A.view='detail';
+    } else {
+      A.selectedSKU=null;A.view='grid';
+    }
+  }
+
   // Re-render whatever view is active
   if(typeof render==='function'&&document.getElementById('main-area'))render();
+  if(typeof renderDivisionPills==='function')renderDivisionPills();
+  if(typeof updateExpCt==='function')updateExpCt();
   trySeasons();
 }
+
+
 
 // ─── IndexedDB ───
 const DB_NAME='POSizingV3',DB_VER=2;
@@ -943,7 +1116,7 @@ async function loadFromCloud(){
     const rows=await cloudListPresMins();
     A.presMins={};A.presMinsMeta={};A.pmMeta={};
     rows.forEach(r=>{
-      A.presMinsMeta[r.scale_name]={div:r.division||'Mens',sizes:r.sizes||[],onlineOnly:r.online_only_sizes||[]};
+      A.presMinsMeta[r.scale_name]={div:r.division||'Mens',sizes:r.sizes||[],onlineOnly:r.online_only_sizes||[],onlineFlat:r.online_flat!==undefined&&r.online_flat!==null?Number(r.online_flat):5};
       A.presMins[r.scale_name]=r.mins||{};
       A.pmMeta[r.scale_name]={updated_by_name:r.updated_by_name,updated_by_email:r.updated_by_email,updated_at:r.updated_at};
     });
@@ -1006,6 +1179,8 @@ function goSeason(s){
   render();
   renderDivisionPills();
   updateExpCt();
+  // Verify we're on fresh data — fires async, no UI block. If stale, refreshAllFromCloud will trigger.
+  if(Auth.email)checkAndAutoRefresh('season-enter');
 }
 
 // ═══ PROCESS DATA ═══
@@ -1019,10 +1194,13 @@ function processData(){
   c.sD=findCol(sales[0],['Merchandise Division','Division','Department']);c.sC=findCol(sales[0],['Category']);
   c.sSC=findCol(sales[0],['Sub-Category','SubCategory','Subcategory']);c.sSD=findCol(sales[0],['Style Description']);
   c.sLT=findCol(sales[0],['Location Type']);
+  c.sWk=findCol(sales[0],['Week']);                                  // V7.8: weekly breakdown for weeksLive
+  c.sSeg=findCol(sales[0],['Product Segmentation','Segmentation']);   // V7.8: segment level
   c.lS=findCol(ll[0],['SKU']);c.lSe=findCol(ll[0],['Season Code']);c.lDp=findCol(ll[0],['Department']);
   c.lCa=findCol(ll[0],['Category']);c.lSc=findCol(ll[0],['Subcategory','Sub-Category']);
   c.lSt=findCol(ll[0],['Style']);c.lSD=findCol(ll[0],['Style Description']);
   c.lCC=findCol(ll[0],['Color Code']);c.lCD=findCol(ll[0],['Color Description']);
+  c.lSeg=findCol(ll[0],['Product Segmentation','Segmentation']);     // V7.8: SKU-to-segment lookup
   c.lSS=findCol(ll[0],['Size Scale']);c.lDB=findCol(ll[0],['Total DTC Buy']);
   c.lRB=findCol(ll[0],['Retail Final Buy']);
   c.lOB=findCol(ll[0],['Online Final Buy']);
@@ -1043,7 +1221,12 @@ function processData(){
 
   const invI={};inv.forEach(r=>{const k=r[c.iS];if(!invI[k])invI[k]={};invI[k][r[c.iZ]]=(invI[k][r[c.iZ]]||0)+numP(r[c.iO])});
   // Hierarchical sales: total (DTC), Retail-only, Online-only
+  // V7.8: hierarchy now has Segment level between Program and Subcategory.
+  // V7.8: also track weeksLive per SKU = count of distinct weeks with sales > 0
   const salI={},hS={},hSr={},hSo={};A.salSKU={};A.salSKURet={};A.salSKUOnline={};
+  const skuWeeks={};         // SKU -> Set<weekLabel> with sales > 0
+  const hasWeekCol=c.sWk!==null&&c.sWk!==undefined;
+  const hasSegCol=c.sSeg!==null&&c.sSeg!==undefined;
   sales.forEach(r=>{
     const sku=r[c.sS],sz=r[c.sZ],u=numP(r[c.sU]);
     const lt=(r[c.sLT]||'').toLowerCase();
@@ -1053,8 +1236,21 @@ function processData(){
     A.salSKU[sku]=(A.salSKU[sku]||0)+u;
     if(isRetail)A.salSKURet[sku]=(A.salSKURet[sku]||0)+u;
     if(isOnline)A.salSKUOnline[sku]=(A.salSKUOnline[sku]||0)+u;
+    // weeksLive tracking — only count weeks where this SKU had ANY sales (>0)
+    if(hasWeekCol&&u>0){
+      const wk=String(r[c.sWk]||'').trim();
+      if(wk){
+        if(!skuWeeks[sku])skuWeeks[sku]=new Set();
+        skuWeeks[sku].add(wk);
+      }
+    }
     const d=(r[c.sD]||'').toLowerCase(),ca=(r[c.sC]||'').toLowerCase(),sc=(r[c.sSC]||'').toLowerCase(),pr=(r[c.sSD]||'').toLowerCase();
+    const seg=hasSegCol?(r[c.sSeg]||'').toLowerCase():'';
+    // V7.8: hierarchy walks Program -> Segment -> Subcategory -> Category -> Division
+    // When segment is missing for a sales row, we just don't emit a seg-level key for it
+    // (the SKU's own walk will skip Segment if its segment is unmapped).
     const keys=['prog|'+d+'|'+ca+'|'+sc+'|'+pr,'sub|'+d+'|'+ca+'|'+sc,'cat|'+d+'|'+ca,'div|'+d];
+    if(seg)keys.push('seg|'+d+'|'+ca+'|'+sc+'|'+seg);
     keys.forEach(k=>{
       if(!hS[k])hS[k]={};hS[k][sz]=(hS[k][sz]||0)+u;
       if(isRetail){if(!hSr[k])hSr[k]={};hSr[k][sz]=(hSr[k][sz]||0)+u}
@@ -1062,6 +1258,13 @@ function processData(){
     });
   });
   A.hierSales=hS;A.hierSalesRet=hSr;A.hierSalesOnline=hSo;
+  // Convert weeks sets into per-SKU counts with the V7.8 minimum-4 floor
+  A.skuWeeksLive={};
+  for(const sku in skuWeeks){
+    A.skuWeeksLive[sku]=Math.max(4,skuWeeks[sku].size);
+  }
+  A.hasWeeklyData=hasWeekCol;   // engine flag — falls back to 52 if false (legacy sales file)
+  A.hasSegmentData=hasSegCol;   // engine flag — skips segment level if false
 
   // ─── WIP / Pending Receipts ───
   // Per-SKU: { totalOrdered, bySize:{size:total}, byDate:[{date,size,ordered,daysOut}], byDateAgg:{date:{size:qty,total:n}} }
@@ -1127,8 +1330,9 @@ function processData(){
     });
     let sType=dtcBuy===0?'nosize':(tOH===0&&tSl===0?'initials':'cf');
     const div=r[c.lDp]||'',cat=r[c.lCa]||'',sub=r[c.lSc]||'',prog=r[c.lSD]||'',dm=r[c.lDM]||'';
+    const seg=c.lSeg?(r[c.lSeg]||''):'';
     A.skus[sku]={
-      sku,season:A.activeSeason,division:div,category:cat,subcategory:sub,
+      sku,season:A.activeSeason,division:div,category:cat,subcategory:sub,segment:seg,
       style:r[c.lSt]||'',styleDescription:prog,
       colorCode:r[c.lCC]||'',colorDescription:r[c.lCD]||'',
       sizeScale:scale,sizeCount:A.scaleSizeCount[scale]||sizes.length,
@@ -1143,8 +1347,10 @@ function processData(){
       skuSalesTotal:A.salSKU[sku]||0,
       skuSalesRetail:A.salSKURet[sku]||0,
       skuSalesOnline:A.salSKUOnline[sku]||0,
+      weeksLive:(A.skuWeeksLive&&A.skuWeeksLive[sku])||(A.hasWeeklyData?4:52),  // V7.8: actual weeks live, fall back to 52 if weekly data unavailable
       wipByDate:wipRec.byDateAgg||{},
       _hk:{prog:'prog|'+div.toLowerCase()+'|'+cat.toLowerCase()+'|'+sub.toLowerCase()+'|'+prog.toLowerCase(),
+           seg:seg?'seg|'+div.toLowerCase()+'|'+cat.toLowerCase()+'|'+sub.toLowerCase()+'|'+seg.toLowerCase():null,
            sub:'sub|'+div.toLowerCase()+'|'+cat.toLowerCase()+'|'+sub.toLowerCase(),
            cat:'cat|'+div.toLowerCase()+'|'+cat.toLowerCase(),
            div:'div|'+div.toLowerCase()}
@@ -1164,6 +1370,9 @@ function buildCurve(rec,hierSource,forceLevel){
   const adj=A.curveAdjustments[rec.sku]||{};
   const levels=[
     {key:rec._hk.prog,label:rec.styleDescription,level:'Program'},
+    // Segment lives between Program and Subcategory. Skipped when the SKU has no segment value
+    // (key will be null) — the threshold check below handles that automatically since src[null] is undefined.
+    {key:rec._hk.seg,label:rec.segment||'(no segment)',level:'Segment'},
     {key:rec._hk.sub,label:rec.subcategory,level:'Subcategory'},
     {key:rec._hk.cat,label:rec.category,level:'Category'},
     {key:rec._hk.div,label:rec.division,level:'Division'}
@@ -1192,6 +1401,8 @@ function buildCurve(rec,hierSource,forceLevel){
 
   const trail=[];
   for(const lv of levels){
+    // Skip levels with no key (e.g. SKU has no Segment value) — don't pollute the trail with empty rows
+    if(!lv.key)continue;
     const sbs=src[lv.key];
     if(!sbs){trail.push({...lv,total:0,thresh,pass:false});continue}
     // Compute the unadjusted total against the eligibility threshold.
@@ -1268,10 +1479,14 @@ function getBuyDeliveryDate(rec){
 function projBOP(rec){
   const w=deliveryToWeeks(rec.deliveryMonth,rec.season);const bop={};
   const pendingBefore=getPendingBeforeDelivery(rec);
+  // V8: weekly rate now uses actual weeks the SKU has been selling (min 4, max 52),
+  // not blanket 52. This fixes the over-counting bias for new items where dividing
+  // by 52 understated weekly rate and inflated projected BOP.
+  const weeksLive=rec.weeksLive||52;
   rec.sizes.forEach(s=>{
     const oh=rec.sizeData[s].onHand;
     const pending=pendingBefore[s]||0;
-    const wr=rec.sizeData[s].sales/52;
+    const wr=rec.sizeData[s].sales/weeksLive;
     bop[s]=Math.max(0,Math.round(oh+pending-wr*w));
   });
   bop._w=w;return bop;
@@ -1348,7 +1563,9 @@ function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve){
   const isInitials=rec.sizingType==='initials';
   const pm=getPresMin(rec); // per-size pres min × stores (already ceiling rounded)
   const apsR=rec.apsRetail||0,apsO=rec.apsOnline||0;
-  const ONLINE_FLAT=rec.onlineBuy>0?5:0;
+  const scaleMetaFL=A.presMinsMeta[rec.sizeScale]||{};
+  const onlineFlatPerSize=scaleMetaFL.onlineFlat!==undefined?Number(scaleMetaFL.onlineFlat):5;
+  const ONLINE_FLAT=rec.onlineBuy>0?onlineFlatPerSize:0;
 
   // Per-size global minimum need (Initials math)
   // = retail pres min units + online flat (5) + 6 weeks retail APS by retail curve % + 6 weeks online APS by online curve %
@@ -1609,10 +1826,10 @@ function computeAlloc(rec){
   const ovr=A.overrides[rec.sku]||{};
   const pmRate=getPresMinRate(rec);
   const pm=getPresMin(rec);
-  // Online flat floor: 5 per size, regardless of pres mins config
-  // BUT: only applies when retail buy > 0 (i.e. SKU is sold across all stores)
-  // If retail buy is 0, online is the only channel, but flat 5 still makes sense as a per-size minimum
-  const ONLINE_FLAT_PRES=5;
+  // Online flat floor: per-scale configurable (default 5), applies to each OMNI size.
+  // Set lower (e.g. 2 for M6/FM6) for compact size scales. Stored on the pres_mins record.
+  const scaleMeta=A.presMinsMeta[rec.sizeScale]||{};
+  const ONLINE_FLAT_PRES=scaleMeta.onlineFlat!==undefined?Number(scaleMeta.onlineFlat):5;
   const onlineFloor={};
   rec.sizes.forEach(s=>{onlineFloor[s]=effOnlinePool>0?ONLINE_FLAT_PRES:0});
 
@@ -2016,8 +2233,9 @@ function renderFlowsModal(rec){
         '<td class="fm-num fm-tot">'+f.total+'</td>'+
         '</tr>';
     });
+    const onlineFlatLabel=(A.presMinsMeta[rec.sizeScale]&&A.presMinsMeta[rec.sizeScale].onlineFlat!==undefined)?A.presMinsMeta[rec.sizeScale].onlineFlat:5;
     mathHtml='<div class="fm-math"><div class="fm-math-hdr">Global Floor Calculation (Initials)</div>'+
-      '<div class="fm-math-desc">Each size needs: <b>retail pres min</b> + <b>online flat 5</b> + <b>(Retail APS × stores) × 6 × retail curve%</b> + <b>Online APS × 6 × online curve%</b></div>'+
+      '<div class="fm-math-desc">Each size needs: <b>retail pres min</b> + <b>online flat '+onlineFlatLabel+'</b> + <b>(Retail APS × stores) × 6 × retail curve%</b> + <b>Online APS × 6 × online curve%</b></div>'+
       '<table class="fm-math-tbl"><thead><tr>'+
       '<th>Size</th><th>Retail Pres Min</th><th>Online Flat</th><th>Retail WoS</th><th>Online WoS</th><th>Total Need</th>'+
       '</tr></thead><tbody>'+perSizeRows+'</tbody></table>'+
@@ -2639,7 +2857,7 @@ function renderDetail(el,rec){
   // Data rows
   rec.sizes.forEach(s=>{
     const sd=rec.sizeData[s],a=alloc[s]||0;
-    const wr=(sd.sales/52).toFixed(1);const cv=curve[s];const sbPct=totAl>0?a/totAl:0;
+    const wr=(sd.sales/(rec.weeksLive||52)).toFixed(1);const cv=curve[s];const sbPct=totAl>0?a/totAl:0;
     const postBuy=(useBOP?(bop[s]||0):0)+a;
     const minRetail=pm[s];
     const pendingForSize=useBOP?(pendingFiltered[s]||0):0;
@@ -2755,7 +2973,7 @@ function renderDetail(el,rec){
       '<span class="metric-pill">Stores: '+fmt(rec.storeCount)+'</span>'+
       '<span class="metric-pill">Current OH: '+fmt(rec.totalOH)+'</span>'+
       (useBOP?'<span class="metric-pill">Proj. BOP: '+fmt(totalBOPv)+' ('+wks+'w)</span>':'')+
-      '<span class="metric-pill">L52W SKU Sales: '+fmt(skuL52W)+'</span>'+
+      '<span class="metric-pill">L52W SKU Sales: '+fmt(skuL52W)+(A.hasWeeklyData?' <span style="color:var(--txt3)">/ '+(rec.weeksLive||52)+'w live</span>':'')+'</span>'+
       '<span class="metric-pill mp-ch">'+apsRpill+'</span>'+
       '<span class="metric-pill mp-ch">Online APS: '+apsO_disp+'</span>'+
     '</div></div>'+
@@ -2775,6 +2993,7 @@ function attrPills(rec){
   return '<span class="attr-pill">'+esc(rec.division)+'</span>'+
     '<span class="attr-pill">'+esc(rec.category)+'</span>'+
     '<span class="attr-pill">'+esc(rec.subcategory)+'</span>'+
+    (rec.segment?'<span class="attr-pill" style="background:rgba(192,90,138,.08);color:var(--pink)">'+esc(rec.segment)+'</span>':'')+
     '<span class="attr-pill">'+esc(rec.sizeScale)+'</span>'+
     '<span class="attr-pill">'+esc(rec.storeTier||'—')+'</span>'+
     (rec.deliveryMonth?'<span class="attr-pill">'+esc(rec.deliveryMonth)+'</span>':'');
@@ -2810,10 +3029,11 @@ function renderPresMins(el){
     // Even sizes with pres min = 0 are OMNI — they still receive curve-driven retail allocation, just no floor.
     const omniCount=sizes.length-onlineOnly.length;
     const ooCount=onlineOnly.length;
+    const onlineFlatVal=meta.onlineFlat!==undefined?meta.onlineFlat:5;
     const hasStagedChanges=Object.keys(staged).length>0&&Object.keys(staged).some(s=>{const sv=staged[s];const cv=cfg[s];return sv!==cv});
 
     h+='<div class="pm-card '+divCls+'" style="position:relative"><button class="pm-delete" onclick="deleteScale(\''+esc(scale)+'\')" title="Delete scale">✕</button>'+
-      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><h3 style="margin:0">'+esc(scale)+' <span style="font-weight:400;color:var(--txt3)">('+sizes.length+' sizes · '+omniCount+' OMNI'+(ooCount?' · '+ooCount+' OO':'')+')</span></h3>'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><h3 style="margin:0">'+esc(scale)+' <span style="font-weight:400;color:var(--txt3)">('+sizes.length+' sizes · '+omniCount+' OMNI'+(ooCount?' · '+ooCount+' OO':'')+' · online flat '+onlineFlatVal+')</span></h3>'+
       '<button class="btn btn-g btn-sm" onclick="openEditScaleModal(\''+esc(scale)+'\')">Edit Sizes</button></div>';
     if(meta.div)h+='<span class="pm-div-tag '+divTag+'">'+esc(meta.div)+'</span>';
     // Attribution
@@ -2878,7 +3098,7 @@ async function acceptPMOverwrites(scale){
   delete pmStaged[scale];
   const meta=A.presMinsMeta[scale]||{div:'Mens',sizes:[],onlineOnly:[]};
   try{
-    await cloudSavePresMin(scale,meta.div,meta.sizes||[],A.presMins[scale],meta.onlineOnly||[]);
+    await cloudSavePresMin(scale,meta.div,meta.sizes||[],A.presMins[scale],meta.onlineOnly||[],meta.onlineFlat!==undefined?meta.onlineFlat:5);
     A.pmMeta[scale]={updated_by_name:Auth.displayName,updated_by_email:Auth.email,updated_at:new Date().toISOString()};
     toast(scale+' pres mins updated');
     if(diff.length){
@@ -2908,10 +3128,10 @@ async function deleteScale(scale){
 }
 
 // ─── Add/Edit Scale Modal ───
-let modalState={name:'',div:'Mens',copyFrom:'',sizes:[],sizeInput:'',editing:null,onlineOnly:[],reorderMode:false};
+let modalState={name:'',div:'Mens',copyFrom:'',sizes:[],sizeInput:'',editing:null,onlineOnly:[],reorderMode:false,onlineFlat:5};
 
 function openAddScaleModal(){
-  modalState={name:'',div:'Mens',copyFrom:'',sizes:[],sizeInput:'',editing:null,onlineOnly:[],reorderMode:false};renderModal();
+  modalState={name:'',div:'Mens',copyFrom:'',sizes:[],sizeInput:'',editing:null,onlineOnly:[],reorderMode:false,onlineFlat:5};renderModal();
 }
 
 function openEditScaleModal(scale){
@@ -2919,7 +3139,8 @@ function openEditScaleModal(scale){
   // Use ONLY the user-defined sizes from meta — NOT scaleSizes (data-derived)
   const sizes=meta.sizes||Object.keys(A.presMins[scale]||{});
   const onlineOnly=meta.onlineOnly||[];
-  modalState={name:scale,div:meta.div||'Mens',copyFrom:'',sizes:[...sizes],sizeInput:'',editing:scale,onlineOnly:[...onlineOnly],reorderMode:false};
+  const onlineFlat=meta.onlineFlat!==undefined?meta.onlineFlat:5;
+  modalState={name:scale,div:meta.div||'Mens',copyFrom:'',sizes:[...sizes],sizeInput:'',editing:scale,onlineOnly:[...onlineOnly],reorderMode:false,onlineFlat};
   renderModal();
 }
 
@@ -3019,6 +3240,12 @@ function renderModal(){
   h+='<div class="modal-label">Division</div><div class="modal-div-btns">';
   divBtns.forEach(b=>{h+='<button class="modal-div-btn '+b.cls+'" onclick="modalState.div=\''+b.val+'\';renderModal()">'+b.label+'</button>'});
   h+='</div>';
+  // Online flat pres min (per-scale floor for online buy, applied to each OMNI size)
+  h+='<div class="modal-label" style="display:flex;align-items:center;gap:8px">'+
+       '<span>Online Flat Pres Min</span>'+
+       '<span style="color:var(--txt3);font-weight:400;font-size:10px">applied to every OMNI size for the online buy floor. Default 5; use 2 for compact scales like M6/FM6.</span>'+
+     '</div>'+
+     '<input class="modal-input" type="number" step="0.5" min="0" style="width:100px" value="'+(ms.onlineFlat!==undefined?ms.onlineFlat:5)+'" onchange="modalState.onlineFlat=Number(this.value)||0">';
   if(hasExisting&&!ms.copyFrom){
     h+='<div class="modal-label">Copy Sizes From (optional)</div><div class="modal-copy-btns">';
     h+='<button class="modal-copy-btn sel" onclick="">None — enter manually</button>';
@@ -3084,14 +3311,16 @@ async function saveScale(){
   const isEdit=!!ms.editing;
   const prevSizes=isEdit?[...((A.presMinsMeta[name]&&A.presMinsMeta[name].sizes)||[])]:[];
   const prevOnlineOnly=isEdit?[...((A.presMinsMeta[name]&&A.presMinsMeta[name].onlineOnly)||[])]:[];
+  const prevOnlineFlat=isEdit?(A.presMinsMeta[name]&&A.presMinsMeta[name].onlineFlat!==undefined?A.presMinsMeta[name].onlineFlat:5):5;
   // Validate online-only list against current sizes (drop stale entries)
   const onlineOnly=(ms.onlineOnly||[]).filter(s=>ms.sizes.includes(s));
+  const onlineFlat=ms.onlineFlat!==undefined?Number(ms.onlineFlat):5;
   A.scaleSizes[name]=[...ms.sizes];A.scaleSizeCount[name]=ms.sizes.length;
   if(!A.presMins[name])A.presMins[name]={};
-  A.presMinsMeta[name]={div:ms.div,sizes:[...ms.sizes],onlineOnly};
+  A.presMinsMeta[name]={div:ms.div,sizes:[...ms.sizes],onlineOnly,onlineFlat};
   if(!isEdit&&ms.copyFrom&&A.presMins[ms.copyFrom])A.presMins[name]={...A.presMins[ms.copyFrom]};
   try{
-    await cloudSavePresMin(name,ms.div,ms.sizes,A.presMins[name],onlineOnly);
+    await cloudSavePresMin(name,ms.div,ms.sizes,A.presMins[name],onlineOnly,onlineFlat);
     A.pmMeta[name]={updated_by_name:Auth.displayName,updated_by_email:Auth.email,updated_at:new Date().toISOString()};
     // Log
     if(isEdit){
@@ -3100,6 +3329,7 @@ async function saveScale(){
       const onlineAdded=onlineOnly.filter(s=>!prevOnlineOnly.includes(s));
       const onlineRemoved=prevOnlineOnly.filter(s=>!onlineOnly.includes(s));
       const reorderedOnly=!added.length&&!removed.length&&JSON.stringify(prevSizes)!==JSON.stringify(ms.sizes);
+      const onlineFlatChanged=Number(prevOnlineFlat)!==Number(onlineFlat);
       if(added.length||removed.length){
         const parts=[];
         if(added.length)parts.push(added.length+' size'+(added.length===1?'':'s')+' added ['+added.join(', ')+']');
@@ -3114,8 +3344,11 @@ async function saveScale(){
         if(onlineRemoved.length)parts.push('removed online-only flag: '+onlineRemoved.join(', '));
         cloudLogEvent('presmins_online_only','presmins',name,parts.join('; ')+' ('+name+')',{added:onlineAdded,removed:onlineRemoved});
       }
+      if(onlineFlatChanged){
+        cloudLogEvent('presmins_update','presmins',name,'changed online flat pres min for '+name+' from '+prevOnlineFlat+' to '+onlineFlat,{changes:[{size:'(online flat)',from:prevOnlineFlat,to:onlineFlat}]});
+      }
     } else {
-      cloudLogEvent('presmins_create','presmins',name,'added '+name+' size scale ['+ms.sizes.length+' size'+(ms.sizes.length===1?'':'s')+' added]',{sizes:ms.sizes,onlineOnly,division:ms.div});
+      cloudLogEvent('presmins_create','presmins',name,'added '+name+' size scale ['+ms.sizes.length+' size'+(ms.sizes.length===1?'':'s')+' added]',{sizes:ms.sizes,onlineOnly,onlineFlat,division:ms.div});
     }
     closeModal();toast(name+(isEdit?' updated':' created'));
   }catch(err){
@@ -3249,8 +3482,12 @@ async function onSignedIn(user){
   hideLogin();
   // Load shared data from cloud
   await loadFromCloud();
-  // Subscribe to realtime updates
+  // Subscribe to realtime updates (primary path: WebSocket push)
   setupRealtime();
+  // Tab focus / visibility — catches cases where realtime drops during inactivity
+  setupVisibilityRefresh();
+  // 60s polling fallback — catches dropped WebSockets while tab is active
+  setupPollingFallback();
 }
 
 boot().catch(e=>console.error('Boot error:',e));
