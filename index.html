@@ -386,7 +386,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V8.3 · BOP SIMULATION</div>
+<div class="version-tag">V8.3.1 · FLOW RECONCILE</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -1652,6 +1652,47 @@ function allocateBuy(rec,pool,curve,floors,ideals){
   return alloc;
 }
 
+// V8.3.1: After flow size breaks are built independently, the per-size totals across flows
+// may not sum exactly to the original combined alloc due to rounding (e.g. a 2u total being
+// split 40/30/30 produces 1/1/1 = 3u after rounding, summing 3 vs target 2).
+// We reconcile by *swapping units within a flow* — if size A is over-allocated by 1u across flows,
+// we subtract 1 from A in whichever flow has the most, and add 1 to whichever other size in that
+// same flow is most under-allocated. This way each flow's total units stays fixed AND each size's
+// cross-flow total matches the SKU's overall size break.
+function reconcileFlowsBySize(splits,combinedAlloc,sizes){
+  function perSizeDiff(){
+    const out={};
+    sizes.forEach(s=>{
+      let actual=0;splits.forEach(sp=>{actual+=(sp.sizeBreak[s]||0)});
+      out[s]=actual-(combinedAlloc[s]||0); // positive = over-allocated, negative = under
+    });
+    return out;
+  }
+  let safety=200;
+  while(safety-->0){
+    const diffs=perSizeDiff();
+    // Find the size most over-allocated and most under-allocated across flows
+    let overSize=null,overVal=0,underSize=null,underVal=0;
+    sizes.forEach(s=>{
+      if(diffs[s]>overVal){overVal=diffs[s];overSize=s}
+      if(diffs[s]<underVal){underVal=diffs[s];underSize=s}
+    });
+    if(!overSize||!underSize)break; // balanced
+    // Find a flow that has BOTH (overSize > 0) AND (underSize can be incremented without exceeding combinedAlloc)
+    let bestFlow=-1,bestScore=-1;
+    for(let i=0;i<splits.length;i++){
+      const ov=splits[i].sizeBreak[overSize]||0;
+      if(ov<=0)continue; // can't subtract from this flow
+      // Score: prefer the flow with the most of overSize
+      if(ov>bestScore){bestScore=ov;bestFlow=i}
+    }
+    if(bestFlow<0)break; // no flow can absorb the swap
+    splits[bestFlow].sizeBreak[overSize]=(splits[bestFlow].sizeBreak[overSize]||0)-1;
+    splits[bestFlow].sizeBreak[underSize]=(splits[bestFlow].sizeBreak[underSize]||0)+1;
+    // Note: flow's total units does NOT change since we swapped 1 unit from overSize to underSize
+  }
+}
+
 // Compute flow split for the SKU's allocation
 // Returns: { count, splits: [{label, units, offset, sizeBreak, ...meta}], math: { perSizeFloor, globalFloorTotal, ...} }
 function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve){
@@ -1710,6 +1751,8 @@ function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve){
       if(diff!==0&&rec.sizes.length){const ms=rec.sizes.reduce((a,b)=>sb[a]>=sb[b]?a:b);sb[ms]+=diff}
       return{label:i===0?'Global':'Flow '+i,units:u,offset:i,sizeBreak:sb};
     });
+    // V8.3.1: Force cross-flow per-size totals to match combinedAlloc exactly (no per-size over-allocation)
+    reconcileFlowsBySize(result.splits,combinedAlloc,rec.sizes);
     result.math={type:'CF',percentages:splits,totalPool};
     return result;
   }
@@ -1790,6 +1833,8 @@ function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve){
     if(diff!==0&&rec.sizes.length){const ms=rec.sizes.reduce((a,b)=>sb[a]>=sb[b]?a:b);sb[ms]+=diff}
     flowSplits.push({label:'Flow '+(idx+1),units:u,offset:idx+1,sizeBreak:sb});
   });
+  // V8.3.1: Force cross-flow per-size totals to match combinedAlloc (each flow's total units preserved)
+  reconcileFlowsBySize(flowSplits,combinedAlloc,rec.sizes);
 
   result.eligible=true;result.count=flowSplits.length;result.splits=flowSplits;
   result.math={
