@@ -386,7 +386,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V8.3.1 · FLOW RECONCILE</div>
+<div class="version-tag">V8.4 · YEAR-ROLL + THRESH 200</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -930,9 +930,18 @@ function deliveryToWeeks(deliveryMonth,seasonCode){
   const base=deliveryMonth.toLowerCase().replace(/_\d+$/,'');
   const mo=MONTH_MAP[base];if(!mo)return 12;
   const yrMatch=seasonCode.match(/(\d{2})$/);if(!yrMatch)return 12;
-  const yr=2000+parseInt(yrMatch[1]);
-  const target=new Date(yr,mo-1,1);
-  return Math.max(0,Math.round((target-new Date())/(7*24*60*60*1000)));
+  let yr=2000+parseInt(yrMatch[1]);
+  let target=new Date(yr,mo-1,1);
+  const now=new Date();
+  // V8.4: Seasons straddle calendar-year boundaries. A "January" delivery for a Fall-26
+  // season actually means January 2027, not January 2026 (which is in the past).
+  // If the naive target date is already well behind us (>4 weeks), roll it forward a year.
+  // The 4-week grace prevents mis-rolling a legitimate current-month delivery.
+  const graceMs=4*7*24*60*60*1000;
+  if(target<new Date(now.getTime()-graceMs)){
+    target=new Date(yr+1,mo-1,1);
+  }
+  return Math.max(0,Math.round((target-now)/(7*24*60*60*1000)));
 }
 
 // Shift a delivery month forward by N months, preserving any _N suffix
@@ -954,6 +963,11 @@ function shiftDeliveryMonth(deliveryMonth,offset){
 }
 
 // ═══ APP STATE ═══
+// V8.4: minimum L52W sales required per size-count to use a hierarchy level for the curve/rate.
+// e.g. with multiplier 200 and a 6-size scale, need ≥ 1,200 units; a 36-size scale needs ≥ 7,200.
+// Raised from 100 → 200 to demand more statistical significance before trusting a level.
+const SIZE_THRESHOLD_MULTIPLIER=200;
+
 const A={
   raw:{inventory:null,sales:null,linelist:null,wip:null},
   rawCSV:{},uploadMeta:{},cloudMeta:{},pmMeta:{},
@@ -1384,7 +1398,7 @@ function buildCurve(rec,hierSource,forceLevel){
   //   channel's sales at that level are below the 100×sizeCount threshold individually.
   //   Value should be one of: 'Program','Subcategory','Category','Division'
   const src=hierSource||A.hierSales;
-  const eligible=new Set(rec.sizes),thresh=100*rec.sizeCount;
+  const eligible=new Set(rec.sizes),thresh=SIZE_THRESHOLD_MULTIPLIER*rec.sizeCount;
   const adj=A.curveAdjustments[rec.sku]||{};
   const levels=[
     {key:rec._hk.prog,label:rec.styleDescription,level:'Program'},
@@ -1491,7 +1505,12 @@ function getBuyDeliveryDate(rec){
   const base=rec.deliveryMonth.toLowerCase().replace(/_\d+$/,'');
   const mo=MONTH_MAP[base];if(!mo)return null;
   const yrMatch=rec.season.match(/(\d{2})$/);if(!yrMatch)return null;
-  return new Date(2000+parseInt(yrMatch[1]),mo-1,1);
+  const yr=2000+parseInt(yrMatch[1]);
+  let target=new Date(yr,mo-1,1);
+  // V8.4: roll forward a year if the naive date is well in the past (>4w grace; season straddles year boundary)
+  const now=new Date();
+  if(target<new Date(now.getTime()-4*7*24*60*60*1000))target=new Date(yr+1,mo-1,1);
+  return target;
 }
 
 // V8.3: Compute per-size weekly rate, with parent-rate fallback when the SKU's own data is thin.
@@ -1499,7 +1518,7 @@ function getBuyDeliveryDate(rec){
 function getWeeklyRate(rec){
   const skuWeeksLive=A.skuWeeksLive&&A.skuWeeksLive[rec.sku]||0;
   const skuTotalSales=rec.totalSales||0;
-  const thresh=100*rec.sizeCount;
+  const thresh=SIZE_THRESHOLD_MULTIPLIER*rec.sizeCount;
   // First test: does the SKU's OWN data clear both the 4-week minimum AND the curve threshold (100×sizeCount)?
   if(skuWeeksLive>=4&&skuTotalSales>=thresh){
     const rate={};
