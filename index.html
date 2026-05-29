@@ -208,6 +208,7 @@ input,select,button,textarea{font-family:inherit}
 /* Rollup */
 .rb{font-family:var(--mono);font-size:10px;color:var(--txt2);padding:10px 14px;background:var(--wh);border:1px solid var(--bdr-lt);border-radius:var(--r);margin-bottom:14px;line-height:1.9}
 .rs{display:inline-flex;align-items:center;gap:3px;margin-right:6px}.rp{color:var(--green);font-weight:600}.rf{color:var(--red)}
+.rg{color:#8a6d1e;font-weight:700;background:#fdf3c4;border:1px solid #e0c349;border-radius:4px;padding:2px 8px;cursor:help}
 /* Table */
 .tb{background:var(--wh);border:1px solid var(--bdr-lt);border-radius:var(--rl);overflow:hidden;margin-bottom:14px}
 .tbh{padding:12px 18px;border-bottom:1px solid var(--bdr-lt);display:flex;align-items:center;justify-content:space-between;background:var(--wh)}
@@ -386,7 +387,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V8.4 · YEAR-ROLL + THRESH 200</div>
+<div class="version-tag">V8.5 · GUARANTEED SALES</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -1455,7 +1456,36 @@ function buildCurve(rec,hierSource,forceLevel){
     }
     trail.push({...lv,total:rawTotal,thresh,pass:false});
   }
-  const curve={};rec.sizes.forEach(s=>{curve[s]=1/rec.sizes.length});return{curve,level:'Even distribution',total:0,trail,acceptedKey:null};
+  // V8.5 "guaranteed sales": every level missed the threshold. Rather than discard real signal
+  // with an even split, fall back to the BROADEST level that actually has data (Division first,
+  // walking down). We flag it `guaranteed:true` so the UI can warn that we're below threshold.
+  // Only if NO level has any data at all do we use a true even distribution.
+  const divLevel=levels.find(l=>l.level==='Division'&&l.key);
+  // Walk from broadest (Division) to narrowest looking for ANY non-zero data pool
+  const fallbackOrder=['Division','Category','Subcategory','Segment','Program'];
+  for(const lvName of fallbackOrder){
+    const lv=levels.find(l=>l.level===lvName&&l.key);
+    if(!lv)continue;
+    const sbs=src[lv.key];if(!sbs)continue;
+    let rawTotal=0;const rawFilt={};
+    for(const s in sbs){if(eligible.has(s)){rawFilt[s]=sbs[s];rawTotal+=sbs[s]}}
+    if(rawTotal>0){
+      // Found a level with data — use it even though it's below threshold
+      let adjTotal=0;const adjFilt={};
+      rec.sizes.forEach(s=>{
+        const factor=(adj[s]!==undefined&&adj[s]!==null)?Number(adj[s])||1:1;
+        const v=(rawFilt[s]||0)*factor;
+        adjFilt[s]=v;adjTotal+=v;
+      });
+      const curve={};
+      rec.sizes.forEach(s=>{curve[s]=adjTotal>0?(adjFilt[s]||0)/adjTotal:1/rec.sizes.length});
+      return{curve,level:lv.level+' ('+lv.label+') — below threshold',total:adjTotal,rawTotal,trail,
+        acceptedKey:lv.key,acceptedLevel:lv.level,acceptedLabel:lv.label,rawFilt,adjFilt,guaranteed:true};
+    }
+  }
+  // Truly no data anywhere — even distribution
+  const curve={};rec.sizes.forEach(s=>{curve[s]=1/rec.sizes.length});
+  return{curve,level:'Even distribution',total:0,trail,acceptedKey:null};
 }
 
 function getOnlineOnlySizes(rec){
@@ -1547,7 +1577,22 @@ function getWeeklyRate(rec){
     rec.sizes.forEach(s=>{rate[s]=denom>0?(sbs[s]||0)/denom:0});
     return{rate,sourceLevel:lv.level,sourceLabel:lv.label};
   }
-  // Nothing found — fall back to SKU's own rate even if thin (or 0 across the board)
+  // V8.5 guaranteed-sales: no level cleared the threshold. Use the broadest level (Division-first)
+  // that has ANY data, computing average-SKU rate, rather than the SKU's own sparse numbers.
+  const fallbackOrder=['Division','Category','Subcategory','Segment','Program'];
+  for(const lvName of fallbackOrder){
+    const lv=levels.find(l=>l.level===lvName&&l.key);
+    if(!lv)continue;
+    const sbs=A.hierSales[lv.key];if(!sbs)continue;
+    const meta=A.hierMeta[lv.key];if(!meta||meta.skuCount===0)continue;
+    let total=0;rec.sizes.forEach(s=>{total+=(sbs[s]||0)});
+    if(total<=0)continue;
+    const denom=meta.skuCount*meta.avgWeeksLive;
+    const rate={};
+    rec.sizes.forEach(s=>{rate[s]=denom>0?(sbs[s]||0)/denom:0});
+    return{rate,sourceLevel:lv.level+' (below threshold)',sourceLabel:lv.label,guaranteed:true};
+  }
+  // Truly nothing — fall back to SKU's own rate even if thin (or 0 across the board)
   const rate={};
   const wl=Math.max(4,skuWeeksLive||4);
   rec.sizes.forEach(s=>{rate[s]=(rec.sizeData[s].sales||0)/wl});
@@ -2903,6 +2948,12 @@ function renderDetail(el,rec){
   let trail='<div class="rb"><span class="gc-lbl">Curve source: </span>';
   cr.trail.forEach(t=>{if(t.pass)trail+='<span class="rs rp">'+esc(t.level)+' ('+esc(t.label)+') ✓ ['+fmt(t.total)+' vs '+fmt(t.thresh)+' needed]</span>';
     else trail+='<span class="rs rf">'+esc(t.level)+' ('+esc(t.label)+') ✗ ['+fmt(t.total)+' vs '+fmt(t.thresh)+' needed]</span> → '});
+  // V8.5: when no level cleared the threshold but we fell back to a level WITH data, show a yellow warning chip
+  if(cr.guaranteed){
+    trail+='<span class="rs rg" title="No hierarchy level met the sales threshold. Using '+esc(cr.acceptedLevel)+' data anyway (below threshold) rather than an even split — limited signal, use with caution.">⚠ Using '+esc(cr.acceptedLevel)+' ('+esc(cr.acceptedLabel)+') below threshold — '+fmt(cr.rawTotal)+' units</span>';
+  } else if(cr.acceptedKey===null){
+    trail+='<span class="rs rf">Even distribution (no data at any level)</span>';
+  }
   trail+='</div>';
 
   // ── Data Table ──
