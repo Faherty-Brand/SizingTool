@@ -394,7 +394,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V8.7 · CURVE SELECT</div>
+<div class="version-tag">V8.8 · BLAZER EXPORT + EQUITABLE</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -1743,7 +1743,34 @@ function allocateBuy(rec,pool,curve,floors,ideals){
   if(pool<=0){rec.sizes.forEach(s=>{alloc[s]=0});return alloc}
   const floorSum=rec.sizes.reduce((a,s)=>a+(floors[s]||0),0);
   if(floorSum>=pool){
-    rec.sizes.forEach(s=>{alloc[s]=Math.round((floors[s]||0)/floorSum*pool)});
+    // V8.8: The combined floor exceeds the buy — we can't satisfy every size's floor.
+    // Distribute the limited pool by the CURVE (sales weighting), not flat floor-proportional.
+    // Use the largest-remainder method so units are spread per the curve and the total lands
+    // exactly on `pool`, rather than the old approach (flat round → then dump the entire
+    // remainder onto a single highest-curve size, which produced "1 each + one size gets 15").
+    const curveSum=rec.sizes.reduce((a,s)=>a+(curve[s]||0),0);
+    if(curveSum>0){
+      const frac={};let assigned=0;
+      rec.sizes.forEach(s=>{
+        const ideal=(curve[s]/curveSum)*pool;
+        const base=Math.floor(ideal);
+        frac[s]=ideal-base;
+        alloc[s]=base;
+        assigned+=base;
+      });
+      let remaining=pool-assigned;
+      const bySizeFrac=[...rec.sizes].sort((a,b)=>frac[b]-frac[a]);
+      let idx=0;
+      while(remaining>0&&bySizeFrac.length){
+        alloc[bySizeFrac[idx%bySizeFrac.length]]++;
+        remaining--;idx++;
+      }
+    } else {
+      const baseEach=Math.floor(pool/rec.sizes.length);
+      rec.sizes.forEach(s=>{alloc[s]=baseEach});
+      let remaining=pool-baseEach*rec.sizes.length;
+      let i=0;while(remaining>0){alloc[rec.sizes[i%rec.sizes.length]]++;remaining--;i++}
+    }
   } else {
     rec.sizes.forEach(s=>{alloc[s]=floors[s]||0});
     let remaining=pool-floorSum;
@@ -1771,11 +1798,31 @@ function allocateBuy(rec,pool,curve,floors,ideals){
   // user trusts the total to roundtrip cleanly through the export.
   let total=rec.sizes.reduce((a,s)=>a+alloc[s],0);
   let diff=pool-total;
+  // V8.8: when adding leftover units, distribute across sizes by curve weight (largest-remainder)
+  // instead of repeatedly bumping the single highest-curve size. The old single-size bump caused
+  // a lopsided "everyone gets 1, one size gets 15" pattern when the floor capped most sizes low.
+  if(diff>0){
+    const curveSum=rec.sizes.reduce((a,s)=>a+(curve[s]||0),0);
+    if(curveSum>0){
+      // Allocate `diff` units proportional to curve, largest-remainder
+      const frac={};const add={};let assigned=0;
+      rec.sizes.forEach(s=>{
+        const ideal=((curve[s]||0)/curveSum)*diff;
+        add[s]=Math.floor(ideal);frac[s]=ideal-add[s];assigned+=add[s];
+      });
+      let rem=diff-assigned;
+      const order=[...rec.sizes].sort((a,b)=>frac[b]-frac[a]);
+      let i=0;while(rem>0&&order.length){add[order[i%order.length]]++;rem--;i++}
+      rec.sizes.forEach(s=>{alloc[s]+=add[s]});
+      diff=0;
+    }
+  }
   while(diff!==0&&rec.sizes.length){
     if(diff>0){
-      // Need to add — bump the size with the highest curve weight
-      const best=rec.sizes.reduce((a,b)=>curve[a]>=curve[b]?a:b);
-      alloc[best]++;diff--;
+      // Fallback (no curve signal): round-robin across sizes rather than dumping on one
+      const order=[...rec.sizes].sort((a,b)=>(curve[b]||0)-(curve[a]||0));
+      order.forEach(s=>{if(diff>0){alloc[s]++;diff--}});
+      if(diff>0)continue;
     } else {
       // Need to subtract — pull from the size that's furthest above its floor;
       // if all are at/below floor, pull from the largest non-zero allocation
@@ -1784,7 +1831,6 @@ function allocateBuy(rec,pool,curve,floors,ideals){
       if(aboveFloor.length){
         target=aboveFloor.reduce((a,b)=>(alloc[a]-(floors[a]||0))>=(alloc[b]-(floors[b]||0))?a:b);
       } else {
-        // Fallback: pull from the size with the largest allocation (still > 0)
         const nonZero=rec.sizes.filter(s=>alloc[s]>0);
         if(!nonZero.length)break;
         target=nonZero.reduce((a,b)=>alloc[a]>=alloc[b]?a:b);
@@ -2412,7 +2458,7 @@ function exportCSV(){
     {col:'1XLT',sec:'mw'},{col:'2XLT',sec:'mw'},{col:'3XLT',sec:'mw'},{col:'4XLT',sec:'mw'},
     {col:'40W36L',sec:'mw'},{col:'42W32L',sec:'mw'},{col:'42W34L',sec:'mw'},{col:'44W30L',sec:'mw'},{col:'44W32L',sec:'mw'},{col:'44W34L',sec:'mw'},
     {col:'46W30L',sec:'mw'},{col:'46W32L',sec:'mw'},{col:'48W30L',sec:'mw'},{col:'48W32L',sec:'mw'},{col:'50W30L',sec:'mw'},{col:'52W30L',sec:'mw'},
-    {col:'36_',sec:'mw'},{col:'38_',sec:'mw'},{col:'40_',sec:'mw'},{col:'42_',sec:'mw'},{col:'44_',sec:'mw'},{col:'46_',sec:'mw'},{col:'48_',sec:'mw'},{col:'50_',sec:'mw'}
+    {col:'36_',sec:'mw',match:'36',tailored:true},{col:'38_',sec:'mw',match:'38',tailored:true},{col:'40_',sec:'mw',match:'40',tailored:true},{col:'42_',sec:'mw',match:'42',tailored:true},{col:'44_',sec:'mw',match:'44',tailored:true},{col:'46_',sec:'mw',match:'46',tailored:true},{col:'48_',sec:'mw',match:'48',tailored:true},{col:'50_',sec:'mw',match:'50',tailored:true}
   ];
   const SIZE_COLS=SIZE_DEFS.map(d=>d.col);
 
@@ -2442,8 +2488,15 @@ function exportCSV(){
     const tl=r.sizingType==='initials'?'Initials PO':'CF PO';
     // Determine which division-group this SKU belongs to; populate only that section's columns.
     const divLower=(r.division||'').toLowerCase();
+    const catLower=(r.category||'').toLowerCase();
     const isKidsLike=divLower.includes('kid')||divLower.includes('children')||divLower.includes('child');
     const isOSLike=(r.sizes||[]).some(s=>s==='OS');
+    const isMens=divLower.includes('men')&&!divLower.includes('women'); // "Mens" but not "Womens"
+    // V8.8: Mens Tailored items with numeric sizing route 36/38/40/42... to the "_"-suffixed columns
+    // (36_, 38_, etc.) rather than the shared plain numeric columns. This keeps men's blazer/suit
+    // numerics from colliding with women's numeric sizes on import.
+    const isTailored=catLower==='tailored';
+    const isMensTailored=isMens&&isTailored;
     const sizeVals=SIZE_DEFS.map(def=>{
       const lookupKey=def.match!==undefined?def.match:def.col;
       const matchedSku=Object.keys(sizeMap).find(k=>k.toUpperCase()===String(lookupKey).toUpperCase());
@@ -2454,6 +2507,15 @@ function exportCSV(){
         if(!def.kidsMatch&&!isKidsLike&&!isOSLike)return '';
       }
       if(def.sec==='mw'&&isKidsLike&&!isOSLike)return '';
+      // V8.8 Tailored numeric routing:
+      if(def.tailored){
+        // "_"-suffixed columns ONLY populate for Mens Tailored items
+        if(!isMensTailored)return '';
+      } else if(isMensTailored&&/^(36|38|40|42|44|46|48|50)$/.test(def.col)){
+        // For Mens Tailored items, the PLAIN numeric columns (36,38,...) must stay empty —
+        // their units belong in the "_" columns instead.
+        return '';
+      }
       const v=sizeMap[matchedSku];
       // Return as number when non-zero (lets Excel sum/format) — empty string for 0 or missing
       return(v===0||v==null||v==='')?'':v;
