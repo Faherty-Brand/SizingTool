@@ -394,7 +394,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V8.8 · BLAZER EXPORT + EQUITABLE</div>
+<div class="version-tag">V8.8.1 · CF FLOW GATE</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -1954,42 +1954,72 @@ function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve,bopByS
       result.math={type:'CF',globalFloorBOP:true,cfGlobalFloorTotal,note:'Global floor (min pres − BOP) meets/exceeds buy; single PO',totalPool};
       return result;
     }
-    // Remaining after the Global floor is satisfied
+    // Remaining after the Global setup need (floor) is satisfied.
     const remaining=totalPool-cfGlobalFloorTotal;
-    // Only flow if the remaining balance exceeds 300u; otherwise fold into a single Global PO.
-    if(remaining<300){
+    // ── V8.8.1 Flow-count decision (confirmed logic train) ──
+    //   • Total buy gates the CEILING of flows: ≥2000 may do 3 POs; ≥1200 may do 2 POs; <1200 = 1 PO.
+    //   • The post-global REMAINING must exceed 1,200 to do ANY downstream flowing at all.
+    //   • When we do flow, the split is a % of the TOTAL POOL (40/30/30 for 3, 60/40 for 2),
+    //     with Global always guaranteed to carry at least its floor.
+    let poolPcts=null; // [globalPct, flow1Pct, (flow2Pct)] of total pool
+    if(remaining>1200&&totalPool>=2000){
+      poolPcts=[0.4,0.3,0.3];     // 3 POs
+    } else if(remaining>1200&&totalPool>=1200){
+      poolPcts=[0.6,0.4];          // 2 POs
+    }
+    if(!poolPcts){
+      // Not enough post-global balance (or buy too small) to justify flowing — single Global PO.
       const sb={...combinedAlloc};
       result.eligible=true;result.count=1;
       result.splits=[{label:'Global',units:totalPool,offset:0,sizeBreak:sb}];
-      result.math={type:'CF',globalFloorBOP:true,cfGlobalFloorTotal,remaining,note:'Remaining after global floor < 300u; single PO',totalPool};
+      result.math={type:'CF',globalFloorBOP:true,cfGlobalFloor,cfGlobalFloorTotal,remaining,
+        note:remaining<=1200?'Post-global balance ≤ 1,200u; single PO':'Buy below flow threshold; single PO',totalPool};
       return result;
     }
-    // Decide split of the REMAINING units (not the whole pool):
-    //   remaining ≥ 1,200 → two downstream flows (so 3 POs total: Global + Flow1 + Flow2)
-    //   else → one downstream flow (2 POs: Global + Flow1)
-    let flowPcts; // how the REMAINING splits across [extra-to-global, flow1, (flow2)]
-    if(remaining>=1200)flowPcts=[0.34,0.33,0.33]; // roughly even thirds of remainder
-    else flowPcts=[0.6,0.4]; // 60% stays with global, 40% to flow 1
-    // First bucket of the remaining is added to the Global floor; rest become flows
-    const remUnits=flowPcts.map(p=>Math.round(remaining*p));
-    const remSum=remUnits.reduce((a,b)=>a+b,0);
-    remUnits[0]+=(remaining-remSum); // reconcile rounding into global's extra
-    // Validate downstream flows ≥ 300
-    if(!remUnits.slice(1).every(u=>u>=300)){
-      // Downstream flow(s) too small — collapse to single Global PO
+    // Flow unit totals as % of total pool, but Global must be ≥ its floor.
+    let flowTotals=poolPcts.map(p=>Math.round(totalPool*p));
+    // Reconcile rounding so the totals sum to the pool exactly (adjust Global).
+    let ftSum=flowTotals.reduce((a,b)=>a+b,0);
+    flowTotals[0]+=(totalPool-ftSum);
+    // Guarantee Global ≥ floor. If the % gave Global less than its floor (rare — happens when the
+    // floor is unusually high relative to 40%/60% of pool), pull units from the downstream flows
+    // into Global until the floor is met.
+    if(flowTotals[0]<cfGlobalFloorTotal){
+      let needed=cfGlobalFloorTotal-flowTotals[0];
+      for(let i=flowTotals.length-1;i>=1&&needed>0;i--){
+        const take=Math.min(needed,flowTotals[i]);
+        flowTotals[i]-=take;flowTotals[0]+=take;needed-=take;
+      }
+    }
+    // After guaranteeing the floor, drop any downstream flow that fell below 300u (collapse it up).
+    // Re-validate: each downstream flow must clear 300u or we reduce the flow count.
+    {
+      let changed=true;
+      while(changed&&flowTotals.length>1){
+        changed=false;
+        const lastIdx=flowTotals.length-1;
+        if(flowTotals[lastIdx]<300){
+          // fold the last flow's units back into Global and drop it
+          flowTotals[0]+=flowTotals[lastIdx];
+          flowTotals=flowTotals.slice(0,lastIdx);
+          changed=true;
+        }
+      }
+    }
+    if(flowTotals.length===1){
       const sb={...combinedAlloc};
       result.eligible=true;result.count=1;
       result.splits=[{label:'Global',units:totalPool,offset:0,sizeBreak:sb}];
-      result.math={type:'CF',globalFloorBOP:true,cfGlobalFloorTotal,remaining,note:'Downstream flow(s) < 300u; single PO',totalPool};
+      result.math={type:'CF',globalFloorBOP:true,cfGlobalFloor,cfGlobalFloorTotal,remaining,
+        note:'Downstream flow(s) < 300u after floor guarantee; single PO',totalPool};
       return result;
     }
-    // Build flow unit totals: Global = floor + first remainder bucket; then each downstream flow
-    const flowTotals=[cfGlobalFloorTotal+remUnits[0],...remUnits.slice(1)];
     result.eligible=true;result.count=flowTotals.length;
     // ── Build the Global size break first (it has the floor guarantee) ──
     // Global per size = floor + curve-driven share of the extra, but never more than the size's
     // total allocation (combinedAlloc[s]) — we can't put more of a size in Global than the buy has.
-    const globalExtra=remUnits[0];
+    // Global's target total is flowTotals[0]; the "extra" above the floor is what's left after the floor.
+    const globalExtra=Math.max(0,flowTotals[0]-cfGlobalFloorTotal);
     const globalSb={};
     rec.sizes.forEach(s=>{
       const curveShare=Math.round((combinedAlloc[s]||0)/totalPool*globalExtra);
@@ -2016,7 +2046,7 @@ function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve,bopByS
     const splits=[{label:'Global',units:rec.sizes.reduce((a,s)=>a+globalSb[s],0),offset:0,sizeBreak:globalSb}];
     // Remaining per size after Global
     const leftBySize={};rec.sizes.forEach(s=>{leftBySize[s]=Math.max(0,(combinedAlloc[s]||0)-globalSb[s])});
-    const downstreamTotals=remUnits.slice(1);
+    const downstreamTotals=flowTotals.slice(1);
     const downstreamSum=downstreamTotals.reduce((a,b)=>a+b,0);
     const totalLeft=rec.sizes.reduce((a,s)=>a+leftBySize[s],0);
     downstreamTotals.forEach((u,idx)=>{
@@ -2037,7 +2067,7 @@ function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve,bopByS
     result.splits=splits;
     // Reconcile per-size cross-flow totals to combinedAlloc, protecting the Global floor (index 0)
     reconcileFlowsBySize(result.splits,combinedAlloc,rec.sizes,{0:cfGlobalFloor});
-    result.math={type:'CF',globalFloorBOP:true,cfGlobalFloor,cfGlobalFloorTotal,remaining,flowPcts,totalPool};
+    result.math={type:'CF',globalFloorBOP:true,cfGlobalFloor,cfGlobalFloorTotal,remaining,poolPcts,totalPool};
     return result;
   }
 
