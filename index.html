@@ -209,6 +209,12 @@ input,select,button,textarea{font-family:inherit}
 .rb{font-family:var(--mono);font-size:10px;color:var(--txt2);padding:10px 14px;background:var(--wh);border:1px solid var(--bdr-lt);border-radius:var(--r);margin-bottom:14px;line-height:1.9}
 .rs{display:inline-flex;align-items:center;gap:3px;margin-right:6px}.rp{color:var(--green);font-weight:600}.rf{color:var(--red)}
 .rg{color:#8a6d1e;font-weight:700;background:#fdf3c4;border:1px solid #e0c349;border-radius:4px;padding:2px 8px;cursor:help}
+.rs-click{cursor:pointer;border-radius:4px;padding:2px 6px;transition:background 90ms ease}
+.rs-click:hover{background:rgba(59,123,192,.12)}
+.rs-active{background:rgba(59,123,192,.1);font-weight:700;border:1px solid var(--blue-md)}
+.rovr{color:var(--blue);font-weight:700;background:var(--blue-pl);border-radius:4px;padding:2px 8px;margin-left:4px}
+.rovr-reset{margin-left:6px;font-family:var(--mono);font-size:10px;font-weight:700;color:var(--blue);background:var(--wh);border:1px solid var(--blue-md);border-radius:4px;padding:3px 8px;cursor:pointer}
+.rovr-reset:hover{background:var(--blue);color:#fff}
 /* Table */
 .tb{background:var(--wh);border:1px solid var(--bdr-lt);border-radius:var(--rl);overflow:hidden;margin-bottom:14px}
 .tbh{padding:12px 18px;border-bottom:1px solid var(--bdr-lt);display:flex;align-items:center;justify-content:space-between;background:var(--wh)}
@@ -244,6 +250,7 @@ input,select,button,textarea{font-family:inherit}
 .ca-bar .ca-bar-actions{display:flex;gap:6px}
 /* SKU grid card badge for active curve adjustments */
 .sc-adj-badge{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:2px;background:#fdf3e6;color:#c4572a;border:1px solid #c4572a;margin-left:4px}
+.sc-curve-badge{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:2px;background:var(--blue-pl);color:var(--blue);border:1px solid var(--blue-md);margin-left:4px}
 .dt td.cod-date{background:rgba(196,87,42,.04);font-family:var(--mono);font-size:10px;text-align:right;border-left:1px dashed var(--orange-md);border-right:1px dashed var(--orange-md)}
 .dt .rt td.cod-date{background:rgba(196,87,42,.13);color:var(--orange)}
 
@@ -387,7 +394,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V8.6.1 · FLOOR PROTECT</div>
+<div class="version-tag">V8.7 · CURVE SELECT</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -975,7 +982,7 @@ const A={
   seasons:[],activeSeason:null,
   skus:{},selectedSKU:null,
   view:'grid',module:null,
-  overrides:{},accepted:{},curveAdjustments:{},curveAdjStaged:{},
+  overrides:{},accepted:{},curveAdjustments:{},curveAdjStaged:{},curveOverrides:{},
   searchTerm:'',sortKey:'dtcBuy',sortDir:'desc',
   filters:{type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All',deliveryMonth:'All'},
   presMins:{},
@@ -1020,6 +1027,11 @@ function handleUpload(key,inp){
       A.curveAdjustments={};A.curveAdjStaged={};
       try{localStorage.removeItem(CURVE_ADJ_KEY)}catch(e){}
       toast('Curve adjustments reset (CSV uploaded)');
+    }
+    // Wipe manual curve selections too — hierarchy levels may have shifted with new data
+    if(Object.keys(A.curveOverrides).length>0){
+      A.curveOverrides={};
+      try{localStorage.removeItem(CURVE_OVR_KEY)}catch(e){}
     }
     trySeasons();
     inp.value='';
@@ -1103,6 +1115,40 @@ function saveCurveAdjustments(){
   }catch(err){console.warn('Could not save curve adjustments:',err)}
 }
 
+// V8.7: manual curve-level overrides (per-user, fingerprint-scoped like curve adjustments)
+const CURVE_OVR_KEY='posizing_curve_overrides_v1';
+function loadCurveOverrides(){
+  try{
+    const raw=localStorage.getItem(CURVE_OVR_KEY);
+    if(!raw){A.curveOverrides={};return}
+    const parsed=JSON.parse(raw);
+    if(!parsed||typeof parsed!=='object'){A.curveOverrides={};return}
+    const currentFp=computeDataFingerprint();
+    if(parsed.fingerprint!==currentFp){
+      A.curveOverrides={};
+      try{localStorage.removeItem(CURVE_OVR_KEY)}catch(e){}
+      return;
+    }
+    A.curveOverrides=parsed.overrides||{};
+  }catch(err){
+    console.warn('Could not load curve overrides:',err);
+    A.curveOverrides={};
+  }
+}
+function saveCurveOverrides(){
+  try{
+    const fp=computeDataFingerprint();
+    const payload={fingerprint:fp,overrides:A.curveOverrides,savedAt:new Date().toISOString()};
+    localStorage.setItem(CURVE_OVR_KEY,JSON.stringify(payload));
+  }catch(err){console.warn('Could not save curve overrides:',err)}
+}
+function setCurveOverride(sku,level){
+  if(!level||level==='auto'){delete A.curveOverrides[sku]}
+  else A.curveOverrides[sku]=level;
+  saveCurveOverrides();
+  if(A.selectedSKU===sku)render();
+}
+
 async function loadFromCloud(){
   // 1. Load CSV metadata + files
   let cloudCsvMeta={};
@@ -1145,6 +1191,7 @@ async function loadFromCloud(){
   // 4. Load any persisted curve adjustments — but only if their data fingerprint matches.
   // If any CSV has been re-uploaded since the user last saved adjustments, they're discarded.
   loadCurveAdjustments();
+  loadCurveOverrides();
   trySeasons();
 }
 
@@ -1411,9 +1458,23 @@ function buildCurve(rec,hierSource,forceLevel){
     {key:rec._hk.div,label:rec.division,level:'Division'}
   ];
 
+  // Helper: build the full trail (all levels with their totals/pass status) for display.
+  // Used both by the auto-walk and the forced path so the UI can always show every option.
+  function buildFullTrail(){
+    const tr=[];
+    for(const lv of levels){
+      if(!lv.key)continue;
+      const sbs=src[lv.key];
+      if(!sbs){tr.push({...lv,total:0,thresh,pass:false});continue}
+      let t=0;for(const s in sbs){if(eligible.has(s))t+=sbs[s]}
+      tr.push({...lv,total:t,thresh,pass:t>=thresh});
+    }
+    return tr;
+  }
+
   // If forceLevel is set, build the curve at that exact level and return — no walk.
   if(forceLevel){
-    const lv=levels.find(l=>l.level===forceLevel);
+    const lv=levels.find(l=>l.level===forceLevel&&l.key);
     if(lv){
       const sbs=src[lv.key]||{};
       let rawTotal=0;const rawFilt={};
@@ -1425,10 +1486,13 @@ function buildCurve(rec,hierSource,forceLevel){
         adjFilt[s]=v;adjTotal+=v;
       });
       const curve={};
-      // If the forced level has zero data for this channel, fall back to even distribution
-      // (rare edge case; happens if a SKU has DTC sales but truly no online sales at the resolved level)
       rec.sizes.forEach(s=>{curve[s]=adjTotal>0?(adjFilt[s]||0)/adjTotal:1/rec.sizes.length});
-      return{curve,level:lv.level+' ('+lv.label+') [forced]',total:adjTotal,rawTotal,trail:[{...lv,total:rawTotal,thresh,pass:rawTotal>=thresh,forced:true}],acceptedKey:lv.key,acceptedLevel:lv.level,acceptedLabel:lv.label,rawFilt,adjFilt};
+      const fullTrail=buildFullTrail();
+      // mark the forced level in the trail
+      fullTrail.forEach(t=>{if(t.level===forceLevel)t.forced=true});
+      return{curve,level:lv.level+' ('+lv.label+')',total:adjTotal,rawTotal,trail:fullTrail,
+        acceptedKey:lv.key,acceptedLevel:lv.level,acceptedLabel:lv.label,rawFilt,adjFilt,
+        manualForced:true,belowThreshold:rawTotal<thresh};
     }
   }
 
@@ -1549,6 +1613,28 @@ function getWeeklyRate(rec){
   const skuWeeksLive=A.skuWeeksLive&&A.skuWeeksLive[rec.sku]||0;
   const skuTotalSales=rec.totalSales||0;
   const thresh=SIZE_THRESHOLD_MULTIPLIER*rec.sizeCount;
+  const levels=[
+    {key:rec._hk.prog,label:rec.styleDescription,level:'Program'},
+    {key:rec._hk.seg,label:rec.segment||'(no segment)',level:'Segment'},
+    {key:rec._hk.sub,label:rec.subcategory,level:'Subcategory'},
+    {key:rec._hk.cat,label:rec.category,level:'Category'},
+    {key:rec._hk.div,label:rec.division,level:'Division'}
+  ];
+  // V8.7: manual curve override — if the user forced a level, compute the rate at that exact level
+  // (average-SKU rate), bypassing the SKU's own data and the auto-walk.
+  const manualLevel=A.curveOverrides[rec.sku]||null;
+  if(manualLevel){
+    const lv=levels.find(l=>l.level===manualLevel&&l.key);
+    if(lv){
+      const sbs=A.hierSales[lv.key];const meta=A.hierMeta[lv.key];
+      if(sbs&&meta&&meta.skuCount>0){
+        const denom=meta.skuCount*meta.avgWeeksLive;
+        const rate={};
+        rec.sizes.forEach(s=>{rate[s]=denom>0?(sbs[s]||0)/denom:0});
+        return{rate,sourceLevel:lv.level,sourceLabel:lv.label,manualForced:true};
+      }
+    }
+  }
   // First test: does the SKU's OWN data clear both the 4-week minimum AND the curve threshold (100×sizeCount)?
   if(skuWeeksLive>=4&&skuTotalSales>=thresh){
     const rate={};
@@ -1557,13 +1643,6 @@ function getWeeklyRate(rec){
   }
   // Otherwise: walk the hierarchy. At each level, compute "average SKU weekly rate per size" =
   //   (sum of sales at that level for that size) / (distinct SKU count) / (average SKU weeksLive at that level)
-  const levels=[
-    {key:rec._hk.prog,label:rec.styleDescription,level:'Program'},
-    {key:rec._hk.seg,label:rec.segment||'(no segment)',level:'Segment'},
-    {key:rec._hk.sub,label:rec.subcategory,level:'Subcategory'},
-    {key:rec._hk.cat,label:rec.category,level:'Category'},
-    {key:rec._hk.div,label:rec.division,level:'Division'}
-  ];
   for(const lv of levels){
     if(!lv.key)continue;
     const sbs=A.hierSales[lv.key];if(!sbs)continue;
@@ -2162,8 +2241,11 @@ function computeAlloc(rec){
   // their individual channel sales fall below the threshold there. This guarantees the three
   // curve totals are coherent (DTC ≈ Retail + Online at the same hierarchy level) and avoids
   // the misleading "DTC=487, Retail=2,501, Online=445" mismatch that comes from independent walks.
-  const dtcCurveAnchor=buildCurve(rec,A.hierSales);
-  const forcedLevel=dtcCurveAnchor.acceptedLevel; // 'Program'|'Subcategory'|'Category'|'Division' or undefined
+  // V8.7: if the user has manually selected a curve level for this SKU, force the DTC anchor
+  // to that level. The channel curves and weekly-rate hierarchy all follow this anchor.
+  const manualLevel=A.curveOverrides[rec.sku]||null;
+  const dtcCurveAnchor=buildCurve(rec,A.hierSales,manualLevel);
+  const forcedLevel=dtcCurveAnchor.acceptedLevel; // resolved level (manual or auto)
   const retailCurveResult=buildCurve(rec,A.hierSalesRet,forcedLevel);
   const onlineCurveResult=buildCurve(rec,A.hierSalesOnline,forcedLevel);
 
@@ -2946,7 +3028,8 @@ function renderGridCards(){
     h+='<div class="sc '+divCls+'" onclick="goDetail(\''+esc(r.sku)+'\')">';
     // Top row: SKU id (left) · delivery (middle) · accept checkbox (right)
     const hasAdj=hasCurveAdjustment(r.sku);
-    h+='<div class="sc-top"><div class="sid">'+esc(r.sku)+(hasAdj?'<span class="sc-adj-badge" title="Curve adjustments active">ADJ</span>':'')+'</div>'+
+    const hasCurveOvr=!!A.curveOverrides[r.sku];
+    h+='<div class="sc-top"><div class="sid">'+esc(r.sku)+(hasAdj?'<span class="sc-adj-badge" title="Curve adjustments active">ADJ</span>':'')+(hasCurveOvr?'<span class="sc-curve-badge" title="Manual curve level: '+esc(A.curveOverrides[r.sku])+'">📌 '+esc(A.curveOverrides[r.sku]).slice(0,3).toUpperCase()+'</span>':'')+'</div>'+
        '<div class="sc-deliv-wrap">'+(dShort?'<span class="sc-deliv">'+esc(dShort)+'</span>':'')+'</div>';
     if(acc)h+='<div class="chk chk-g" onclick="event.stopPropagation();toggleAccGrid(\''+esc(r.sku)+'\')" title="Click to revert to pending">✓</div>';
     else h+='<div class="chk chk-e" onclick="event.stopPropagation();toggleAccGrid(\''+esc(r.sku)+'\')" title="Click to accept"></div>';
@@ -3061,15 +3144,31 @@ function renderDetail(el,rec){
     bars+='<div class="chart-col-v4"><div class="chart-size-hdr">'+esc(s)+'</div><div class="chart-bars-v4">'+barsInner+'</div></div>';
   });
 
-  // ── Rollup trail ──
+  // ── Rollup trail (V8.7: levels are clickable to manually force the curve) ──
+  const manualLevel=A.curveOverrides[rec.sku]||null;
+  const acceptedLvl=cr.acceptedLevel;
   let trail='<div class="rb"><span class="gc-lbl">Curve source: </span>';
-  cr.trail.forEach(t=>{if(t.pass)trail+='<span class="rs rp">'+esc(t.level)+' ('+esc(t.label)+') ✓ ['+fmt(t.total)+' vs '+fmt(t.thresh)+' needed]</span>';
-    else trail+='<span class="rs rf">'+esc(t.level)+' ('+esc(t.label)+') ✗ ['+fmt(t.total)+' vs '+fmt(t.thresh)+' needed]</span> → '});
-  // V8.5: when no level cleared the threshold but we fell back to a level WITH data, show a yellow warning chip
-  if(cr.guaranteed){
-    trail+='<span class="rs rg" title="No hierarchy level met the sales threshold. Using '+esc(cr.acceptedLevel)+' data anyway (below threshold) rather than an even split — limited signal, use with caution.">⚠ Using '+esc(cr.acceptedLevel)+' ('+esc(cr.acceptedLabel)+') below threshold — '+fmt(cr.rawTotal)+' units</span>';
-  } else if(cr.acceptedKey===null){
+  cr.trail.forEach((t,i)=>{
+    const isActive=t.level===acceptedLvl;
+    const isManual=manualLevel&&t.level===manualLevel;
+    const cls=t.pass?'rs rp':'rs rf';
+    const activeCls=isActive?' rs-active':'';
+    const tip=isManual?'Manually selected — click another level to change, or click Auto to revert':
+      (t.pass?'Click to force this level as the curve source':'Below threshold — click to force anyway (uses limited data)');
+    trail+='<span class="'+cls+activeCls+' rs-click" onclick="setCurveOverride(\''+esc(rec.sku)+'\',\''+t.level+'\')" title="'+esc(tip)+'">'+
+      (isManual?'📌 ':'')+esc(t.level)+' ('+esc(t.label)+') '+(t.pass?'✓':'✗')+' ['+fmt(t.total)+' vs '+fmt(t.thresh)+' needed]'+
+      (isActive?' ◀':'')+'</span>';
+    if(i<cr.trail.length-1&&!t.pass&&!isActive)trail+=' → ';
+    else trail+=' ';
+  });
+  if(cr.guaranteed&&!manualLevel){
+    trail+='<span class="rs rg" title="No hierarchy level met the sales threshold. Using '+esc(cr.acceptedLevel)+' data anyway (below threshold) rather than an even split — limited signal, use with caution.">⚠ '+esc(cr.acceptedLevel)+' below threshold — '+fmt(cr.rawTotal)+' units</span>';
+  } else if(cr.acceptedKey===null&&!manualLevel){
     trail+='<span class="rs rf">Even distribution (no data at any level)</span>';
+  }
+  if(manualLevel){
+    trail+='<span class="rs rovr" title="A manual curve level is forced for this SKU.">Manual override active</span>';
+    trail+='<button class="rovr-reset" onclick="setCurveOverride(\''+esc(rec.sku)+'\',\'auto\')" title="Revert to automatic curve selection">↺ Auto</button>';
   }
   trail+='</div>';
 
