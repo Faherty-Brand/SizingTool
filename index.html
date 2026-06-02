@@ -387,7 +387,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V8.5 · GUARANTEED SALES</div>
+<div class="version-tag">V8.6 · ALWAYS IN STOCK</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -1759,7 +1759,7 @@ function reconcileFlowsBySize(splits,combinedAlloc,sizes){
 
 // Compute flow split for the SKU's allocation
 // Returns: { count, splits: [{label, units, offset, sizeBreak, ...meta}], math: { perSizeFloor, globalFloorTotal, ...} }
-function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve){
+function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve,bopBySize){
   const result={
     count:1,
     splits:[{label:'Global',units:totalPool,offset:0,sizeBreak:{...combinedAlloc}}],
@@ -1791,33 +1791,94 @@ function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve){
     globalFloorTotal+=need;
   });
 
-  // For CF: use the simpler rule (no per-size floor enforcement; OH covers presentation)
-  // Per V7.6: only split into 2 flows if the post-global remainder exceeds 1,200u.
-  // Otherwise demote to a single flow (or no flow if remainder < 300).
+  // V8.6 "Always in stock": CF flows now mirror Initials in that the Global flow must independently
+  // satisfy minimum presentation, accounting for projected BOP already on hand when the order lands.
+  // Per-size Global floor = max(0, minPres − projBOP). The Global PO guarantees that floor so that
+  // BOP + Global ≥ min pres for every size. Whatever remains flows per the existing 60/40 / 40/30/30 rule.
   if(!isInitials){
-    // 2-flow split requires the remaining portion (60% of pool when global is 40%) to be ≥ 1,200u.
-    // 0.6 × pool ≥ 1200  ⇔  pool ≥ 2000. Below that, fall back to single-flow 60/40.
-    let splits;
-    if(totalPool>=2000)splits=[0.4,0.3,0.3];
-    else splits=[0.6,0.4];
-    const rawUnits=splits.map(p=>Math.round(totalPool*p));
-    const sum=rawUnits.reduce((a,b)=>a+b,0);
-    rawUnits[0]+=(totalPool-sum);
-    // Validate: each non-Global flow ≥ 300
-    if(!rawUnits.slice(1).every(u=>u>=300)){result.reason='CF flow(s) below 300u';return result}
-    result.eligible=true;result.count=rawUnits.length;
-    result.splits=rawUnits.map((u,i)=>{
+    // Per-size minimum the Global flow must carry so that (BOP + Global) ≥ min retail pres.
+    // We use the retail pres min (pm) as the presentation standard, net of projected BOP.
+    const cfGlobalFloor={};
+    let cfGlobalFloorTotal=0;
+    rec.sizes.forEach(s=>{
+      const minPres=pm[s]||0;
+      const projBop=(bopBySize&&bopBySize[s])||0;
+      const floor=Math.max(0,minPres-projBop);
+      cfGlobalFloor[s]=floor;
+      cfGlobalFloorTotal+=floor;
+    });
+    // Cap the floor at the total buy — we can never buy more than the buy.
+    if(cfGlobalFloorTotal>=totalPool){
+      // Floor consumes the entire buy → single Global PO, no flow. Flag it.
+      const sb={};
+      // Distribute the buy to satisfy as much of the floor as possible (proportional to floor)
+      if(cfGlobalFloorTotal>0){
+        rec.sizes.forEach(s=>{sb[s]=Math.round(cfGlobalFloor[s]/cfGlobalFloorTotal*totalPool)});
+      } else {
+        rec.sizes.forEach(s=>{sb[s]=combinedAlloc[s]||0});
+      }
+      const subSum=rec.sizes.reduce((a,sz)=>a+sb[sz],0);
+      const diff=totalPool-subSum;
+      if(diff!==0&&rec.sizes.length){const ms=rec.sizes.reduce((a,b)=>sb[a]>=sb[b]?a:b);sb[ms]+=diff}
+      result.eligible=true;result.count=1;
+      result.splits=[{label:'Global',units:totalPool,offset:0,sizeBreak:sb}];
+      result.math={type:'CF',globalFloorBOP:true,cfGlobalFloorTotal,note:'Global floor (min pres − BOP) meets/exceeds buy; single PO',totalPool};
+      return result;
+    }
+    // Remaining after the Global floor is satisfied
+    const remaining=totalPool-cfGlobalFloorTotal;
+    // Only flow if the remaining balance exceeds 300u; otherwise fold into a single Global PO.
+    if(remaining<300){
+      const sb={...combinedAlloc};
+      result.eligible=true;result.count=1;
+      result.splits=[{label:'Global',units:totalPool,offset:0,sizeBreak:sb}];
+      result.math={type:'CF',globalFloorBOP:true,cfGlobalFloorTotal,remaining,note:'Remaining after global floor < 300u; single PO',totalPool};
+      return result;
+    }
+    // Decide split of the REMAINING units (not the whole pool):
+    //   remaining ≥ 1,200 → two downstream flows (so 3 POs total: Global + Flow1 + Flow2)
+    //   else → one downstream flow (2 POs: Global + Flow1)
+    let flowPcts; // how the REMAINING splits across [extra-to-global, flow1, (flow2)]
+    if(remaining>=1200)flowPcts=[0.34,0.33,0.33]; // roughly even thirds of remainder
+    else flowPcts=[0.6,0.4]; // 60% stays with global, 40% to flow 1
+    // First bucket of the remaining is added to the Global floor; rest become flows
+    const remUnits=flowPcts.map(p=>Math.round(remaining*p));
+    const remSum=remUnits.reduce((a,b)=>a+b,0);
+    remUnits[0]+=(remaining-remSum); // reconcile rounding into global's extra
+    // Validate downstream flows ≥ 300
+    if(!remUnits.slice(1).every(u=>u>=300)){
+      // Downstream flow(s) too small — collapse to single Global PO
+      const sb={...combinedAlloc};
+      result.eligible=true;result.count=1;
+      result.splits=[{label:'Global',units:totalPool,offset:0,sizeBreak:sb}];
+      result.math={type:'CF',globalFloorBOP:true,cfGlobalFloorTotal,remaining,note:'Downstream flow(s) < 300u; single PO',totalPool};
+      return result;
+    }
+    // Build flow unit totals: Global = floor + first remainder bucket; then each downstream flow
+    const flowTotals=[cfGlobalFloorTotal+remUnits[0],...remUnits.slice(1)];
+    result.eligible=true;result.count=flowTotals.length;
+    result.splits=flowTotals.map((u,i)=>{
       const ratio=totalPool>0?u/totalPool:0;
-      const sb={};rec.sizes.forEach(s=>{sb[s]=Math.round((combinedAlloc[s]||0)*ratio)});
-      // Reconcile so flow total matches u
+      const sb={};
+      if(i===0){
+        // Global: guarantee the per-size floor first, then layer curve-driven share of its extra
+        const extraUnits=remUnits[0];
+        rec.sizes.forEach(s=>{
+          const curveShare=Math.round((combinedAlloc[s]||0)/totalPool*extraUnits);
+          sb[s]=cfGlobalFloor[s]+curveShare;
+        });
+      } else {
+        rec.sizes.forEach(s=>{sb[s]=Math.round((combinedAlloc[s]||0)*ratio)});
+      }
+      // Reconcile each flow's per-size sum to its declared total
       const subSum=rec.sizes.reduce((a,sz)=>a+sb[sz],0);
       const diff=u-subSum;
       if(diff!==0&&rec.sizes.length){const ms=rec.sizes.reduce((a,b)=>sb[a]>=sb[b]?a:b);sb[ms]+=diff}
       return{label:i===0?'Global':'Flow '+i,units:u,offset:i,sizeBreak:sb};
     });
-    // V8.3.1: Force cross-flow per-size totals to match combinedAlloc exactly (no per-size over-allocation)
+    // Force cross-flow per-size totals to match combinedAlloc exactly
     reconcileFlowsBySize(result.splits,combinedAlloc,rec.sizes);
-    result.math={type:'CF',percentages:splits,totalPool};
+    result.math={type:'CF',globalFloorBOP:true,cfGlobalFloor,cfGlobalFloorTotal,remaining,flowPcts,totalPool};
     return result;
   }
 
@@ -2145,7 +2206,8 @@ function computeAlloc(rec){
   } else rec.sizes.forEach(s=>{onlineCurveSales[s]=0});
 
   // ── Flows: applied to combined DTC pool ──
-  const flows=computeFlows(rec,pool,alloc,retailCurve,onlineCurve);
+  // V8.6: pass projected BOP per size so CF flows can guarantee the Global flow + BOP meets min pres.
+  const flows=computeFlows(rec,pool,alloc,retailCurve,onlineCurve,useBOP?bop:null);
   const flowSizeBreaks=flows.splits; // already include sizeBreak field
 
   // For backward compat with existing render code:
@@ -2470,12 +2532,33 @@ function renderFlowsModal(rec){
       '</div>'+
     '</div>';
   } else if(m.type==='CF'){
-    mathHtml='<div class="fm-math"><div class="fm-math-hdr">CF Flow Split</div>'+
-      '<div class="fm-math-desc">CF SKUs split based on total pool size:</div>'+
-      '<div class="fm-math-summary">'+
-        '<div><span class="fm-summary-lbl">Total Pool:</span> <span class="fm-summary-val">'+fmt(pool)+'u</span></div>'+
-        '<div><span class="fm-summary-lbl">Split Rule:</span> <span class="fm-summary-val">'+(pool>=2000?'40 / 30 / 30 (≥2000u)':'60 / 40 (1200–1999u)')+'</span></div>'+
-      '</div></div>';
+    if(m.globalFloorBOP){
+      // V8.6 BOP-aware CF flow
+      let floorRows='';
+      if(m.cfGlobalFloor){
+        rec.sizes.forEach(s=>{
+          const minPres=(getPresMin(rec)[s]||0);
+          const bopV=res&&res.bop?(res.bop[s]||0):0;
+          floorRows+='<tr><td>'+esc(s)+'</td><td class="fm-num">'+fmt(minPres)+'</td><td class="fm-num">'+fmt(bopV)+'</td><td class="fm-num fm-tot">'+fmt(m.cfGlobalFloor[s]||0)+'</td></tr>';
+        });
+      }
+      mathHtml='<div class="fm-math"><div class="fm-math-hdr">CF Flow Split — Always In Stock</div>'+
+        '<div class="fm-math-desc">Global flow guarantees <b>min pres − projected BOP</b> per size, so BOP + Global ≥ presentation minimum. Remainder flows.</div>'+
+        (floorRows?'<table class="fm-math-tbl"><thead><tr><th>Size</th><th>Min Pres</th><th>Proj BOP</th><th>Global Floor</th></tr></thead><tbody>'+floorRows+'</tbody></table>':'')+
+        '<div class="fm-math-summary">'+
+          '<div><span class="fm-summary-lbl">Total Pool:</span> <span class="fm-summary-val">'+fmt(pool)+'u</span></div>'+
+          '<div><span class="fm-summary-lbl">Global Floor (min pres − BOP):</span> <span class="fm-summary-val">'+fmt(m.cfGlobalFloorTotal||0)+'u</span></div>'+
+          '<div><span class="fm-summary-lbl">Remaining after floor:</span> <span class="fm-summary-val">'+fmt(m.remaining!=null?m.remaining:pool-(m.cfGlobalFloorTotal||0))+'u</span></div>'+
+          (m.note?'<div><span class="fm-summary-lbl">Note:</span> <span class="fm-summary-val">'+esc(m.note)+'</span></div>':'')+
+        '</div></div>';
+    } else {
+      mathHtml='<div class="fm-math"><div class="fm-math-hdr">CF Flow Split</div>'+
+        '<div class="fm-math-desc">CF SKUs split based on total pool size:</div>'+
+        '<div class="fm-math-summary">'+
+          '<div><span class="fm-summary-lbl">Total Pool:</span> <span class="fm-summary-val">'+fmt(pool)+'u</span></div>'+
+          '<div><span class="fm-summary-lbl">Split Rule:</span> <span class="fm-summary-val">'+(pool>=2000?'40 / 30 / 30 (≥2000u)':'60 / 40 (1200–1999u)')+'</span></div>'+
+        '</div></div>';
+    }
   }
 
   return '<div class="fm-backdrop" onclick="closeFlowsModal()"></div>'+
