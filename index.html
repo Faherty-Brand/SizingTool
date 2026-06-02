@@ -387,7 +387,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V8.6 · ALWAYS IN STOCK</div>
+<div class="version-tag">V8.6.1 · FLOOR PROTECT</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -1723,7 +1723,13 @@ function allocateBuy(rec,pool,curve,floors,ideals){
 // we subtract 1 from A in whichever flow has the most, and add 1 to whichever other size in that
 // same flow is most under-allocated. This way each flow's total units stays fixed AND each size's
 // cross-flow total matches the SKU's overall size break.
-function reconcileFlowsBySize(splits,combinedAlloc,sizes){
+// V8.6: `protectedFloor` (optional) is a {flowIndex: {size: minUnits}} map. The reconciler will
+// never pull a size below its protected floor in that flow (used to guard the CF Global floor).
+function reconcileFlowsBySize(splits,combinedAlloc,sizes,protectedFloor){
+  function floorFor(flowIdx,s){
+    if(!protectedFloor||!protectedFloor[flowIdx])return 0;
+    return protectedFloor[flowIdx][s]||0;
+  }
   function perSizeDiff(){
     const out={};
     sizes.forEach(s=>{
@@ -1732,28 +1738,26 @@ function reconcileFlowsBySize(splits,combinedAlloc,sizes){
     });
     return out;
   }
-  let safety=200;
+  let safety=300;
   while(safety-->0){
     const diffs=perSizeDiff();
-    // Find the size most over-allocated and most under-allocated across flows
     let overSize=null,overVal=0,underSize=null,underVal=0;
     sizes.forEach(s=>{
       if(diffs[s]>overVal){overVal=diffs[s];overSize=s}
       if(diffs[s]<underVal){underVal=diffs[s];underSize=s}
     });
     if(!overSize||!underSize)break; // balanced
-    // Find a flow that has BOTH (overSize > 0) AND (underSize can be incremented without exceeding combinedAlloc)
+    // Find a flow that can give up 1 unit of overSize WITHOUT breaching that flow's protected floor
     let bestFlow=-1,bestScore=-1;
     for(let i=0;i<splits.length;i++){
       const ov=splits[i].sizeBreak[overSize]||0;
-      if(ov<=0)continue; // can't subtract from this flow
-      // Score: prefer the flow with the most of overSize
+      const floor=floorFor(i,overSize);
+      if(ov<=floor)continue; // can't subtract — would breach the protected floor (or go to 0)
       if(ov>bestScore){bestScore=ov;bestFlow=i}
     }
-    if(bestFlow<0)break; // no flow can absorb the swap
+    if(bestFlow<0)break; // no flow can absorb the swap without breaching a floor
     splits[bestFlow].sizeBreak[overSize]=(splits[bestFlow].sizeBreak[overSize]||0)-1;
     splits[bestFlow].sizeBreak[underSize]=(splits[bestFlow].sizeBreak[underSize]||0)+1;
-    // Note: flow's total units does NOT change since we swapped 1 unit from overSize to underSize
   }
 }
 
@@ -1857,27 +1861,57 @@ function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve,bopByS
     // Build flow unit totals: Global = floor + first remainder bucket; then each downstream flow
     const flowTotals=[cfGlobalFloorTotal+remUnits[0],...remUnits.slice(1)];
     result.eligible=true;result.count=flowTotals.length;
-    result.splits=flowTotals.map((u,i)=>{
-      const ratio=totalPool>0?u/totalPool:0;
+    // ── Build the Global size break first (it has the floor guarantee) ──
+    // Global per size = floor + curve-driven share of the extra, but never more than the size's
+    // total allocation (combinedAlloc[s]) — we can't put more of a size in Global than the buy has.
+    const globalExtra=remUnits[0];
+    const globalSb={};
+    rec.sizes.forEach(s=>{
+      const curveShare=Math.round((combinedAlloc[s]||0)/totalPool*globalExtra);
+      const want=cfGlobalFloor[s]+curveShare;
+      globalSb[s]=Math.min(combinedAlloc[s]||0,want); // cap at total available for this size
+    });
+    // The cap may leave Global short of its target total (units that "overflowed" sizes at their cap).
+    // Redistribute that shortfall to sizes that still have headroom (combinedAlloc[s] − globalSb[s] > 0),
+    // preferring the sizes with the most remaining headroom.
+    let globalAssigned=rec.sizes.reduce((a,s)=>a+globalSb[s],0);
+    let globalShort=flowTotals[0]-globalAssigned;
+    let guard=10000;
+    while(globalShort>0&&guard-->0){
+      // find size with most headroom
+      let best=null,bestHead=0;
+      rec.sizes.forEach(s=>{
+        const head=(combinedAlloc[s]||0)-globalSb[s];
+        if(head>bestHead){bestHead=head;best=s}
+      });
+      if(!best)break; // no headroom anywhere — Global can't reach its target (rare; buy fully floored)
+      globalSb[best]++;globalShort--;
+    }
+    // ── Downstream flows get whatever's left per size (combinedAlloc − globalSb), distributed by their share ──
+    const splits=[{label:'Global',units:rec.sizes.reduce((a,s)=>a+globalSb[s],0),offset:0,sizeBreak:globalSb}];
+    // Remaining per size after Global
+    const leftBySize={};rec.sizes.forEach(s=>{leftBySize[s]=Math.max(0,(combinedAlloc[s]||0)-globalSb[s])});
+    const downstreamTotals=remUnits.slice(1);
+    const downstreamSum=downstreamTotals.reduce((a,b)=>a+b,0);
+    const totalLeft=rec.sizes.reduce((a,s)=>a+leftBySize[s],0);
+    downstreamTotals.forEach((u,idx)=>{
       const sb={};
-      if(i===0){
-        // Global: guarantee the per-size floor first, then layer curve-driven share of its extra
-        const extraUnits=remUnits[0];
-        rec.sizes.forEach(s=>{
-          const curveShare=Math.round((combinedAlloc[s]||0)/totalPool*extraUnits);
-          sb[s]=cfGlobalFloor[s]+curveShare;
-        });
-      } else {
-        rec.sizes.forEach(s=>{sb[s]=Math.round((combinedAlloc[s]||0)*ratio)});
-      }
-      // Reconcile each flow's per-size sum to its declared total
+      // Distribute this flow's units across sizes proportional to what's left per size
+      rec.sizes.forEach(s=>{
+        sb[s]=totalLeft>0?Math.round(leftBySize[s]/totalLeft*u):0;
+      });
       const subSum=rec.sizes.reduce((a,sz)=>a+sb[sz],0);
       const diff=u-subSum;
-      if(diff!==0&&rec.sizes.length){const ms=rec.sizes.reduce((a,b)=>sb[a]>=sb[b]?a:b);sb[ms]+=diff}
-      return{label:i===0?'Global':'Flow '+i,units:u,offset:i,sizeBreak:sb};
+      if(diff!==0&&rec.sizes.length){
+        // add/remove from the size with the most room
+        const ms=rec.sizes.reduce((a,b)=>leftBySize[a]>=leftBySize[b]?a:b);
+        sb[ms]+=diff;
+      }
+      splits.push({label:'Flow '+(idx+1),units:u,offset:idx+1,sizeBreak:sb});
     });
-    // Force cross-flow per-size totals to match combinedAlloc exactly
-    reconcileFlowsBySize(result.splits,combinedAlloc,rec.sizes);
+    result.splits=splits;
+    // Reconcile per-size cross-flow totals to combinedAlloc, protecting the Global floor (index 0)
+    reconcileFlowsBySize(result.splits,combinedAlloc,rec.sizes,{0:cfGlobalFloor});
     result.math={type:'CF',globalFloorBOP:true,cfGlobalFloor,cfGlobalFloorTotal,remaining,flowPcts,totalPool};
     return result;
   }
