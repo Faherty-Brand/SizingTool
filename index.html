@@ -148,6 +148,7 @@ input,select,button,textarea{font-family:inherit}
 #division-pills{display:flex;gap:6px;align-items:center}
 .sbar{padding:7px 12px;font-size:12px;background:var(--wh);color:var(--txt);border:1px solid var(--bdr-lt);border-radius:var(--r);outline:none;width:220px}.sbar:focus{border-color:var(--blue)}.sbar::placeholder{color:var(--txt3)}
 .sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.sc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
 .sc{padding:14px 16px;background:var(--wh);border:2px solid var(--bdr-lt);border-radius:var(--rl);cursor:pointer;transition:all .15s;position:relative}
 .sc-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:1px;padding-right:0}
 .sc-deliv-wrap{flex:1;display:flex;justify-content:center;min-width:0}
@@ -361,6 +362,7 @@ input,select,button,textarea{font-family:inherit}
 .dv-table td{padding:4px 10px;border-bottom:1px solid var(--bdr-lt)}.dv-table tbody tr:hover{background:var(--sand-lt)}
 .dv-info{font-family:var(--mono);font-size:10px;color:var(--txt3);margin-bottom:8px}
 @media(max-width:800px){.sg{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}}
+@media(max-width:800px){.sc-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}}
 .version-tag{position:fixed;bottom:8px;right:12px;font-family:var(--mono);font-size:9px;color:var(--txt3);opacity:.6;z-index:999}
 /* ═══ V9 Chase module ═══ */
 .chase-head{display:flex;align-items:center;gap:16px;margin-bottom:20px}
@@ -442,7 +444,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V9 · CHASE</div>
+<div class="version-tag">V9.2 · CHASE SEARCH</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -485,7 +487,7 @@ input,select,button,textarea{font-family:inherit}
       <span class="exp-ct" id="exp-ct"></span>
       <button class="btn btn-g" onclick="backToWelcome()">Return to Homepage</button>
       <button class="btn btn-g" onclick="goModule('presmins')">⚙ Pres Mins</button>
-      <button class="btn btn-b" id="exp-btn" onclick="exportCSV()" disabled>Export Accepted</button>
+      <button class="btn btn-b" id="exp-btn" onclick="exportCurrent()" disabled>Export Accepted</button>
     </div>
   </div>
   <div id="main-area"></div>
@@ -1326,6 +1328,7 @@ function goChase(){
   document.getElementById('dash').classList.add('active');
   document.getElementById('slbl').textContent='Chase';
   render();
+  updateExpCt();
   const dp=document.getElementById('division-pills');if(dp)dp.innerHTML='';
 }
 
@@ -1678,15 +1681,17 @@ function getLinelistSeasons(){
   return [...set].sort();
 }
 
-// SKU codes present in the L52W sales import (for the Chase SKU search)
+// SKU search for Chase — matches across SKU code, style description, and color description
+// (like the seasonal grid search). Supports multiple space-separated terms (all must match).
 function searchSalesSkus(query,limit){
   limit=limit||20;
   if(!A.salSkuMeta)return [];
-  const q=(query||'').trim().toUpperCase();
+  const terms=(query||'').trim().toLowerCase().split(/\s+/).filter(Boolean);
   const out=[];
   for(const sku in A.salSkuMeta){
-    if(!q||sku.toUpperCase().includes(q)){
-      const m=A.salSkuMeta[sku];
+    const m=A.salSkuMeta[sku];
+    const hay=(sku+' '+(m.styleDescription||'')+' '+(m.colorDescription||'')+' '+(m.category||'')).toLowerCase();
+    if(!terms.length||terms.every(t=>hay.includes(t))){
       out.push({sku,styleDescription:m.styleDescription,colorDescription:m.colorDescription,category:m.category});
       if(out.length>=limit)break;
     }
@@ -2754,7 +2759,7 @@ function toggleAcc(sku){
   if(A.module==='chase'&&A.chaseSelected){
     const id=A.chaseSelected;
     A.chaseAccepted[id]?delete A.chaseAccepted[id]:A.chaseAccepted[id]=true;
-    render();return;
+    updateExpCt();render();return;
   }
   A.accepted[sku]?delete A.accepted[sku]:A.accepted[sku]=true;updateExpCt();render();
 }
@@ -2779,7 +2784,20 @@ function openFlowsModal(sku){
   A.flowsModalSku=sku;render();
 }
 function closeFlowsModal(){A.flowsModalSku=null;render()}
-function updateExpCt(){const n=Object.keys(A.accepted).length;const el=document.getElementById('exp-ct');if(el)el.textContent=n>0?n+' accepted':'';const btn=document.getElementById('exp-btn');if(btn)btn.disabled=n===0}
+function updateExpCt(){
+  // Count depends on the active module: chase items vs seasonal accepted SKUs
+  const n=A.module==='chase'
+    ? Object.keys(A.chaseAccepted||{}).length
+    : Object.keys(A.accepted).length;
+  const el=document.getElementById('exp-ct');if(el)el.textContent=n>0?n+' accepted':'';
+  const btn=document.getElementById('exp-btn');if(btn)btn.disabled=n===0;
+}
+
+// V9.1: route the top-bar Export button based on the active module
+function exportCurrent(){
+  if(A.module==='chase')return exportChase();
+  return exportCSV();
+}
 
 function exportCSV(){
   const acc=Object.keys(A.accepted);if(!acc.length)return;
@@ -3382,20 +3400,19 @@ function renderChaseGrid(el){
   const items=A.chaseItems||[];
   let h='<div class="chase-head"><button class="d-back" onclick="backToWelcome()">← Home</button>'+
     '<div class="chase-title">⚡ Chase POs</div>'+
-    '<button class="btn btn-b" onclick="openChaseForm()">+ Add Chase</button></div>';
+    '<button class="btn btn-b btn-sm" onclick="openChaseForm()">+ Add Chase</button></div>';
 
   if(!items.length){
     h+='<div class="chase-empty">No Chase POs yet. Click <b>+ Add Chase</b> to size an off-plan order.</div>';
   } else {
-    // Export button (reuse the seasonal export, scoped to accepted chase items)
+    // Accepted count shown in the toolbar; export is driven by the top-bar "Export Accepted" button.
     const acceptedCount=items.filter(ci=>A.chaseAccepted[ci.id]).length;
     h+='<div class="chase-toolbar"><span class="chase-count">'+items.length+' chase PO'+(items.length===1?'':'s')+
-      (acceptedCount?' · '+acceptedCount+' accepted':'')+'</span>'+
-      '<button class="btn btn-b btn-sm" onclick="exportChase()"'+(acceptedCount?'':' disabled')+'>Export Accepted Chase</button></div>';
+      (acceptedCount?' · '+acceptedCount+' accepted':'')+'</span></div>';
     h+='<div class="sc-grid">';
     items.forEach(ci=>{
       let rec;try{rec=buildChaseRecord(ci)}catch(e){rec=null}
-      const divCls=rec?(rec.division==='Womens'?'div-w':rec.division==='Non-Apparel'?'div-n':'div-m'):'div-m';
+      const divCls=rec?(rec.division==='Womens'?'dv-w':(rec.division==='Non-Apparel'||rec.division==='Accessories'||rec.division==='Footwear')?'dv-n':'dv-m'):'dv-m';
       const accepted=!!A.chaseAccepted[ci.id];
       let sized=0,total=ci.dtcBuy;
       if(rec){try{const res=computeAlloc(rec);if(res)sized=rec.sizes.reduce((a,s)=>a+(res.alloc[s]||0),0)}catch(e){}}
@@ -3415,7 +3432,29 @@ function renderChaseGrid(el){
   el.innerHTML=h;
 }
 
-function toggleChaseAccept(id){A.chaseAccepted[id]?delete A.chaseAccepted[id]:A.chaseAccepted[id]=true;render()}
+function toggleChaseAccept(id){A.chaseAccepted[id]?delete A.chaseAccepted[id]:A.chaseAccepted[id]=true;updateExpCt();render()}
+
+// V9.2: shared builder for the SKU search-results dropdown (used by both full render and
+// the incremental keystroke update so they always produce identical markup).
+function chaseSkuResultsHtml(query,selectedSku){
+  if(!query||selectedSku===query)return '';
+  const matches=searchSalesSkus(query,12);
+  if(!matches.length)return '<div class="cf-sku-results"><div class="cf-sku-none">No matching SKUs in L52W sales</div></div>';
+  return '<div class="cf-sku-results">'+matches.map(m=>
+    '<div class="cf-sku-opt" onclick="chaseFormSetSku(\''+esc(m.sku)+'\')"><b>'+esc(m.sku)+'</b> <span>'+esc(m.styleDescription||'')+(m.colorDescription?' · '+esc(m.colorDescription):'')+'</span></div>'
+  ).join('')+'</div>';
+}
+
+// V9.2: incremental search — updates ONLY the results dropdown, leaving the input element in place
+// so focus and cursor position are preserved (no full overlay rebuild = no per-keystroke lag).
+function chaseSearchInput(val){
+  if(!chaseForm)return;
+  chaseForm.skuQuery=val;
+  // If the user is typing again after a selection, clear the locked-in sku so results reappear
+  if(chaseForm.sku&&chaseForm.sku!==val)chaseForm.sku='';
+  const wrap=document.getElementById('cf-sku-results-wrap');
+  if(wrap)wrap.innerHTML=chaseSkuResultsHtml(val,chaseForm.sku);
+}
 
 function renderChaseForm(){
   // Render the form as an overlay on top of the current view
@@ -3447,18 +3486,8 @@ function renderChaseForm(){
   } else {
     storeGroupHtml='<select class="cf-input" disabled><option>Select a season first…</option></select>';
   }
-  // SKU search results
-  let skuResults='';
-  if(f.skuQuery&&f.sku!==f.skuQuery){
-    const matches=searchSalesSkus(f.skuQuery,8);
-    if(matches.length){
-      skuResults='<div class="cf-sku-results">'+matches.map(m=>
-        '<div class="cf-sku-opt" onclick="chaseFormSetSku(\''+esc(m.sku)+'\')"><b>'+esc(m.sku)+'</b> <span>'+esc(m.styleDescription||'')+(m.colorDescription?' · '+esc(m.colorDescription):'')+'</span></div>'
-      ).join('')+'</div>';
-    } else {
-      skuResults='<div class="cf-sku-results"><div class="cf-sku-none">No matching SKUs in L52W sales</div></div>';
-    }
-  }
+  // SKU search results (uses the shared builder so incremental updates match)
+  const skuResults=chaseSkuResultsHtml(f.skuQuery,f.sku);
   // Selected SKU identity preview
   let skuPreview='';
   if(f.sku){
@@ -3472,9 +3501,9 @@ function renderChaseForm(){
   overlay.innerHTML='<div class="cf-modal"><div class="cf-card">'+
     '<div class="cf-hdr"><h2>'+(f.editId?'Edit':'Add')+' Chase PO</h2><button class="cf-x" onclick="closeChaseForm()">✕</button></div>'+
     '<div class="cf-body">'+
-      '<label class="cf-label">SKU code <span class="cf-hint">(search items in L52W sales)</span></label>'+
-      '<input class="cf-input" type="text" placeholder="Type to search SKUs…" value="'+esc(f.skuQuery||'')+'" oninput="chaseForm.skuQuery=this.value;renderChaseForm()" '+(f.sku?'':'autofocus')+'>'+
-      skuResults+skuPreview+
+      '<label class="cf-label">SKU code <span class="cf-hint">(search by SKU, style, or color in L52W sales)</span></label>'+
+      '<input class="cf-input" id="cf-sku-search" type="text" placeholder="Type to search…" value="'+esc(f.skuQuery||'')+'" oninput="chaseSearchInput(this.value)" autocomplete="off" '+(f.sku?'':'autofocus')+'>'+
+      '<div id="cf-sku-results-wrap">'+skuResults+'</div>'+skuPreview+
       '<div class="cf-row">'+
         '<div class="cf-col"><label class="cf-label">Season Code</label>'+
           '<select class="cf-input" onchange="chaseFormField(\'season\',this.value)"><option value="">Select…</option>'+
