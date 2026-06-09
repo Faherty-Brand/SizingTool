@@ -290,6 +290,8 @@ input,select,button,textarea{font-family:inherit}
 .cc-total{font-family:var(--mono);font-size:10px;color:var(--txt3);margin-left:auto}
 .cc-ov-tag{font-family:var(--mono);font-size:9px;font-weight:700;color:#2e7d32;background:#e6f4e6;border:1px solid #a8d5a8;border-radius:3px;padding:1px 6px}
 .cc-ov-tag.cc-ov-flag{color:#8a6d1e;background:#fdf3c4;border-color:#e0c349}
+.cc-ov-rm{font-family:var(--mono);font-size:10px;font-weight:700;line-height:1;color:var(--txt3);background:var(--wh);border:1px solid var(--bdr-lt);border-radius:3px;padding:2px 5px;cursor:pointer;transition:all var(--t)}
+.cc-ov-rm:hover{color:var(--red);border-color:var(--red);background:rgba(196,64,64,.06)}
 .cc-tbl{width:100%;border-collapse:collapse;font-size:11px;background:var(--bg)}
 .cc-tbl th,.cc-tbl td{padding:5px 7px;text-align:center;border-bottom:1px solid var(--bdr-lt);font-family:var(--mono);font-size:10px}
 .cc-tbl th{color:var(--txt3);font-weight:700;background:var(--wh)}
@@ -480,7 +482,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V9.3.1 · DECIMAL FIX</div>
+<div class="version-tag">V9.4 · SCALE CLEANSING</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -708,6 +710,12 @@ async function cloudDeleteCurveOverridesForScaleChannel(division,sizeScale,chann
 async function cloudDeleteCurveOverride(division,sizeScale,category,channel){
   const{error}=await SUPA.from('curve_overrides').delete()
     .eq('division',division).eq('size_scale',sizeScale).eq('category',category).eq('channel',channel);
+  if(error)throw error;
+}
+// V9.4: Delete every curve override for a division+scale (the "Clear all overwrites" action).
+async function cloudDeleteCurveOverridesForScale(division,sizeScale){
+  const{error}=await SUPA.from('curve_overrides').delete()
+    .eq('division',division).eq('size_scale',sizeScale);
   if(error)throw error;
 }
 
@@ -1133,6 +1141,7 @@ const A={
   chaseItems:[],chaseAccepted:{},chaseSelected:null,
   curveImports:{},  // V9.3: "div|scale|category|channel" -> {curve:{size:pct}, rawSum, by, at}
   searchTerm:'',sortKey:'dtcBuy',sortDir:'desc',
+  scaleSort:'name',scaleSortDir:'asc',scaleFilterDiv:'All', // V9.4: Size Scales grid sort/filter
   filters:{type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All',deliveryMonth:'All'},
   presMins:{},
   presMinsMeta:{},
@@ -4289,11 +4298,11 @@ function renderDetail(el,rec){
 
   // Header
   const dateColCount=showDateCols?dateRows.length:0;
-  // Inventory metrics col count: base 7 (Current OH, Ideal Target, Pres Min, Min Retail Pres, Size Break, Break %, Post-Buy)
+  // Inventory metrics col count: base 8 (Current OH, Ideal Target, Pres Min, Min Retail Pres, Size Break, Break %, Post-Buy, Post-Buy %)
   // + 2 if useBOP (Pending Rcpts, Proj BOP)
   // + dateColCount if showDateCols
   // + 2 if showChannelCols (Retail Buy, Online Buy under Size Break)
-  let invColspan=7;
+  let invColspan=8;
   if(useBOP)invColspan+=2+dateColCount;
   if(showChannelCols)invColspan+=2;
   // Sales metrics col count: base 5 (Adjustment, SKU Sales, Curve Sales, Curve %, Wkly Rate)
@@ -4325,7 +4334,8 @@ function renderDetail(el,rec){
   thead+='<th class="col">Size Break'+sbChannelChevron+'</th>';
   if(showChannelCols)thead+='<th class="col-ch">Retail Buy</th><th class="col-ch">Online Buy</th>';
   thead+='<th class="cod">Break %</th>';
-  thead+='<th class="col">Post-Buy</th></tr>';
+  thead+='<th class="col">Post-Buy</th>';
+  thead+='<th class="col" title="Each size\'s share of total post-buy inventory (OH + buy) — the resulting on-floor size distribution. Key for CF/Chase.">Post-Buy %</th></tr>';
 
   // Compute totals + date-filtered pending receipts
   let totSkuSl=0,totCurveSl=0,totOH=0,totPend=0,totBOP=0,totIdeal=0,totAl=0,totPost=0,totMinRet=0;
@@ -4413,7 +4423,8 @@ function renderDetail(el,rec){
     tBody+=diffCell(rawTotOnlineAlloc||totOnlineAlloc,totOnlineAlloc,fmt,'col-ch');
   }
   tBody+='<td class="cod">100%</td>';
-  tBody+='<td class="col c-g" style="font-weight:700">'+fmt(totPost)+'</td></tr>';
+  tBody+='<td class="col c-g" style="font-weight:700">'+fmt(totPost)+'</td>';
+  tBody+='<td class="col c-d" style="font-weight:700">'+(totPost>0?'100%':'—')+'</td></tr>';
 
   // Data rows
   rec.sizes.forEach(s=>{
@@ -4490,7 +4501,9 @@ function renderDetail(el,rec){
       tBody+=diffCell(rawOnlineAlloc,onlineAlloc[s]||0,fmt,'col-ch');
     }
     tBody+='<td class="cod c-d">'+pct(sbPct)+'</td>';
-    tBody+='<td class="col c-g" style="font-weight:600">'+fmt(postBuy)+'</td></tr>';
+    const postBuyPct=totPost>0?postBuy/totPost:0;
+    tBody+='<td class="col c-g" style="font-weight:600">'+fmt(postBuy)+'</td>';
+    tBody+='<td class="col c-d">'+(totPost>0?pct(postBuyPct):'—')+'</td></tr>';
   });
 
   const variance=totAl-pool;
@@ -4583,7 +4596,27 @@ function renderPresMins(el){
   if(A.selectedScale&&A.presMinsMeta[A.selectedScale]){
     return renderScaleDetail(el,A.selectedScale);
   }
-  const scales=Object.keys(A.presMinsMeta).sort();
+  const allScales=Object.keys(A.presMinsMeta).filter(s=>(A.presMinsMeta[s].sizes||[]).length);
+  // V9.4: divisions present across configured scales (for the filter dropdown)
+  const divsPresent=[...new Set(allScales.map(s=>A.presMinsMeta[s].div||'').filter(Boolean))].sort();
+  if(A.scaleFilterDiv!=='All'&&!divsPresent.includes(A.scaleFilterDiv))A.scaleFilterDiv='All';
+  // Apply division filter
+  let scales=allScales.filter(s=>A.scaleFilterDiv==='All'||(A.presMinsMeta[s].div||'')===A.scaleFilterDiv);
+  // Apply sort (name | size count | division), then direction
+  const dir=A.scaleSortDir==='asc'?1:-1;
+  scales.sort((a,b)=>{
+    let cmp;
+    if(A.scaleSort==='sizeCount'){
+      cmp=((A.presMinsMeta[a].sizes||[]).length)-((A.presMinsMeta[b].sizes||[]).length);
+      if(cmp===0)cmp=a.localeCompare(b);
+    } else if(A.scaleSort==='division'){
+      cmp=(A.presMinsMeta[a].div||'').localeCompare(A.presMinsMeta[b].div||'');
+      if(cmp===0)cmp=a.localeCompare(b);
+    } else { // name
+      cmp=a.localeCompare(b);
+    }
+    return cmp*dir;
+  });
   let h='<div class="pm-page anim"><button class="d-back" onclick="goBackFromModule()">← Back</button>'+
     '<h2 style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:4px">Size Scales</h2>'+
     '<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Presentation minimums and sales-curve overrides by size scale. Click a scale to view details.</p>'+
@@ -4593,6 +4626,22 @@ function renderPresMins(el){
       '<label class="btn btn-g btn-sm" style="cursor:pointer;margin:0">⬆ Import Curves<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleCurveImportFile(this.files[0]);this.value=\'\'"></label>'+
     '</div>'+
     '<div id="curve-import-report">'+curveImportReportHtml(A._curveImportState)+'</div>';
+
+  // V9.4: Sort + filter control bar
+  function scsb(k,l){
+    const on=A.scaleSort===k;
+    const arrow=on?(A.scaleSortDir==='asc'?' ↑':' ↓'):'';
+    return'<button class="sb'+(on?' on':'')+'" onclick="setScaleSort(\''+k+'\')">'+l+arrow+'</button>';
+  }
+  let divOpts='<option value="All">Division: All</option>';
+  divsPresent.forEach(d=>{divOpts+='<option value="'+esc(d)+'"'+(A.scaleFilterDiv===d?' selected':'')+'>'+esc(d)+'</option>'});
+  h+='<div class="gc" style="margin-bottom:12px"><div class="gc-row gc-flex">'+
+    '<span class="gc-lbl">Sort</span>'+scsb('name','Name')+scsb('sizeCount','Size Count')+scsb('division','Division')+
+    '<span class="gc-lbl" style="margin-left:10px">Filter</span>'+
+    '<select class="fsel'+(A.scaleFilterDiv!=='All'?' on':'')+'" onchange="A.scaleFilterDiv=this.value;render()">'+divOpts+'</select>'+
+    (A.scaleFilterDiv!=='All'?'<button class="sb mass-btn clear-filters" onclick="A.scaleFilterDiv=\'All\';render()" title="Clear division filter">✕ Clear</button>':'')+
+    '<div style="flex:1"></div><span class="gc-lbl">'+scales.length+' of '+allScales.length+' scales</span>'+
+    '</div></div>';
 
   h+='<div class="sg pm-grid">';
   scales.forEach(scale=>{
@@ -4615,8 +4664,16 @@ function renderPresMins(el){
       '</div>';
   });
   h+='</div>';
-  if(!scales.length)h+='<div class="gnote">No size scales configured. Click "+ Add Size Scale" to create one.</div>';
+  if(!allScales.length)h+='<div class="gnote">No size scales configured. Click "+ Add Size Scale" to create one.</div>';
+  else if(!scales.length)h+='<div class="gnote">No size scales match the current division filter.</div>';
   h+='</div>';el.innerHTML=h;
+}
+
+// V9.4: Size Scales grid sort — toggles direction when re-clicking the same key
+function setScaleSort(k){
+  if(A.scaleSort===k)A.scaleSortDir=A.scaleSortDir==='asc'?'desc':'asc';
+  else{A.scaleSort=k;A.scaleSortDir=(k==='sizeCount')?'desc':'asc'}
+  render();
 }
 
 function goScaleDetail(scale){A.selectedScale=scale;render()}
@@ -4671,7 +4728,10 @@ function renderScaleDetail(el,scale){
   }
 
   // ── Sales curves by Category → Channel ──
-  h+='<div class="sd-section-lbl" style="margin-top:24px">Sales Curves by Category & Channel <span style="font-weight:400;color:var(--txt3);text-transform:none;letter-spacing:0">— L52W history, with imported overrides where present</span></div>';
+  // V9.4: count active overrides for this scale so we can offer a one-click bulk clear
+  let scaleOvCount=0;for(const k in A.curveImports){if(k.split('|')[1]===scale)scaleOvCount++}
+  const clearAllBtn=scaleOvCount>0?'<button class="btn btn-g btn-sm" style="margin-left:auto" onclick="clearAllCurveOverrides(\''+esc(div)+'\',\''+esc(scale)+'\')" title="Remove every imported curve override on this size scale">✕ Clear all overwrites ('+scaleOvCount+')</button>':'';
+  h+='<div class="sd-section-lbl" style="margin-top:24px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">Sales Curves by Category &amp; Channel <span style="font-weight:400;color:var(--txt3);text-transform:none;letter-spacing:0">— L52W history, with imported overrides where present</span>'+clearAllBtn+'</div>';
   const cats=getCategoriesForScale(div,scale);
   if(!cats.length){
     h+='<div class="gnote">No categories with L52W sales found for '+esc(div)+' / '+esc(scale)+'.</div>';
@@ -4691,7 +4751,7 @@ function renderScaleDetail(el,scale){
             '<span class="cc-caret">'+(expanded?'▼':'▶')+'</span>'+
             '<span class="cc-cat">'+esc(cat)+'</span><span class="cc-chan cc-chan-'+channel.toLowerCase()+'">'+channel[0]+'</span>'+
             '<span class="cc-total">'+fmt(sc.total)+' units L52W</span>'+
-            (ov?'<span class="cc-ov-tag'+(ovFlag?' cc-ov-flag':'')+'" title="'+(ovFlag?'Override sums to '+ovSum.toFixed(1)+'% — suboptimal':'Override active')+'">⤳ override'+(ovFlag?' '+ovSum.toFixed(0)+'%':'')+'</span>':'')+
+            (ov?'<span class="cc-ov-tag'+(ovFlag?' cc-ov-flag':'')+'" title="'+(ovFlag?'Override sums to '+ovSum.toFixed(1)+'% — suboptimal':'Override active')+'">⤳ override'+(ovFlag?' '+ovSum.toFixed(0)+'%':'')+'</span><button class="cc-ov-rm" title="Remove this '+channel+' override for '+esc(cat)+'" onclick="event.stopPropagation();removeCurveOverride(\''+esc(div)+'\',\''+esc(scale)+'\',\''+esc(cat)+'\',\''+channel+'\')">✕</button>':'')+
           '</div>';
         if(expanded){
           h+='<table class="cc-tbl"><thead><tr><th>Source</th>';
@@ -4724,6 +4784,21 @@ function renderScaleDetail(el,scale){
 }
 
 function toggleCurveRow(key){A._expandedCurveRow=A._expandedCurveRow===key?null:key;render()}
+
+// V9.4: clear every imported curve override for a size scale in one action
+async function clearAllCurveOverrides(div,scale){
+  let count=0;for(const k in A.curveImports){if(k.split('|')[1]===scale)count++}
+  if(!count)return;
+  if(!confirm('Clear all '+count+' curve override'+(count===1?'':'s')+' for size scale "'+scale+'"? This removes them for the whole team and cannot be undone.'))return;
+  try{
+    await cloudDeleteCurveOverridesForScale(div,scale);
+    await cloudLogEvent('curve_override_clear_all','curve',div+' '+scale,
+      'cleared all '+count+' curve override'+(count===1?'':'s')+' for '+div+' '+scale,{count:count});
+    for(const k in A.curveImports){if(k.split('|')[1]===scale)delete A.curveImports[k]}
+    toast('Cleared '+count+' override'+(count===1?'':'s')+' for '+scale);
+    render();
+  }catch(err){toast('Clear failed: '+err.message)}
+}
 
 async function removeCurveOverride(div,scale,cat,channel){
   if(!confirm('Remove the '+channel+' curve override for '+cat+' ('+scale+')?'))return;
