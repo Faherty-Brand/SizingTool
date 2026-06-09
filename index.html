@@ -105,6 +105,10 @@ input,select,button,textarea{font-family:inherit}
 .s-btn .ct{font-size:11px;color:var(--txt3);font-family:var(--mono);letter-spacing:.3px;line-height:1.5}
 .s-btn .ct-buy{color:var(--green);font-weight:600}
 .s-btn .ct-conf{color:var(--blue);font-weight:600}
+.s-btn-chase{border-color:#c4572a;background:#fdf6f0}
+.s-btn-chase:hover{border-color:#c4572a;background:#fbe9dc}
+.s-btn-chase .code{color:#c4572a}
+.s-btn .ct-chase{color:#c4572a;font-weight:600}
 .u-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;background:var(--wh);border:1px solid var(--bdr-lt);border-radius:var(--r);cursor:pointer;transition:all var(--t);font-size:11px;font-weight:500;color:var(--txt3);position:relative}
 .u-chip:hover{border-color:var(--blue);color:var(--txt2)}.u-chip.ok{border-color:var(--green-bd);color:var(--green);background:var(--green-pl)}
 .u-chip input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer}.u-chip .meta{font-family:var(--mono);font-size:9px}
@@ -358,6 +362,50 @@ input,select,button,textarea{font-family:inherit}
 .dv-info{font-family:var(--mono);font-size:10px;color:var(--txt3);margin-bottom:8px}
 @media(max-width:800px){.sg{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}}
 .version-tag{position:fixed;bottom:8px;right:12px;font-family:var(--mono);font-size:9px;color:var(--txt3);opacity:.6;z-index:999}
+/* ═══ V9 Chase module ═══ */
+.chase-head{display:flex;align-items:center;gap:16px;margin-bottom:20px}
+.chase-head .chase-title{font-family:var(--mono);font-size:20px;font-weight:700;color:#c4572a;flex:1}
+.chase-empty{padding:60px 24px;text-align:center;color:var(--txt3);font-size:14px;background:var(--wh);border:1px dashed var(--bdr);border-radius:var(--rl)}
+.chase-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding:0 4px}
+.chase-toolbar .chase-count{font-family:var(--mono);font-size:11px;color:var(--txt3);font-weight:600}
+.chase-card{position:relative}
+.chase-badge{font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:2px;background:#fdf3e6;color:#c4572a;border:1px solid #c4572a;margin-left:6px}
+.chase-card .sc-desc{font-size:12px;color:var(--txt2);margin:6px 0;line-height:1.4}
+.chase-card .sc-sized{font-size:14px;font-weight:700;margin:4px 0}
+.chase-card .sc-sized.sc-match{color:var(--green)}
+.chase-card .sc-sized.sc-near{color:#b8800c}
+.chase-card .sc-sized.sc-off{color:var(--red)}
+.chase-card .sc-bot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.chase-card .sc-chip{font-family:var(--mono);font-size:9px;color:var(--txt3);background:var(--bg);padding:2px 6px;border-radius:3px}
+.chase-card .chase-del{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:12px;padding:2px 5px;border-radius:3px;transition:all var(--t)}
+.chase-card .chase-del:hover{background:var(--red);color:#fff}
+.chase-card .sc-acc{width:18px;height:18px;cursor:pointer;accent-color:#c4572a}
+/* Chase form modal */
+#chase-form-overlay{position:fixed;inset:0;z-index:2000}
+.cf-modal{position:fixed;inset:0;background:rgba(20,20,30,.45);display:flex;align-items:center;justify-content:center;padding:20px}
+.cf-card{background:var(--wh);border-radius:var(--rl);box-shadow:var(--shlg);width:560px;max-width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.cf-hdr{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--bdr-lt)}
+.cf-hdr h2{margin:0;font-size:18px;color:var(--navy)}
+.cf-x{background:none;border:none;font-size:16px;cursor:pointer;color:var(--txt3);padding:4px 8px;border-radius:4px}
+.cf-x:hover{background:var(--bg);color:var(--txt1)}
+.cf-body{padding:20px 22px;overflow-y:auto}
+.cf-label{display:block;font-size:11px;font-weight:700;color:var(--txt2);margin:14px 0 5px;text-transform:uppercase;letter-spacing:.4px}
+.cf-label:first-child{margin-top:0}
+.cf-hint{font-weight:400;text-transform:none;letter-spacing:0;color:var(--txt3)}
+.cf-input{width:100%;padding:9px 11px;border:1px solid var(--bdr);border-radius:var(--r);font-size:13px;font-family:inherit;background:var(--wh);box-sizing:border-box}
+.cf-input:focus{outline:none;border-color:var(--blue)}
+.cf-row{display:flex;gap:12px}
+.cf-col{flex:1}
+.cf-sku-results{border:1px solid var(--bdr-lt);border-radius:var(--r);margin-top:4px;max-height:200px;overflow-y:auto}
+.cf-sku-opt{padding:8px 11px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--bdr-lt)}
+.cf-sku-opt:last-child{border-bottom:none}
+.cf-sku-opt:hover{background:var(--blue-pl)}
+.cf-sku-opt span{color:var(--txt3)}
+.cf-sku-none{padding:8px 11px;font-size:12px;color:var(--txt3)}
+.cf-sku-preview{margin-top:8px;padding:10px 12px;background:#fdf6f0;border:1px solid #e8c9b0;border-radius:var(--r);font-size:12px}
+.cf-sku-attrs{font-family:var(--mono);font-size:10px;color:var(--txt3);margin-top:3px}
+.cf-warn{margin-top:5px;padding:10px 12px;background:#fdf3c4;border:1px solid #e0c349;border-radius:var(--r);font-size:12px;color:#8a6d1e}
+.cf-foot{display:flex;justify-content:flex-end;gap:10px;padding:16px 22px;border-top:1px solid var(--bdr-lt);background:var(--bg)}
 
 /* Login screen */
 #login{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:var(--sand);z-index:9999}
@@ -394,7 +442,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V8.8.1 · CF FLOW GATE</div>
+<div class="version-tag">V9 · CHASE</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -983,6 +1031,7 @@ const A={
   skus:{},selectedSKU:null,
   view:'grid',module:null,
   overrides:{},accepted:{},curveAdjustments:{},curveAdjStaged:{},curveOverrides:{},
+  chaseItems:[],chaseAccepted:{},chaseSelected:null,
   searchTerm:'',sortKey:'dtcBuy',sortDir:'desc',
   filters:{type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All',deliveryMonth:'All'},
   presMins:{},
@@ -1149,6 +1198,39 @@ function setCurveOverride(sku,level){
   if(A.selectedSKU===sku)render();
 }
 
+// ═══ V9: Chase PO persistence (local, per-user) ═══
+// Chase items are off-plan POs the user manually defines. Stored in localStorage, fingerprint-scoped
+// so they survive refresh but wipe if the underlying CSVs change materially (since OH/sales/store
+// data they depend on would be stale).
+const CHASE_KEY='posizing_chase_items_v1';
+function loadChaseItems(){
+  try{
+    const raw=localStorage.getItem(CHASE_KEY);
+    if(!raw){A.chaseItems=[];return}
+    const parsed=JSON.parse(raw);
+    if(!parsed||typeof parsed!=='object'){A.chaseItems=[];return}
+    const currentFp=computeDataFingerprint();
+    if(parsed.fingerprint!==currentFp){
+      // Data changed — keep the chase definitions (they're user intent) but they'll re-resolve
+      // OH/sales against the new data on next render. We keep them rather than wipe, since the
+      // user explicitly created them; only their derived numbers refresh.
+      A.chaseItems=parsed.items||[];
+      saveChaseItems(); // re-stamp fingerprint
+      return;
+    }
+    A.chaseItems=parsed.items||[];
+  }catch(err){
+    console.warn('Could not load chase items:',err);
+    A.chaseItems=[];
+  }
+}
+function saveChaseItems(){
+  try{
+    const payload={fingerprint:computeDataFingerprint(),items:A.chaseItems,savedAt:new Date().toISOString()};
+    localStorage.setItem(CHASE_KEY,JSON.stringify(payload));
+  }catch(err){console.warn('Could not save chase items:',err)}
+}
+
 async function loadFromCloud(){
   // 1. Load CSV metadata + files
   let cloudCsvMeta={};
@@ -1192,6 +1274,7 @@ async function loadFromCloud(){
   // If any CSV has been re-uploaded since the user last saved adjustments, they're discarded.
   loadCurveAdjustments();
   loadCurveOverrides();
+  loadChaseItems();
   trySeasons();
 }
 
@@ -1225,8 +1308,101 @@ function trySeasons(){
        '<div class="ct ct-conf">Confirmed Buys: '+fmt(cb)+'</div>'+
        '</div>';
   });
+  // V9: Chase module entry — off-plan POs sized on a tighter timeline
+  const chaseCount=(A.chaseItems||[]).length;
+  h+='<div class="s-btn s-btn-chase" onclick="goChase()">'+
+     '<div class="code">⚡ Chase</div>'+
+     '<div class="ct">Off-plan POs</div>'+
+     '<div class="ct ct-chase">'+(chaseCount?fmt(chaseCount)+' chase item'+(chaseCount===1?'':'s'):'None yet')+'</div>'+
+     '</div>';
   el.innerHTML=h+'</div>';
 }
+
+// ═══ V9: Chase module ═══
+function goChase(){
+  if(!ensureDataMaps()){toast('Upload all 4 data sources first');return}
+  A.module='chase';A.view='grid';A.chaseSelected=null;A.selectedSKU=null;
+  document.getElementById('welcome').classList.add('hidden');
+  document.getElementById('dash').classList.add('active');
+  document.getElementById('slbl').textContent='Chase';
+  render();
+  const dp=document.getElementById('division-pills');if(dp)dp.innerHTML='';
+}
+
+let chaseForm=null; // transient form state while the Add/Edit Chase modal is open
+
+function openChaseForm(editId){
+  ensureDataMaps();
+  if(editId){
+    const ci=(A.chaseItems||[]).find(c=>c.id===editId);
+    if(ci)chaseForm={...ci,skuQuery:ci.sku,editId};
+    else chaseForm=blankChaseForm();
+  } else {
+    chaseForm=blankChaseForm();
+  }
+  renderChaseForm();
+}
+function blankChaseForm(){
+  return{skuQuery:'',sku:'',season:'',deliveryMonth:'',dtcBuy:'',retailBuy:'',onlineBuy:'',sizeScale:'',storeTier:'',storeCount:0,editId:null};
+}
+function closeChaseForm(){chaseForm=null;render()}
+
+function chaseFormSetSku(sku){
+  chaseForm.sku=sku;chaseForm.skuQuery=sku;
+  renderChaseForm();
+}
+function chaseFormField(field,val){
+  chaseForm[field]=val;
+  // When season changes, the store-group list changes; re-render
+  if(field==='season'||field==='storeTier')renderChaseForm();
+}
+function chaseFormSetStoreTier(tier){
+  chaseForm.storeTier=tier;
+  const groups=getStoreGroupsForSeason(chaseForm.season);
+  chaseForm.storeCount=(groups&&groups[tier])||0;
+  renderChaseForm();
+}
+
+function saveChaseForm(){
+  const f=chaseForm;
+  if(!f.sku){toast('Select a SKU');return}
+  if(!f.season){toast('Select a season');return}
+  if(!f.deliveryMonth){toast('Select a delivery month');return}
+  if(!f.sizeScale){toast('Select a size scale');return}
+  if(!f.storeTier){toast('Select a store group');return}
+  const dtc=numP(f.dtcBuy);
+  if(dtc<=0){toast('Enter a buy quantity');return}
+  let retail=f.retailBuy===''||f.retailBuy==null?null:numP(f.retailBuy);
+  let online=f.onlineBuy===''||f.onlineBuy==null?null:numP(f.onlineBuy);
+  const groups=getStoreGroupsForSeason(f.season);
+  const storeCount=(groups&&groups[f.storeTier])||f.storeCount||0;
+  const item={
+    id:f.editId||('chase_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)),
+    sku:f.sku,season:f.season,deliveryMonth:f.deliveryMonth,
+    dtcBuy:dtc,retailBuy:retail,onlineBuy:online,
+    sizeScale:f.sizeScale,storeTier:f.storeTier,storeCount
+  };
+  if(f.editId){
+    const idx=A.chaseItems.findIndex(c=>c.id===f.editId);
+    if(idx>=0)A.chaseItems[idx]=item;else A.chaseItems.push(item);
+  } else {
+    A.chaseItems.push(item);
+  }
+  saveChaseItems();
+  chaseForm=null;
+  toast('Chase PO saved');
+  render();
+}
+function deleteChaseItem(id){
+  if(!confirm('Delete this Chase PO?'))return;
+  A.chaseItems=A.chaseItems.filter(c=>c.id!==id);
+  delete A.chaseAccepted[id];
+  saveChaseItems();
+  if(A.chaseSelected===id){A.chaseSelected=null;A.view='grid'}
+  toast('Chase PO deleted');
+  render();
+}
+function goChaseDetail(id){A.chaseSelected=id;A.view='detail';render()}
 
 function goSeason(s){
   const sameSeason=A.activeSeason===s;
@@ -1256,6 +1432,7 @@ function processData(){
   c.sS=findCol(sales[0],['SKU']);c.sZ=findCol(sales[0],['Size']);c.sU=findCol(sales[0],['Net Sales Units - TY','Net Sales Units']);
   c.sD=findCol(sales[0],['Merchandise Division','Division','Department']);c.sC=findCol(sales[0],['Category']);
   c.sSC=findCol(sales[0],['Sub-Category','SubCategory','Subcategory']);c.sSD=findCol(sales[0],['Style Description']);
+  c.sCD=findCol(sales[0],['Color Description']);
   c.sLT=findCol(sales[0],['Location Type']);
   c.sWk=findCol(sales[0],['Week']);                                  // V7.8: weekly breakdown for weeksLive
   c.sSeg=findCol(sales[0],['Product Segmentation','Segmentation']);   // V7.8: segment level
@@ -1289,6 +1466,7 @@ function processData(){
   const salI={},hS={},hSr={},hSo={};A.salSKU={};A.salSKURet={};A.salSKUOnline={};
   const hierSkus={};  // V8.3: hierarchy key -> Set<sku> with sales > 0 (denominator for parent-rate fallback)
   const skuWeeks={};         // SKU -> Set<weekLabel> with sales > 0
+  A.salSkuMeta={};           // V9: SKU -> {division,category,subcategory,segment,styleDescription,colorDescription, sizes:Set}
   const hasWeekCol=c.sWk!==null&&c.sWk!==undefined;
   const hasSegCol=c.sSeg!==null&&c.sSeg!==undefined;
   sales.forEach(r=>{
@@ -1300,6 +1478,16 @@ function processData(){
     A.salSKU[sku]=(A.salSKU[sku]||0)+u;
     if(isRetail)A.salSKURet[sku]=(A.salSKURet[sku]||0)+u;
     if(isOnline)A.salSKUOnline[sku]=(A.salSKUOnline[sku]||0)+u;
+    // V9: capture SKU identity (raw-case for display) for Chase SKU lookup
+    if(!A.salSkuMeta[sku]){
+      A.salSkuMeta[sku]={
+        division:r[c.sD]||'',category:r[c.sC]||'',subcategory:r[c.sSC]||'',
+        segment:hasSegCol?(r[c.sSeg]||''):'',
+        styleDescription:r[c.sSD]||'',colorDescription:c.sCD!=null?(r[c.sCD]||''):'',
+        sizes:new Set()
+      };
+    }
+    if(sz)A.salSkuMeta[sku].sizes.add(sz);
     // weeksLive tracking — only count weeks where this SKU had ANY sales (>0)
     if(hasWeekCol&&u>0){
       const wk=String(r[c.sWk]||'').trim();
@@ -1327,6 +1515,8 @@ function processData(){
     });
   });
   A.hierSales=hS;A.hierSalesRet=hSr;A.hierSalesOnline=hSo;
+  A.invSKU=invI;          // V9: SKU -> {size:onHand} for Chase inventory lookup
+  A.salSKUbySize=salI;    // V9: SKU -> {size:sales} for Chase sales lookup
   // Convert weeks sets into per-SKU counts with the V7.8 minimum-4 floor
   A.skuWeeksLive={};
   for(const sku in skuWeeks){
@@ -1379,6 +1569,7 @@ function processData(){
     wipI[sku].byDateAgg[dKey].sizes[sz]=(wipI[sku].byDateAgg[dKey].sizes[sz]||0)+qty;
     wipI[sku].byDateAgg[dKey].total+=qty;
   });
+  A.wipSKU=wipI;  // V9: SKU -> {bySize, byDateAgg} for Chase WIP lookup
 
   A.skus={};
   ll.filter(r=>{
@@ -1436,6 +1627,128 @@ function processData(){
            div:'div|'+div.toLowerCase()}
     };
   });
+}
+
+// V9: ensure the SKU-keyed data maps (invSKU, salSKUbySize, wipSKU, salSkuMeta, hier*) are built.
+// These are populated as a side-effect of processData. For Chase we may need them without an active
+// season, so we run processData once if the maps are missing. processData with no active season
+// simply yields an empty A.skus, which is harmless.
+function ensureDataMaps(){
+  if(!allUp())return false;
+  if(!A.salSkuMeta||!A.invSKU||!A.wipSKU){
+    const savedSeason=A.activeSeason;
+    processData();
+    A.activeSeason=savedSeason;
+  }
+  return true;
+}
+
+// ═══ V9: Chase PO helpers ═══
+
+// Extract distinct store groups (tier name → store count) from a given season's linelist rows.
+// Returns null if the season has no rows in the current linelist (caller should prompt for reupload).
+function getStoreGroupsForSeason(seasonCode){
+  if(!A.raw||!A.raw.linelist)return null;
+  const ll=A.raw.linelist;
+  const c={};
+  c.lSe=findCol(ll[0],['Season Code']);
+  c.lTr=findCol(ll[0],['Store Tier','Tier','Store Group']);
+  c.lSn=findCol(ll[0],['Store Count','Stores','# Stores','Number of Stores']);
+  const groups={};let anyRow=false;
+  ll.forEach(r=>{
+    if(r[c.lSe]!==seasonCode)return;
+    anyRow=true;
+    const tier=String(r[c.lTr]||'').trim();
+    if(!tier)return;
+    const cnt=numP(r[c.lSn]);
+    // Keep the max store count seen for a tier (tiers should be consistent, but be safe)
+    if(!groups[tier]||cnt>groups[tier])groups[tier]=cnt;
+  });
+  if(!anyRow)return null; // season not present in current linelist
+  return groups;
+}
+
+// Distinct season codes present in the current linelist
+function getLinelistSeasons(){
+  if(!A.raw||!A.raw.linelist)return [];
+  const ll=A.raw.linelist;
+  const sc=findCol(ll[0],['Season Code']);
+  const set=new Set();
+  ll.forEach(r=>{const s=r[sc];if(s)set.add(s)});
+  return [...set].sort();
+}
+
+// SKU codes present in the L52W sales import (for the Chase SKU search)
+function searchSalesSkus(query,limit){
+  limit=limit||20;
+  if(!A.salSkuMeta)return [];
+  const q=(query||'').trim().toUpperCase();
+  const out=[];
+  for(const sku in A.salSkuMeta){
+    if(!q||sku.toUpperCase().includes(q)){
+      const m=A.salSkuMeta[sku];
+      out.push({sku,styleDescription:m.styleDescription,colorDescription:m.colorDescription,category:m.category});
+      if(out.length>=limit)break;
+    }
+  }
+  return out;
+}
+
+// Build a synthetic SKU record from a Chase item definition, identical in shape to a seasonal
+// record so the entire downstream engine (curve, BOP, flows, channel split, export) works unchanged.
+function buildChaseRecord(chase){
+  const scale=chase.sizeScale;
+  let sizes=[];
+  if(A.presMinsMeta[scale]&&A.presMinsMeta[scale].sizes)sizes=[...A.presMinsMeta[scale].sizes].sort(ssort);
+  const meta=(A.salSkuMeta&&A.salSkuMeta[chase.sku])||{};
+  const div=meta.division||'',cat=meta.category||'',sub=meta.subcategory||'',seg=meta.segment||'';
+  const prog=meta.styleDescription||chase.sku;
+  // Inventory + sales + WIP pulled by SKU code (same source as seasonal SKUs)
+  const sI=(A.invSKU&&A.invSKU[chase.sku])||{};
+  const sS=(A.salSKUbySize&&A.salSKUbySize[chase.sku])||{};
+  const wipRec=(A.wipSKU&&A.wipSKU[chase.sku])||{bySize:{},byDateAgg:{}};
+  let tOH=0,tSl=0,tWIP=0;const sd={};
+  sizes.forEach(s=>{
+    const oh=sI[s]||0,sl=sS[s]||0,wo=(wipRec.bySize&&wipRec.bySize[s])||0;
+    sd[s]={onHand:oh,sales:sl,wipOrd:wo};
+    tOH+=oh;tSl+=sl;tWIP+=wo;
+  });
+  const dtcBuy=chase.dtcBuy||0;
+  // Channel split: use provided, else 50/50
+  let retailBuy=chase.retailBuy,onlineBuy=chase.onlineBuy;
+  if(retailBuy==null||onlineBuy==null||retailBuy===''||onlineBuy===''){
+    retailBuy=Math.round(dtcBuy/2);onlineBuy=dtcBuy-retailBuy;
+  }
+  // APS: derive from the SKU's own historical sales over weeksLive and store count (best-effort)
+  const weeksLive=(A.skuWeeksLive&&A.skuWeeksLive[chase.sku])||(A.hasWeeklyData?4:52);
+  const stCt=chase.storeCount||0;
+  const salesRet=A.salSKURet[chase.sku]||0,salesOnline=A.salSKUOnline[chase.sku]||0;
+  const apsRetail=(stCt>0&&weeksLive>0)?(salesRet/weeksLive/stCt):0;
+  const apsOnline=(weeksLive>0)?(salesOnline/weeksLive):0;
+  return{
+    sku:chase.sku,isChase:true,chaseId:chase.id,
+    season:chase.season,division:div,category:cat,subcategory:sub,segment:seg,
+    style:'',styleDescription:prog,
+    colorCode:'',colorDescription:meta.colorDescription||'',
+    sizeScale:scale,sizeCount:A.scaleSizeCount[scale]||sizes.length,
+    dtcBuy,retailBuy,onlineBuy,
+    apsRetail,apsOnline,apsTotal:apsRetail+apsOnline,
+    storeCount:stCt,storeTier:chase.storeTier||'',
+    lifecycle:'',commitCoding:'',buyStatus:'Chase',
+    rollout:'',pst:'',deliveryMonth:chase.deliveryMonth||'',
+    sizingType:'cf', // Chase is always carryforward by nature
+    sizes,sizeData:sd,
+    totalOH:tOH,totalSales:tSl,totalWIP:tWIP,
+    skuSalesTotal:A.salSKU[chase.sku]||0,
+    skuSalesRetail:salesRet,skuSalesOnline:salesOnline,
+    weeksLive,
+    wipByDate:wipRec.byDateAgg||{},
+    _hk:{prog:'prog|'+div.toLowerCase()+'|'+cat.toLowerCase()+'|'+sub.toLowerCase()+'|'+prog.toLowerCase(),
+         seg:seg?'seg|'+div.toLowerCase()+'|'+cat.toLowerCase()+'|'+sub.toLowerCase()+'|'+seg.toLowerCase():null,
+         sub:'sub|'+div.toLowerCase()+'|'+cat.toLowerCase()+'|'+sub.toLowerCase(),
+         cat:'cat|'+div.toLowerCase()+'|'+cat.toLowerCase(),
+         div:'div|'+div.toLowerCase()}
+  };
 }
 
 // ═══ SIZE CURVE ═══
@@ -2426,13 +2739,25 @@ function computeAlloc(rec){
 
 // ═══ NAV ═══
 function goDetail(sku){A.selectedSKU=sku;A.view='detail';A.module=null;A.chartMetrics=null;render()}
-function goGrid(){A.selectedSKU=null;A.view='grid';A.module=null;render()}
+function goGrid(){
+  // Chase-aware: in the chase module, return to the chase grid (not the season grid)
+  if(A.module==='chase'){A.chaseSelected=null;A.view='grid';A.flowsModalSku=null;render();return}
+  A.selectedSKU=null;A.view='grid';A.module=null;render();
+}
 function goModule(m){A.module=m;document.getElementById('welcome').classList.add('hidden');document.getElementById('dash').classList.add('active');document.getElementById('slbl').textContent=A.activeSeason||'';render()}
 function goBackFromModule(){A.module=null;if(!A.activeSeason){backToWelcome()}else{render()}}
-function backToWelcome(){document.getElementById('dash').classList.remove('active');document.getElementById('welcome').classList.remove('hidden');A.view='grid';A.module=null;trySeasons();const el=document.getElementById('exp-ct');if(el)el.textContent='';const dp=document.getElementById('division-pills');if(dp)dp.innerHTML=''}
+function backToWelcome(){document.getElementById('dash').classList.remove('active');document.getElementById('welcome').classList.remove('hidden');A.view='grid';A.module=null;A.chaseSelected=null;trySeasons();const el=document.getElementById('exp-ct');if(el)el.textContent='';const dp=document.getElementById('division-pills');if(dp)dp.innerHTML=''}
 function setOvr(sku,sz,v){if(!A.overrides[sku])A.overrides[sku]={};A.overrides[sku][sz]=parseInt(v)||0;render()}
 function clrOvr(sku){delete A.overrides[sku];render()}
-function toggleAcc(sku){A.accepted[sku]?delete A.accepted[sku]:A.accepted[sku]=true;updateExpCt();render()}
+function toggleAcc(sku){
+  // Chase-aware: chase items track acceptance by chaseId (passed as sku here when in chase detail)
+  if(A.module==='chase'&&A.chaseSelected){
+    const id=A.chaseSelected;
+    A.chaseAccepted[id]?delete A.chaseAccepted[id]:A.chaseAccepted[id]=true;
+    render();return;
+  }
+  A.accepted[sku]?delete A.accepted[sku]:A.accepted[sku]=true;updateExpCt();render();
+}
 function toggleAccGrid(sku){A.accepted[sku]?delete A.accepted[sku]:A.accepted[sku]=true;updateExpCt();renderGridCards()}
 function massAccept(){
   const list=getFiltered();
@@ -2448,7 +2773,11 @@ function massUnaccept(){
 }
 function toggleWipExpand(sku){A.expandedWipSku=A.expandedWipSku===sku?null:sku;render()}
 function toggleChannelExpand(sku){A.expandedChannelSku=A.expandedChannelSku===sku?null:sku;render()}
-function openFlowsModal(sku){A.flowsModalSku=sku;render()}
+function openFlowsModal(sku){
+  // In chase detail, key the modal by the selected chaseId (sku codes aren't unique across chase items)
+  if(A.module==='chase'&&A.chaseSelected){A.flowsModalSku=A.chaseSelected;render();return}
+  A.flowsModalSku=sku;render();
+}
 function closeFlowsModal(){A.flowsModalSku=null;render()}
 function updateExpCt(){const n=Object.keys(A.accepted).length;const el=document.getElementById('exp-ct');if(el)el.textContent=n>0?n+' accepted':'';const btn=document.getElementById('exp-btn');if(btn)btn.disabled=n===0}
 
@@ -2651,16 +2980,125 @@ function exportCSV(){
   XLSX.writeFile(wb,'PO_Sizing_'+A.activeSeason+'.xlsx');
 }
 
+// ═══ V9: Chase export — same 3-tab workbook, scoped to accepted Chase POs ═══
+function exportChase(){
+  const acceptedItems=(A.chaseItems||[]).filter(ci=>A.chaseAccepted[ci.id]);
+  if(!acceptedItems.length){toast('No accepted Chase POs to export');return}
+
+  const SIZE_COLS=SIZE_DEFS.map(d=>d.col);
+  const INFO_COLS=['SIZING TYPE','Year','Season Code','Department','SKU','Location','Delivery','Customer','From Sales Tier','Sales Tier','Sizing Tab Total','Unit Variance','Total'];
+  const sectionRow=[];
+  INFO_COLS.forEach(()=>sectionRow.push('Info'));
+  SIZE_DEFS.forEach(d=>sectionRow.push(d.sec==='kidsOS'?'Kids & OS':'Mens & Womens'));
+  const headerRow=[...INFO_COLS,...SIZE_COLS];
+  const aoaGlobals=[sectionRow.slice(),headerRow.slice()];
+  const aoaFlows=[sectionRow.slice(),headerRow.slice()];
+  const CHANNEL_HEADER=['SKU','Division','Category','Style Description','Color Description','Size','Retail Units','Online Units','Total DTC Units'];
+  const aoaChannel=[CHANNEL_HEADER.slice()];
+
+  // makeRow variant that takes the season/year per-item (chase items can span seasons)
+  function makeRow(r,sku,sizeMap,total,salesTier,delivery,season){
+    const tl=r.sizingType==='initials'?'Initials PO':'CF PO';
+    const yrMatch=(season||'').match(/(\d{2})$/);
+    const year=yrMatch?'20'+yrMatch[1]:'2026';
+    const divLower=(r.division||'').toLowerCase();
+    const catLower=(r.category||'').toLowerCase();
+    const isKidsLike=divLower.includes('kid')||divLower.includes('children')||divLower.includes('child');
+    const isOSLike=(r.sizes||[]).some(s=>s==='OS');
+    const isMens=divLower.includes('men')&&!divLower.includes('women');
+    const isMensTailored=isMens&&catLower==='tailored';
+    const sizeVals=SIZE_DEFS.map(def=>{
+      const lookupKey=def.match!==undefined?def.match:def.col;
+      const matchedSku=Object.keys(sizeMap).find(k=>k.toUpperCase()===String(lookupKey).toUpperCase());
+      if(!matchedSku)return '';
+      if(def.sec==='kidsOS'){
+        if(def.kidsMatch&&!isKidsLike)return '';
+        if(!def.kidsMatch&&!isKidsLike&&!isOSLike)return '';
+      }
+      if(def.sec==='mw'&&isKidsLike&&!isOSLike)return '';
+      if(def.tailored){if(!isMensTailored)return ''}
+      else if(isMensTailored&&/^(36|38|40|42|44|46|48|50)$/.test(def.col))return '';
+      const v=sizeMap[matchedSku];
+      return(v===0||v==null||v==='')?'':v;
+    });
+    return[tl,year,season||'',r.division,sku,'DTC',delivery,'','Chase',salesTier,'','',total,...sizeVals];
+  }
+
+  acceptedItems.forEach(ci=>{
+    let r;try{r=buildChaseRecord(ci)}catch(e){return}
+    if(!r||r.dtcBuy<=0)return;
+    const res=computeAlloc(r);if(!res)return;
+    const total=r.sizes.reduce((a,s)=>a+(res.alloc[s]||0),0);
+    const sizeMap={};r.sizes.forEach(s=>{sizeMap[s]=res.alloc[s]||0});
+    const baseDelivery=r.deliveryMonth||'';
+    aoaGlobals.push(makeRow(r,ci.sku,sizeMap,total,'Chase',baseDelivery,ci.season));
+    if(res.flows&&res.flows.count>1&&res.flowSizeBreaks){
+      res.flowSizeBreaks.forEach(fb=>{
+        const flowDelivery=shiftDeliveryMonth(baseDelivery,fb.offset);
+        aoaFlows.push(makeRow(r,ci.sku,fb.sizeBreak,fb.units,fb.label,flowDelivery,ci.season));
+      });
+    } else {
+      aoaFlows.push(makeRow(r,ci.sku,sizeMap,total,'Chase',baseDelivery,ci.season));
+    }
+    if(res.retailAlloc&&res.onlineAlloc){
+      r.sizes.forEach(s=>{
+        const ru=res.retailAlloc[s]||0,ou=res.onlineAlloc[s]||0;
+        aoaChannel.push([ci.sku,r.division||'',r.category||'',r.styleDescription||'',r.colorDescription||'',s,ru,ou,ru+ou]);
+      });
+    } else {
+      aoaChannel.push([ci.sku,r.division||'',r.category||'',r.styleDescription||'',r.colorDescription||'','',(r.retailBuy||0),(r.onlineBuy||0),total]);
+    }
+  });
+
+  const stamp=new Date().toISOString().slice(0,10);
+  if(typeof XLSX==='undefined'){
+    toast('Excel library unavailable — falling back to CSV downloads');
+    function toCsv(aoa){return aoa.map(row=>row.map(v=>{if(v==null)return '';const s=String(v);return(s.includes(',')||s.includes('"')||s.includes('\n'))?'"'+s.replace(/"/g,'""')+'"':s}).join(',')).join('\n')}
+    function dl(text,fn){const b=new Blob([text],{type:'text/csv'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u)}
+    dl(toCsv(aoaGlobals),'Chase_'+stamp+'_Globals.csv');
+    dl(toCsv(aoaFlows),'Chase_'+stamp+'_Flows.csv');
+    dl(toCsv(aoaChannel),'Chase_'+stamp+'_ChannelBuys.csv');
+    return;
+  }
+  const wb=XLSX.utils.book_new();
+  const globalsCols=INFO_COLS.map(c=>({wch:c==='SKU'?14:c==='Style Description'?22:c==='Color Description'?22:c.length+2})).concat(SIZE_COLS.map(()=>({wch:7})));
+  const wsG=XLSX.utils.aoa_to_sheet(aoaGlobals);wsG['!cols']=globalsCols;XLSX.utils.book_append_sheet(wb,wsG,'Globals');
+  const wsF=XLSX.utils.aoa_to_sheet(aoaFlows);wsF['!cols']=globalsCols;XLSX.utils.book_append_sheet(wb,wsF,'Flows');
+  const wsC=XLSX.utils.aoa_to_sheet(aoaChannel);wsC['!cols']=[{wch:14},{wch:14},{wch:18},{wch:30},{wch:24},{wch:10},{wch:13},{wch:13},{wch:15}];XLSX.utils.book_append_sheet(wb,wsC,'Channel Buys');
+  XLSX.writeFile(wb,'Chase_PO_Sizing_'+stamp+'.xlsx');
+}
+
 /* ═══════════════════════════════════════
    PO Sizing V4 — UI Rendering
    ═══════════════════════════════════════ */
 
 function render(){
   const main=document.getElementById('main-area');
+  // V9: remove any stale chase-form overlay if the form isn't open
+  if(typeof chaseForm==='undefined'||!chaseForm){const cfo=document.getElementById('chase-form-overlay');if(cfo)cfo.remove()}
   try{
     if(A.module==='presmins'){renderPresMins(main);return}
     if(A.module==='datasources'){renderDataSources(main);return}
     if(A.module==='changelog'){renderChangelog(main);return}
+    if(A.module==='chase'){
+      // Chase detail view if a chase item is selected, else the chase grid
+      if(A.view==='detail'&&A.chaseSelected){
+        const chase=(A.chaseItems||[]).find(ci=>ci.id===A.chaseSelected);
+        if(chase){
+          const rec=buildChaseRecord(chase);
+          renderDetail(main,rec);
+          if(A.flowsModalSku===chase.id){
+            const overlay=document.createElement('div');
+            overlay.id='flows-modal-overlay';
+            overlay.innerHTML=renderFlowsModal(rec);
+            main.appendChild(overlay);
+          }
+          return;
+        }
+      }
+      renderChaseGrid(main);
+      return;
+    }
     if(A.view==='detail'&&A.selectedSKU&&A.skus[A.selectedSKU]){
       renderDetail(main,A.skus[A.selectedSKU]);
       // Overlay flows modal on top if open
@@ -2939,6 +3377,133 @@ function getFilterOptions(){
   };
 }
 
+// ═══ V9: Chase grid + form rendering ═══
+function renderChaseGrid(el){
+  const items=A.chaseItems||[];
+  let h='<div class="chase-head"><button class="d-back" onclick="backToWelcome()">← Home</button>'+
+    '<div class="chase-title">⚡ Chase POs</div>'+
+    '<button class="btn btn-b" onclick="openChaseForm()">+ Add Chase</button></div>';
+
+  if(!items.length){
+    h+='<div class="chase-empty">No Chase POs yet. Click <b>+ Add Chase</b> to size an off-plan order.</div>';
+  } else {
+    // Export button (reuse the seasonal export, scoped to accepted chase items)
+    const acceptedCount=items.filter(ci=>A.chaseAccepted[ci.id]).length;
+    h+='<div class="chase-toolbar"><span class="chase-count">'+items.length+' chase PO'+(items.length===1?'':'s')+
+      (acceptedCount?' · '+acceptedCount+' accepted':'')+'</span>'+
+      '<button class="btn btn-b btn-sm" onclick="exportChase()"'+(acceptedCount?'':' disabled')+'>Export Accepted Chase</button></div>';
+    h+='<div class="sc-grid">';
+    items.forEach(ci=>{
+      let rec;try{rec=buildChaseRecord(ci)}catch(e){rec=null}
+      const divCls=rec?(rec.division==='Womens'?'div-w':rec.division==='Non-Apparel'?'div-n':'div-m'):'div-m';
+      const accepted=!!A.chaseAccepted[ci.id];
+      let sized=0,total=ci.dtcBuy;
+      if(rec){try{const res=computeAlloc(rec);if(res)sized=rec.sizes.reduce((a,s)=>a+(res.alloc[s]||0),0)}catch(e){}}
+      const matchCls=sized===total?'sc-match':(Math.abs(sized-total)<=2?'sc-near':'sc-off');
+      h+='<div class="sc '+divCls+' chase-card" onclick="goChaseDetail(\''+esc(ci.id)+'\')">'+
+        '<div class="sc-top"><div class="sid">'+esc(ci.sku)+'<span class="chase-badge">CHASE</span></div>'+
+        '<div class="sc-deliv-wrap"><span class="sc-deliv">'+esc(ci.deliveryMonth||'')+'</span></div>'+
+        '<input type="checkbox" class="sc-acc" '+(accepted?'checked':'')+' onclick="event.stopPropagation();toggleChaseAccept(\''+esc(ci.id)+'\')" title="Accept for export"></div>'+
+        '<div class="sc-desc">'+esc(rec?rec.styleDescription:ci.sku)+(rec&&rec.colorDescription?' · '+esc(rec.colorDescription):'')+'</div>'+
+        '<div class="sc-sized '+matchCls+'">'+fmt(sized)+' sized / '+fmt(total)+'</div>'+
+        '<div class="sc-bot"><span class="sc-chip">'+esc(ci.season)+' · '+esc(ci.sizeScale)+' · '+esc(ci.storeTier)+'</span>'+
+        '<button class="chase-del" onclick="event.stopPropagation();deleteChaseItem(\''+esc(ci.id)+'\')" title="Delete">✕</button></div>'+
+        '</div>';
+    });
+    h+='</div>';
+  }
+  el.innerHTML=h;
+}
+
+function toggleChaseAccept(id){A.chaseAccepted[id]?delete A.chaseAccepted[id]:A.chaseAccepted[id]=true;render()}
+
+function renderChaseForm(){
+  // Render the form as an overlay on top of the current view
+  let overlay=document.getElementById('chase-form-overlay');
+  if(!overlay){
+    overlay=document.createElement('div');overlay.id='chase-form-overlay';
+    document.body.appendChild(overlay);
+  }
+  const f=chaseForm;
+  if(!f){overlay.remove();return}
+  const seasons=getLinelistSeasons();
+  const scales=Object.keys(A.presMinsMeta||{}).sort();
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  // Store groups depend on selected season
+  let storeGroupHtml='';
+  if(f.season){
+    const groups=getStoreGroupsForSeason(f.season);
+    if(groups===null){
+      storeGroupHtml='<div class="cf-warn">⚠ Season '+esc(f.season)+' is not in the current Linelist. Please reupload the Linelist that includes this season to load its store groups.</div>';
+    } else {
+      const tiers=Object.keys(groups).sort();
+      if(!tiers.length){
+        storeGroupHtml='<div class="cf-warn">No store groups found for '+esc(f.season)+'.</div>';
+      } else {
+        storeGroupHtml='<select class="cf-input" onchange="chaseFormSetStoreTier(this.value)"><option value="">Select store group…</option>'+
+          tiers.map(t=>'<option value="'+esc(t)+'"'+(f.storeTier===t?' selected':'')+'>'+esc(t)+' ('+fmt(groups[t])+' stores)</option>').join('')+'</select>';
+      }
+    }
+  } else {
+    storeGroupHtml='<select class="cf-input" disabled><option>Select a season first…</option></select>';
+  }
+  // SKU search results
+  let skuResults='';
+  if(f.skuQuery&&f.sku!==f.skuQuery){
+    const matches=searchSalesSkus(f.skuQuery,8);
+    if(matches.length){
+      skuResults='<div class="cf-sku-results">'+matches.map(m=>
+        '<div class="cf-sku-opt" onclick="chaseFormSetSku(\''+esc(m.sku)+'\')"><b>'+esc(m.sku)+'</b> <span>'+esc(m.styleDescription||'')+(m.colorDescription?' · '+esc(m.colorDescription):'')+'</span></div>'
+      ).join('')+'</div>';
+    } else {
+      skuResults='<div class="cf-sku-results"><div class="cf-sku-none">No matching SKUs in L52W sales</div></div>';
+    }
+  }
+  // Selected SKU identity preview
+  let skuPreview='';
+  if(f.sku){
+    const m=(A.salSkuMeta&&A.salSkuMeta[f.sku])||{};
+    skuPreview='<div class="cf-sku-preview">'+
+      '<div><b>'+esc(f.sku)+'</b> — '+esc(m.styleDescription||'')+(m.colorDescription?' · '+esc(m.colorDescription):'')+'</div>'+
+      '<div class="cf-sku-attrs">'+esc(m.division||'')+' › '+esc(m.category||'')+' › '+esc(m.subcategory||'')+(m.segment?' › '+esc(m.segment):'')+'</div>'+
+      '</div>';
+  }
+
+  overlay.innerHTML='<div class="cf-modal"><div class="cf-card">'+
+    '<div class="cf-hdr"><h2>'+(f.editId?'Edit':'Add')+' Chase PO</h2><button class="cf-x" onclick="closeChaseForm()">✕</button></div>'+
+    '<div class="cf-body">'+
+      '<label class="cf-label">SKU code <span class="cf-hint">(search items in L52W sales)</span></label>'+
+      '<input class="cf-input" type="text" placeholder="Type to search SKUs…" value="'+esc(f.skuQuery||'')+'" oninput="chaseForm.skuQuery=this.value;renderChaseForm()" '+(f.sku?'':'autofocus')+'>'+
+      skuResults+skuPreview+
+      '<div class="cf-row">'+
+        '<div class="cf-col"><label class="cf-label">Season Code</label>'+
+          '<select class="cf-input" onchange="chaseFormField(\'season\',this.value)"><option value="">Select…</option>'+
+          seasons.map(s=>'<option value="'+esc(s)+'"'+(f.season===s?' selected':'')+'>'+esc(s)+'</option>').join('')+'</select></div>'+
+        '<div class="cf-col"><label class="cf-label">Delivery Month</label>'+
+          '<select class="cf-input" onchange="chaseFormField(\'deliveryMonth\',this.value)"><option value="">Select…</option>'+
+          months.map(mo=>'<option value="'+mo+'"'+(f.deliveryMonth===mo?' selected':'')+'>'+mo+'</option>').join('')+'</select></div>'+
+      '</div>'+
+      '<div class="cf-row">'+
+        '<div class="cf-col"><label class="cf-label">Total DTC Buy</label>'+
+          '<input class="cf-input" type="number" min="0" placeholder="e.g. 800" value="'+esc(f.dtcBuy)+'" oninput="chaseForm.dtcBuy=this.value"></div>'+
+        '<div class="cf-col"><label class="cf-label">Size Scale</label>'+
+          '<select class="cf-input" onchange="chaseFormField(\'sizeScale\',this.value)"><option value="">Select…</option>'+
+          scales.map(sc=>'<option value="'+esc(sc)+'"'+(f.sizeScale===sc?' selected':'')+'>'+esc(sc)+'</option>').join('')+'</select></div>'+
+      '</div>'+
+      '<div class="cf-row">'+
+        '<div class="cf-col"><label class="cf-label">Retail Buy <span class="cf-hint">(optional)</span></label>'+
+          '<input class="cf-input" type="number" min="0" placeholder="blank = 50/50" value="'+esc(f.retailBuy)+'" oninput="chaseForm.retailBuy=this.value"></div>'+
+        '<div class="cf-col"><label class="cf-label">Online Buy <span class="cf-hint">(optional)</span></label>'+
+          '<input class="cf-input" type="number" min="0" placeholder="blank = 50/50" value="'+esc(f.onlineBuy)+'" oninput="chaseForm.onlineBuy=this.value"></div>'+
+      '</div>'+
+      '<label class="cf-label">Store Group <span class="cf-hint">(from selected season\'s Linelist)</span></label>'+
+      storeGroupHtml+
+    '</div>'+
+    '<div class="cf-foot"><button class="btn btn-g" onclick="closeChaseForm()">Cancel</button>'+
+      '<button class="btn btn-b" onclick="saveChaseForm()">'+(f.editId?'Save Changes':'Add Chase PO')+'</button></div>'+
+  '</div></div>';
+}
+
 function renderGrid(el){
   const fo=getFilterOptions();
   const{divs,cats,subs,scales,commits,dms,ssOptions,stOptions,typeOptions,accOptions}=fo;
@@ -3180,7 +3745,8 @@ function renderDetail(el,rec){
     retailCurve,onlineCurve,retailCurveResult,onlineCurveResult,
     retailPool,onlinePool,useChannelSplit,flows,flowSizeBreaks}=res;
   const isCF=rec.sizingType==='cf';
-  const locked=A.accepted[rec.sku]||false;
+  const locked=rec.isChase?(A.chaseAccepted[rec.chaseId]||false):(A.accepted[rec.sku]||false);
+  const backLabel=rec.isChase?'Chase':esc(A.activeSeason);
   const wks=useBOP?wtr:deliveryToWeeks(rec.deliveryMonth,rec.season);
   const metrics=getChartMetrics(useBOP);
 
@@ -3514,6 +4080,7 @@ function renderDetail(el,rec){
     adjBar='<div class="ca-bar">'+adjMsg+'<div class="ca-bar-actions">'+adjBtns+'</div></div>';
   }
   const flowsBtn=flows.eligible&&flows.count>1?'<button class="btn btn-pk btn-sm" onclick="openFlowsModal(\''+esc(rec.sku)+'\')" title="View flow breakdown">Flows ('+flows.count+')</button>':'';
+  const chaseEditBtn=rec.isChase?'<button class="btn btn-g btn-sm" onclick="openChaseForm(\''+esc(rec.chaseId)+'\')" title="Edit this Chase PO">✎ Edit Chase</button>':'';
   const skuL52W=rec.skuSalesTotal;
   const totalBOPv=useBOP?totBOP:0;
   const apsR=rec.apsRetail||0,apsO=rec.apsOnline||0;
@@ -3534,10 +4101,10 @@ function renderDetail(el,rec){
   }
 
   el.innerHTML='<div class="dv anim">'+
-    '<button class="d-back" onclick="goGrid()">← Back to '+esc(A.activeSeason)+'</button>'+
+    '<button class="d-back" onclick="goGrid()">← Back to '+backLabel+'</button>'+
     mismatchBanner+
-    '<div class="detail-sticky"><div class="ds-row1"><div class="ds-left"><h2>'+esc(rec.sku)+'</h2><span class="bdg '+(isCF?'bdg-cf':'bdg-in')+'">'+rec.sizingType.toUpperCase()+'</span></div>'+
-    '<div class="ds-right">'+resetBtn+flowsBtn+lockBtn+'</div></div>'+
+    '<div class="detail-sticky"><div class="ds-row1"><div class="ds-left"><h2>'+esc(rec.sku)+'</h2><span class="bdg '+(isCF?'bdg-cf':'bdg-in')+'">'+rec.sizingType.toUpperCase()+'</span>'+(rec.isChase?'<span class="chase-badge">CHASE</span>':'')+'</div>'+
+    '<div class="ds-right">'+chaseEditBtn+resetBtn+flowsBtn+lockBtn+'</div></div>'+
     '<div class="ds-name">'+esc(rec.styleDescription||'')+(rec.colorDescription?' · <span class="ds-color">'+esc(rec.colorDescription)+'</span>':'')+'</div>'+
     '<div class="attr-row">'+attrPills(rec)+'</div>'+
     '<div class="metric-row">'+
