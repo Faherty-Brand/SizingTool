@@ -480,7 +480,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V9.3 · CURVE OVERWRITES</div>
+<div class="version-tag">V9.3.1 · DECIMAL FIX</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -1049,6 +1049,9 @@ function findCol(row,cands){
 }
 
 function numP(v){if(!v)return 0;return parseInt(String(v).replace(/[^0-9\-]/g,''),10)||0}
+// V9.3: decimal-aware parse (keeps the decimal point). Use for percentages and any fractional input.
+// numP strips the dot and truncates (fine for unit counts, wrong for 27.5%).
+function numF(v){if(v===0)return 0;if(!v)return 0;return parseFloat(String(v).replace(/[^0-9.\-]/g,''))||0}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function fmt(n){return n.toLocaleString()}
 function pct(n){return(n*100).toFixed(1)+'%'}
@@ -1904,7 +1907,7 @@ async function handleCurveImportFile(file){
       const cat=String(r[ci.cat]||'').trim();
       const chan=String(r[ci.chan]||'').trim();
       const size=String(r[ci.size]||'').trim();
-      const pct=numP(r[ci.pct]);
+      const pct=numF(r[ci.pct]);
       if(!div&&!scale&&!cat&&!size)continue; // blank row
       raw.push({div,scale,cat,chan,size,pct,line:i+1});
     }
