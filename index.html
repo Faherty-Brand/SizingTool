@@ -272,6 +272,40 @@ input,select,button,textarea{font-family:inherit}
 .c-g{color:var(--green)!important}.c-b{color:var(--blue)!important}.c-o{color:var(--orange)!important}.c-r{color:var(--red)!important}.c-n{color:var(--navy)!important}.c-d{color:var(--txt3)!important}.c-t{color:var(--teal)!important}
 .bop-cell{cursor:help;border-bottom:1px dotted var(--teal)!important}
 /* Pres Mins */
+/* V9.3 Size Scales overhaul */
+.pm-grid{margin-top:6px}
+.pm-card-meta{font-family:var(--mono);font-size:10px;color:var(--txt3);margin:3px 0;letter-spacing:.3px}
+.pm-ov-chip{font-family:var(--mono);font-size:9px;font-weight:700;color:#c4572a;background:#fdf3e6;border:1px solid #e0b08a;border-radius:3px;padding:1px 5px}
+.sd-hdr{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.sd-topline{font-family:var(--mono);font-size:12px;color:var(--txt2);font-weight:600;letter-spacing:.3px}
+.sd-section-lbl{font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px}
+.cc-block{border:1px solid var(--bdr-lt);border-radius:var(--r);margin-bottom:8px;overflow:hidden}
+.cc-hdr{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;background:var(--wh);transition:background var(--t)}
+.cc-hdr:hover{background:var(--bg)}
+.cc-caret{font-size:9px;color:var(--txt3);width:10px}
+.cc-cat{font-weight:700;color:var(--navy);font-size:13px}
+.cc-chan{font-family:var(--mono);font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px}
+.cc-chan-retail{background:var(--blue-pl);color:var(--blue)}
+.cc-chan-online{background:#ede7fb;color:#6b4ca8}
+.cc-total{font-family:var(--mono);font-size:10px;color:var(--txt3);margin-left:auto}
+.cc-ov-tag{font-family:var(--mono);font-size:9px;font-weight:700;color:#2e7d32;background:#e6f4e6;border:1px solid #a8d5a8;border-radius:3px;padding:1px 6px}
+.cc-ov-tag.cc-ov-flag{color:#8a6d1e;background:#fdf3c4;border-color:#e0c349}
+.cc-tbl{width:100%;border-collapse:collapse;font-size:11px;background:var(--bg)}
+.cc-tbl th,.cc-tbl td{padding:5px 7px;text-align:center;border-bottom:1px solid var(--bdr-lt);font-family:var(--mono);font-size:10px}
+.cc-tbl th{color:var(--txt3);font-weight:700;background:var(--wh)}
+.cc-tbl th:first-child,.cc-tbl td.cc-src{text-align:left;font-family:var(--sans);color:var(--txt2)}
+.cc-units td{color:var(--txt3)}
+.cc-tot{font-weight:700;color:var(--navy)}
+.cc-ovrow td{background:#e6f4e6}
+.cc-ovrow-flag td{background:#fdf3c4}
+.cc-tot-flag{color:#8a6d1e}
+.cc-by{font-family:var(--mono);font-size:8px;color:var(--txt3);font-weight:400}
+.ci-report{margin:10px 0;padding:10px 14px;border-radius:var(--r);font-size:12px;line-height:1.5}
+.ci-report ul{margin:5px 0 0;padding-left:18px}
+.ci-report.ci-err{background:#fdecea;border:1px solid #e0a8a0;color:#a03228}
+.ci-report.ci-warn{background:#fdf3c4;border:1px solid #e0c349;color:#8a6d1e}
+.ci-report.ci-ok{background:#e6f4e6;border:1px solid #a8d5a8;color:#2e7d32}
+.ci-report.ci-info{background:var(--blue-pl);border:1px solid var(--blue-md);color:var(--blue)}
 .pm-page{padding:24px 28px 60px}.pm-actions{display:flex;gap:8px;margin-bottom:16px}
 .pm-cards{display:flex;flex-direction:column;gap:12px}
 .pm-card{background:var(--wh);border:1px solid var(--bdr-lt);border-radius:var(--rl);padding:18px;overflow-x:auto;position:relative}
@@ -339,10 +373,12 @@ input,select,button,textarea{font-family:inherit}
 .cl-row.cl-expandable:hover{background:var(--sand-lt);border-color:var(--bdr)}
 .cl-row.cl-cat-csv{border-left-color:var(--orange)}
 .cl-row.cl-cat-pm{border-left-color:var(--blue)}
+.cl-row.cl-cat-curve{border-left-color:#2e7d32}
 .cl-row-main{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .cl-cat-tag{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.6px;padding:2px 7px;border-radius:3px;flex-shrink:0}
 .cl-cat-tag.cl-cat-csv{background:var(--orange-pl);color:var(--orange)}
 .cl-cat-tag.cl-cat-pm{background:var(--blue-pl);color:var(--blue)}
+.cl-cat-tag.cl-cat-curve{background:#e6f4e6;color:#2e7d32}
 .cl-actor{font-weight:700;color:var(--navy);font-size:13px;flex-shrink:0}
 .cl-summary{color:var(--txt);font-size:12px;flex:1;min-width:200px}
 .cl-time{font-family:var(--mono);font-size:10px;color:var(--txt3);flex-shrink:0;letter-spacing:.3px}
@@ -444,7 +480,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V9.2 · CHASE SEARCH</div>
+<div class="version-tag">V9.3 · CURVE OVERWRITES</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -461,7 +497,7 @@ input,select,button,textarea{font-family:inherit}
 
 <div id="welcome">
   <div class="w-nav">
-    <button class="pm-link" onclick="goModule('presmins')">⚙ Pres Mins</button>
+    <button class="pm-link" onclick="goModule('presmins')">⚙ Size Scales</button>
     <button class="pm-link" onclick="goModule('datasources')">📊 Data Sources</button>
     <button class="pm-link" onclick="goModule('changelog')">📜 Changelog</button>
     <div style="flex:1"></div>
@@ -486,7 +522,7 @@ input,select,button,textarea{font-family:inherit}
     <div class="top-r">
       <span class="exp-ct" id="exp-ct"></span>
       <button class="btn btn-g" onclick="backToWelcome()">Return to Homepage</button>
-      <button class="btn btn-g" onclick="goModule('presmins')">⚙ Pres Mins</button>
+      <button class="btn btn-g" onclick="goModule('presmins')">⚙ Size Scales</button>
       <button class="btn btn-b" id="exp-btn" onclick="exportCurrent()" disabled>Export Accepted</button>
     </div>
   </div>
@@ -629,6 +665,52 @@ async function cloudDeletePresMin(scaleName){
   if(error)throw error;
 }
 
+// ═══ Cloud: Curve Overrides (V9.3) ═══
+// Each row is a concrete (division, size_scale, category, channel, size) cell with a percent.
+// "ALL" category imports are expanded to per-category rows at import time, so stored rows are
+// always concrete categories. Channel is 'Retail' | 'Online' (ALL-channel imports expand to both).
+// Table schema (run in Supabase SQL editor):
+//   create table curve_overrides (
+//     id uuid primary key default gen_random_uuid(),
+//     division text not null,
+//     size_scale text not null,
+//     category text not null,
+//     channel text not null,            -- 'Retail' | 'Online'
+//     curve jsonb not null,             -- { size: percent, ... } percents 0..100
+//     raw_sum numeric,                  -- sum of percents as imported (for the <100 yellow flag)
+//     updated_by_email text, updated_by_name text,
+//     updated_at timestamptz default now(),
+//     unique(division, size_scale, category, channel)
+//   );
+//   alter table curve_overrides enable row level security;
+//   create policy "read curve_overrides" on curve_overrides for select to authenticated using (true);
+//   create policy "write curve_overrides" on curve_overrides for all to authenticated using (true) with check (true);
+//   grant all on curve_overrides to authenticated;
+async function cloudListCurveOverrides(){
+  const{data,error}=await SUPA.from('curve_overrides').select('*');
+  if(error)throw error;
+  return data||[];
+}
+// Upsert one concrete cell (one category+channel curve). curve is {size:pct}.
+async function cloudSaveCurveOverride(division,sizeScale,category,channel,curve,rawSum){
+  const{error}=await SUPA.from('curve_overrides').upsert({
+    division,size_scale:sizeScale,category,channel,curve,raw_sum:rawSum,
+    updated_by_email:Auth.email,updated_by_name:Auth.displayName,updated_at:new Date().toISOString()
+  },{onConflict:'division,size_scale,category,channel'});
+  if(error)throw error;
+}
+// Delete all category-specific rows for a scale+channel (used when an ALL import replaces them).
+async function cloudDeleteCurveOverridesForScaleChannel(division,sizeScale,channel){
+  const{error}=await SUPA.from('curve_overrides').delete()
+    .eq('division',division).eq('size_scale',sizeScale).eq('channel',channel);
+  if(error)throw error;
+}
+async function cloudDeleteCurveOverride(division,sizeScale,category,channel){
+  const{error}=await SUPA.from('curve_overrides').delete()
+    .eq('division',division).eq('size_scale',sizeScale).eq('category',category).eq('channel',channel);
+  if(error)throw error;
+}
+
 // ═══ Cloud: Changelog ═══
 async function cloudLogEvent(eventType,category,target,summary,details){
   if(!Auth.email)return; // not signed in, skip
@@ -692,6 +774,18 @@ function setupRealtime(){
         when:newRow.updated_at||new Date().toISOString()
       };
       autoRefresh('pm');
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'curve_overrides'},payload=>{
+      const newRow=payload.new||{};
+      const updatedBy=newRow.updated_by_email||(payload.old&&payload.old.updated_by_email);
+      if(updatedBy===Auth.email)return;
+      _pendingActorByKey['curve:'+(newRow.size_scale||'')]={
+        who:newRow.updated_by_name||'Someone',
+        what:'curve override ('+(newRow.size_scale||'')+')',
+        scale:true,
+        when:newRow.updated_at||new Date().toISOString()
+      };
+      autoRefresh('curve');
     })
     .subscribe();
 }
@@ -1034,6 +1128,7 @@ const A={
   view:'grid',module:null,
   overrides:{},accepted:{},curveAdjustments:{},curveAdjStaged:{},curveOverrides:{},
   chaseItems:[],chaseAccepted:{},chaseSelected:null,
+  curveImports:{},  // V9.3: "div|scale|category|channel" -> {curve:{size:pct}, rawSum, by, at}
   searchTerm:'',sortKey:'dtcBuy',sortDir:'desc',
   filters:{type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All',deliveryMonth:'All'},
   presMins:{},
@@ -1269,6 +1364,18 @@ async function loadFromCloud(){
   }catch(err){
     console.error('cloudListPresMins failed:',err);
   }
+  // 2b. Load Curve Overrides (V9.3) — shared, keyed by div|scale|category|channel
+  try{
+    const rows=await cloudListCurveOverrides();
+    A.curveImports={};
+    rows.forEach(r=>{
+      const key=r.division+'|'+r.size_scale+'|'+r.category+'|'+r.channel;
+      A.curveImports[key]={curve:r.curve||{},rawSum:r.raw_sum,by:r.updated_by_name,at:r.updated_at};
+    });
+  }catch(err){
+    console.warn('cloudListCurveOverrides failed (table may not exist yet):',err);
+    A.curveImports={};
+  }
   // 3. Rebuild derived caches
   A.scaleSizes={};A.scaleSizeCount={};
   if(allUp())buildScaleSizes();
@@ -1467,6 +1574,7 @@ function processData(){
   // V7.8: hierarchy now has Segment level between Program and Subcategory.
   // V7.8: also track weeksLive per SKU = count of distinct weeks with sales > 0
   const salI={},hS={},hSr={},hSo={};A.salSKU={};A.salSKURet={};A.salSKUOnline={};
+  const salIr={},salIo={};  // V9.3: per-SKU per-size sales split by channel
   const hierSkus={};  // V8.3: hierarchy key -> Set<sku> with sales > 0 (denominator for parent-rate fallback)
   const skuWeeks={};         // SKU -> Set<weekLabel> with sales > 0
   A.salSkuMeta={};           // V9: SKU -> {division,category,subcategory,segment,styleDescription,colorDescription, sizes:Set}
@@ -1481,6 +1589,9 @@ function processData(){
     A.salSKU[sku]=(A.salSKU[sku]||0)+u;
     if(isRetail)A.salSKURet[sku]=(A.salSKURet[sku]||0)+u;
     if(isOnline)A.salSKUOnline[sku]=(A.salSKUOnline[sku]||0)+u;
+    // V9.3: channel-split per-SKU per-size sales (for category sales-curve breakdown by channel)
+    if(isRetail){if(!salIr[sku])salIr[sku]={};salIr[sku][sz]=(salIr[sku][sz]||0)+u}
+    if(isOnline){if(!salIo[sku])salIo[sku]={};salIo[sku][sz]=(salIo[sku][sz]||0)+u}
     // V9: capture SKU identity (raw-case for display) for Chase SKU lookup
     if(!A.salSkuMeta[sku]){
       A.salSkuMeta[sku]={
@@ -1520,6 +1631,8 @@ function processData(){
   A.hierSales=hS;A.hierSalesRet=hSr;A.hierSalesOnline=hSo;
   A.invSKU=invI;          // V9: SKU -> {size:onHand} for Chase inventory lookup
   A.salSKUbySize=salI;    // V9: SKU -> {size:sales} for Chase sales lookup
+  A.salSKURetBySize=salIr;    // V9.3: SKU -> {size:retail sales}
+  A.salSKUOnlineBySize=salIo; // V9.3: SKU -> {size:online sales}
   // Convert weeks sets into per-SKU counts with the V7.8 minimum-4 floor
   A.skuWeeksLive={};
   for(const sku in skuWeeks){
@@ -1638,7 +1751,7 @@ function processData(){
 // simply yields an empty A.skus, which is harmless.
 function ensureDataMaps(){
   if(!allUp())return false;
-  if(!A.salSkuMeta||!A.invSKU||!A.wipSKU){
+  if(!A.salSkuMeta||!A.invSKU||!A.wipSKU||!A.salSKURetBySize){
     const savedSeason=A.activeSeason;
     processData();
     A.activeSeason=savedSeason;
@@ -1679,6 +1792,258 @@ function getLinelistSeasons(){
   const set=new Set();
   ll.forEach(r=>{const s=r[sc];if(s)set.add(s)});
   return [...set].sort();
+}
+
+// ═══ V9.3: Curve Override helpers ═══
+// Find the categories that have L52W sales in a given division + size-scale combo.
+// Match rule (per spec C): division matches the sales division AND at least one size overlaps
+// between the scale's configured sizes and the historicals for that division.
+function getCategoriesForScale(division,sizeScale){
+  ensureDataMaps();
+  const meta=A.presMinsMeta[sizeScale];
+  if(!meta)return [];
+  const scaleSizes=new Set((meta.sizes||[]).map(s=>String(s).toUpperCase()));
+  if(!scaleSizes.size||!A.salSkuMeta)return [];
+  const divLc=(division||'').toLowerCase();
+  const cats=new Set();
+  for(const sku in A.salSkuMeta){
+    const m=A.salSkuMeta[sku];
+    if((m.division||'').toLowerCase()!==divLc)continue;
+    // does this SKU have any size overlapping the scale?
+    let overlap=false;
+    for(const sz of m.sizes){if(scaleSizes.has(String(sz).toUpperCase())){overlap=true;break}}
+    if(overlap&&m.category)cats.add(m.category);
+  }
+  return [...cats].sort();
+}
+
+// Compute a category's L52W sales-by-size for a given division+scale+channel.
+// Returns { bySize:{size:units}, total, pctBySize:{size:pct} } restricted to the scale's sizes.
+function getCategorySalesCurve(division,sizeScale,category,channel){
+  ensureDataMaps();
+  const meta=A.presMinsMeta[sizeScale];
+  if(!meta)return{bySize:{},total:0,pctBySize:{}};
+  const sizes=(meta.sizes||[]).map(s=>String(s));
+  const divLc=(division||'').toLowerCase(),catLc=(category||'').toLowerCase();
+  // Pick the right channel-scoped per-SKU sales source
+  const srcBySize=channel==='Retail'?A.salSKURetBySize:channel==='Online'?A.salSKUOnlineBySize:A.salSKUbySize;
+  const bySize={};sizes.forEach(s=>{bySize[s]=0});
+  let total=0;
+  for(const sku in A.salSkuMeta){
+    const m=A.salSkuMeta[sku];
+    if((m.division||'').toLowerCase()!==divLc)continue;
+    if((m.category||'').toLowerCase()!==catLc)continue;
+    const sk=(srcBySize&&srcBySize[sku])||{};
+    sizes.forEach(s=>{const u=sk[s]||0;if(u){bySize[s]+=u;total+=u}});
+  }
+  const pctBySize={};sizes.forEach(s=>{pctBySize[s]=total>0?(bySize[s]/total*100):0});
+  return{bySize,total,pctBySize};
+}
+
+// Look up an active curve override for a category+channel (concrete key). Returns {curve,rawSum,...} or null.
+function getCurveOverride(division,sizeScale,category,channel){
+  const key=division+'|'+sizeScale+'|'+category+'|'+channel;
+  return A.curveImports[key]||null;
+}
+
+// ─── Curve override import: template download ───
+function downloadCurveTemplate(){
+  const header=['Division','Size Scale','Category','Channel','Size','Percent'];
+  // Provide a couple of example rows using a real configured scale if available
+  const rows=[header];
+  const scales=Object.keys(A.presMinsMeta||{});
+  if(scales.length){
+    const sc=scales[0];const meta=A.presMinsMeta[sc];const div=meta.div||'Womens';
+    const sizes=(meta.sizes||[]).slice(0,3);
+    sizes.forEach((s,i)=>rows.push([div,sc,'ALL','ALL',s,i===0?40:i===1?35:25]));
+  } else {
+    rows.push(['Womens','00-16','ALL','ALL','4',40]);
+    rows.push(['Womens','00-16','Dresses','Retail','6',60]);
+  }
+  if(typeof XLSX==='undefined'){
+    const csv=rows.map(r=>r.join(',')).join('\n');
+    const b=new Blob([csv],{type:'text/csv'});const u=URL.createObjectURL(b);
+    const a=document.createElement('a');a.href=u;a.download='Curve_Override_Template.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);
+    return;
+  }
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:12},{wch:18},{wch:10},{wch:12},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws,'Curve Overrides');
+  XLSX.writeFile(wb,'Curve_Override_Template.xlsx');
+}
+
+// ─── Curve override import: parse + validate + apply ───
+async function handleCurveImportFile(file){
+  if(!file)return;
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    if(!rows.length){curveImportReport({errors:['The file is empty.']});return}
+    // Map header
+    const hdr=rows[0].map(h=>String(h).trim().toLowerCase());
+    const ci={
+      div:hdr.findIndex(h=>h==='division'),
+      scale:hdr.findIndex(h=>h==='size scale'||h==='scale'),
+      cat:hdr.findIndex(h=>h==='category'),
+      chan:hdr.findIndex(h=>h==='channel'),
+      size:hdr.findIndex(h=>h==='size'),
+      pct:hdr.findIndex(h=>h==='percent'||h==='percent to scale curve'||h==='pct')
+    };
+    const missing=Object.entries(ci).filter(([k,v])=>v<0).map(([k])=>k);
+    if(missing.length){curveImportReport({errors:['Missing required column(s): '+missing.join(', ')+'. Use the template.']});return}
+
+    // Collect raw rows
+    const raw=[];
+    for(let i=1;i<rows.length;i++){
+      const r=rows[i];if(!r||!r.length)continue;
+      const div=String(r[ci.div]||'').trim();
+      const scale=String(r[ci.scale]||'').trim();
+      const cat=String(r[ci.cat]||'').trim();
+      const chan=String(r[ci.chan]||'').trim();
+      const size=String(r[ci.size]||'').trim();
+      const pct=numP(r[ci.pct]);
+      if(!div&&!scale&&!cat&&!size)continue; // blank row
+      raw.push({div,scale,cat,chan,size,pct,line:i+1});
+    }
+    if(!raw.length){curveImportReport({errors:['No data rows found.']});return}
+
+    // Validate + group into (div|scale|cat|channel) buckets, expanding ALL category/channel
+    const errors=[],warnings=[];
+    // Resolve channel tokens
+    function expandChannels(chan,line){
+      const c=chan.toLowerCase();
+      if(c==='all'||c==='')return['Retail','Online'];
+      if(c==='retail'||c==='r')return['Retail'];
+      if(c==='online'||c==='o'||c==='ecom')return['Online'];
+      errors.push('Line '+line+': unknown channel "'+chan+'" (use Retail, Online, or ALL).');
+      return[];
+    }
+    // First pass: validate every row, and record which (scale|category|channel) blocks are
+    // EXPLICITLY targeted by a specific (non-ALL) category row. A specific block stands entirely
+    // on its own — ALL rows in the same file do NOT bleed into it (per spec: touching a block for
+    // any size means the user is redefining the whole block; unlisted sizes default to 0).
+    const validRows=[];
+    const specificBlocks=new Set(); // "scale|category|channel" explicitly set by a non-ALL row
+    raw.forEach(row=>{
+      const meta=A.presMinsMeta[row.scale];
+      if(!meta){errors.push('Line '+row.line+': size scale "'+row.scale+'" does not exist.');return}
+      const div=meta.div||row.div;
+      if(row.div&&row.div.toLowerCase()!==(meta.div||'').toLowerCase()){
+        warnings.push('Line '+row.line+': division "'+row.div+'" doesn\'t match scale "'+row.scale+'" (configured as '+meta.div+'). Using '+meta.div+'.');
+      }
+      const scaleSizes=(meta.sizes||[]).map(s=>String(s).toUpperCase());
+      if(!scaleSizes.includes(String(row.size).toUpperCase())){
+        errors.push('Line '+row.line+': size "'+row.size+'" is not in scale "'+row.scale+'".');return;
+      }
+      if(row.pct<0){errors.push('Line '+row.line+': percent cannot be negative.');return}
+      const channels=expandChannels(row.chan,row.line);
+      if(!channels.length)return; // bad channel already logged
+      const isAllCat=row.cat.toLowerCase()==='all'||row.cat==='';
+      validRows.push({...row,div,scale:row.scale,channels,isAllCat});
+      if(!isAllCat)channels.forEach(channel=>{specificBlocks.add(row.scale+'|'+row.cat+'|'+channel)});
+    });
+
+    if(errors.length){curveImportReport({errors,warnings});return}
+
+    // Second pass: build buckets.
+    // Bucket: "div|scale|cat|channel" -> { div,scale,cat,channel, curve:{size:pct}, lines:[] }
+    const buckets={};
+    const allScopes=[]; // track ALL-category scopes so we can wipe existing category-specific rows in the cloud
+    validRows.forEach(row=>{
+      row.channels.forEach(channel=>{
+        let cats;
+        if(row.isAllCat){
+          allScopes.push({div:row.div,scale:row.scale,channel,size:row.size,pct:row.pct});
+          // ALL only populates categories NOT explicitly targeted by a specific row in this file
+          cats=getCategoriesForScale(row.div,row.scale).filter(cat=>!specificBlocks.has(row.scale+'|'+cat+'|'+channel));
+          if(!getCategoriesForScale(row.div,row.scale).length){
+            warnings.push('Line '+row.line+': no categories with sales found for '+row.div+' / '+row.scale+'.');
+          }
+        } else {
+          cats=[row.cat];
+        }
+        cats.forEach(cat=>{
+          const k=row.div+'|'+row.scale+'|'+cat+'|'+channel;
+          if(!buckets[k])buckets[k]={div:row.div,scale:row.scale,cat,channel,curve:{},isAllCat:row.isAllCat,lines:[]};
+          buckets[k].curve[row.size]=row.pct;
+          buckets[k].lines.push(row.line);
+          if(row.isAllCat)buckets[k].isAllCat=true;
+        });
+      });
+    });
+
+    // Validate sums per bucket — reject > 100, flag < 100
+    const toApply=[];
+    for(const k in buckets){
+      const b=buckets[k];
+      const sum=Object.values(b.curve).reduce((a,v)=>a+v,0);
+      if(sum>100.0001){
+        errors.push(b.div+' / '+b.scale+' / '+b.cat+' / '+b.channel+': percentages sum to '+sum.toFixed(1)+'% (exceeds 100%).');
+        continue;
+      }
+      if(sum<99.9999)warnings.push(b.div+' / '+b.scale+' / '+b.cat+' / '+b.channel+': sums to '+sum.toFixed(1)+'% (under 100% — will be flagged as suboptimal).');
+      toApply.push({...b,rawSum:sum});
+    }
+    if(errors.length){curveImportReport({errors,warnings});return}
+    if(!toApply.length){curveImportReport({errors:['Nothing valid to import.'],warnings});return}
+
+    // Apply: ALL-category scopes first wipe existing category-specific rows for that scale+channel,
+    // then we upsert each concrete bucket. Last-write-wins within this file (buckets already merged).
+    curveImportReport({applying:true});
+    const wipedScaleChannels=new Set();
+    for(const sc of allScopes){
+      const wk=sc.div+'|'+sc.scale+'|'+sc.channel;
+      if(wipedScaleChannels.has(wk))continue;
+      wipedScaleChannels.add(wk);
+      try{await cloudDeleteCurveOverridesForScaleChannel(sc.div,sc.scale,sc.channel)}catch(e){console.warn('wipe failed',e)}
+    }
+    let applied=0;
+    for(const b of toApply){
+      try{
+        await cloudSaveCurveOverride(b.div,b.scale,b.cat,b.channel,b.curve,b.rawSum);
+        applied++;
+      }catch(e){errors.push('Failed to save '+b.cat+'/'+b.channel+': '+e.message)}
+    }
+    // Changelog
+    const scopeSummary=[...new Set(toApply.map(b=>b.div+' '+b.scale))].join(', ');
+    await cloudLogEvent('curve_override_import','curve',scopeSummary,
+      'imported '+applied+' curve override'+(applied===1?'':'s')+' ('+scopeSummary+')',
+      {buckets:toApply.map(b=>({scope:b.div+'/'+b.scale+'/'+b.cat+'/'+b.channel,sum:b.rawSum}))});
+    // Reload from cloud so everyone (and we) see the canonical state
+    await loadFromCloud();
+    curveImportReport({success:true,applied,warnings,errors});
+    render();
+  }catch(err){
+    console.error('Curve import failed:',err);
+    curveImportReport({errors:['Import failed: '+err.message]});
+  }
+}
+
+// Render the import result panel (errors/warnings/success) into the size-scales page
+function curveImportReport(state){
+  A._curveImportState=state;
+  const box=document.getElementById('curve-import-report');
+  if(box)box.innerHTML=curveImportReportHtml(state);
+}
+function curveImportReportHtml(state){
+  if(!state)return '';
+  if(state.applying)return '<div class="ci-report ci-info">Applying overrides…</div>';
+  let h='';
+  if(state.errors&&state.errors.length){
+    h+='<div class="ci-report ci-err"><b>Import failed — '+state.errors.length+' error'+(state.errors.length===1?'':'s')+':</b><ul>'+
+      state.errors.map(e=>'<li>'+esc(e)+'</li>').join('')+'</ul></div>';
+  }
+  if(state.warnings&&state.warnings.length){
+    h+='<div class="ci-report ci-warn"><b>'+state.warnings.length+' warning'+(state.warnings.length===1?'':'s')+':</b><ul>'+
+      state.warnings.map(w=>'<li>'+esc(w)+'</li>').join('')+'</ul></div>';
+  }
+  if(state.success){
+    h+='<div class="ci-report ci-ok"><b>✓ Imported '+state.applied+' curve override'+(state.applied===1?'':'s')+' successfully.</b></div>';
+  }
+  return h;
 }
 
 // SKU search for Chase — matches across SKU code, style description, and color description
@@ -2643,6 +3008,28 @@ function computeAlloc(rec){
   const retailCurveResult=buildCurve(rec,A.hierSalesRet,forcedLevel);
   const onlineCurveResult=buildCurve(rec,A.hierSalesOnline,forcedLevel);
 
+  // V9.3: Curve OVERRIDES. If an imported override exists for this SKU's category+channel, it
+  // supersedes the historical curve BY DEFAULT (we don't trust the history). The user can still
+  // opt back into history by manually pinning a hierarchy level (A.curveOverrides[sku]) — when a
+  // manual level is set, we honor it and ignore the import. Precedence: manual > import > auto.
+  // Overrides are stored as {size:pct}; we normalize non-zero percents to sum to 1 (proportional
+  // uplift) so the curve distributes a full buy.
+  function overrideCurveFor(channel){
+    if(manualLevel)return null; // user explicitly chose history
+    if(!rec.category)return null;
+    const ov=getCurveOverride(rec.division,rec.sizeScale,rec.category,channel);
+    if(!ov||!ov.curve)return null;
+    const norm={};let sum=0;
+    rec.sizes.forEach(s=>{const p=ov.curve[s]||0;norm[s]=p;sum+=p});
+    if(sum<=0)return null;
+    rec.sizes.forEach(s=>{norm[s]=norm[s]/sum}); // proportional uplift to 100%
+    return{curve:norm,rawSum:ov.rawSum,by:ov.by};
+  }
+  const retailOverride=overrideCurveFor('Retail');
+  const onlineOverride=overrideCurveFor('Online');
+  // Track for UI/breadcrumb display
+  rec._retailOverride=retailOverride;rec._onlineOverride=onlineOverride;
+
   // ── BOP allocation between channels ──
   // BOP is warehouse-level (untagged). Split it between channels by the buy pool ratio
   // so each channel can run its own BOP-aware gap-fill against its own curve.
@@ -2663,7 +3050,11 @@ function computeAlloc(rec){
   let retailCurveSum=0;
   rec.sizes.forEach(s=>{
     if(onlineOnlySet.has(s))retailCurve[s]=0;
-    else{retailCurve[s]=retailCurveResult.curve[s]||0;retailCurveSum+=retailCurve[s]}
+    else{
+      // V9.3: use override curve if present, else the historical channel curve
+      retailCurve[s]=retailOverride?(retailOverride.curve[s]||0):(retailCurveResult.curve[s]||0);
+      retailCurveSum+=retailCurve[s];
+    }
   });
   // Renormalize so non-online-only weights sum to 1
   if(retailCurveSum>0){rec.sizes.forEach(s=>{retailCurve[s]=retailCurve[s]/retailCurveSum})}
@@ -2680,7 +3071,13 @@ function computeAlloc(rec){
   const retailAlloc=allocateBuy(rec,effRetailPool,retailCurve,retailFloor,retailIdealMinusBop);
 
   // ── Online allocation (BOP-aware) ──
-  const onlineCurve=onlineCurveResult.curve;
+  // V9.3: use override curve if present, else the historical online channel curve
+  let onlineCurve;
+  if(onlineOverride){
+    onlineCurve={};rec.sizes.forEach(s=>{onlineCurve[s]=onlineOverride.curve[s]||0});
+  } else {
+    onlineCurve=onlineCurveResult.curve;
+  }
   const onlineIdeals={};
   const onlineBopTotal=rec.sizes.reduce((a,s)=>a+onlineBop[s],0);
   const onlineTotalTgt=onlineBopTotal+effOnlinePool;
@@ -2749,8 +3146,8 @@ function goGrid(){
   if(A.module==='chase'){A.chaseSelected=null;A.view='grid';A.flowsModalSku=null;render();return}
   A.selectedSKU=null;A.view='grid';A.module=null;render();
 }
-function goModule(m){A.module=m;document.getElementById('welcome').classList.add('hidden');document.getElementById('dash').classList.add('active');document.getElementById('slbl').textContent=A.activeSeason||'';render()}
-function goBackFromModule(){A.module=null;if(!A.activeSeason){backToWelcome()}else{render()}}
+function goModule(m){A.module=m;A.selectedScale=null;document.getElementById('welcome').classList.add('hidden');document.getElementById('dash').classList.add('active');document.getElementById('slbl').textContent=A.activeSeason||'';render()}
+function goBackFromModule(){A.module=null;A.selectedScale=null;if(!A.activeSeason){backToWelcome()}else{render()}}
 function backToWelcome(){document.getElementById('dash').classList.remove('active');document.getElementById('welcome').classList.remove('hidden');A.view='grid';A.module=null;A.chaseSelected=null;trySeasons();const el=document.getElementById('exp-ct');if(el)el.textContent='';const dp=document.getElementById('division-pills');if(dp)dp.innerHTML=''}
 function setOvr(sku,sz,v){if(!A.overrides[sku])A.overrides[sku]={};A.overrides[sku][sz]=parseInt(v)||0;render()}
 function clrOvr(sku){delete A.overrides[sku];render()}
@@ -2793,6 +3190,39 @@ function updateExpCt(){
   const btn=document.getElementById('exp-btn');if(btn)btn.disabled=n===0;
 }
 
+// V9.3: hoisted to global scope so BOTH exportCSV and exportChase can reference it.
+// (Previously this lived inside exportCSV, so exportChase threw a ReferenceError and silently
+// failed — which is why Chase export appeared to do nothing.)
+const SIZE_DEFS_GLOBAL=[
+  // Kids & OS
+  {col:'2T',sec:'kidsOS'},{col:'3T',sec:'kidsOS'},{col:'4T',sec:'kidsOS'},{col:'5',sec:'kidsOS'},
+  {col:'6',sec:'kidsOS',kidsMatch:true},{col:'8',sec:'kidsOS',kidsMatch:true},{col:'10',sec:'kidsOS',kidsMatch:true},
+  {col:'OS',sec:'kidsOS'},
+  // Mens & Womens — letter sizes
+  {col:'XXS',sec:'mw'},{col:'XS',sec:'mw'},{col:'S',sec:'mw'},{col:'M',sec:'mw'},{col:'L',sec:'mw'},{col:'XL',sec:'mw'},{col:'XXL',sec:'mw'},{col:'XXXL',sec:'mw'},
+  {col:'XS/S',sec:'mw'},{col:'S/M',sec:'mw'},{col:'M/L',sec:'mw'},{col:'L/XL',sec:'mw'},
+  {col:'MT',sec:'mw'},{col:'LT',sec:'mw'},{col:'XLT',sec:'mw'},{col:'XXLT',sec:'mw'},
+  // Womens dress sizes (renamed to avoid Excel's leading-zero collapse on 00/0)
+  {col:'00_',sec:'mw',match:'00'},{col:'0_',sec:'mw',match:'0'},
+  {col:'2',sec:'mw'},{col:'4',sec:'mw'},{col:'6',sec:'mw'},{col:'8',sec:'mw'},{col:'10',sec:'mw'},
+  {col:'12',sec:'mw'},{col:'14',sec:'mw'},{col:'16',sec:'mw'},
+  // numeric (waist/etc.)
+  {col:'24',sec:'mw'},{col:'25',sec:'mw'},{col:'26',sec:'mw'},{col:'27',sec:'mw'},{col:'28',sec:'mw'},{col:'29',sec:'mw'},
+  {col:'30',sec:'mw'},{col:'31',sec:'mw'},{col:'32',sec:'mw'},{col:'33',sec:'mw'},{col:'34',sec:'mw'},{col:'35',sec:'mw'},
+  {col:'36',sec:'mw'},{col:'38',sec:'mw'},{col:'40',sec:'mw'},{col:'42',sec:'mw'},
+  // Tall variants
+  {col:'30T',sec:'mw'},{col:'32T',sec:'mw'},{col:'34T',sec:'mw'},{col:'36T',sec:'mw'},{col:'38T',sec:'mw'},{col:'40T',sec:'mw'},
+  // Mens denim WxL combos
+  {col:'28WX30L',sec:'mw'},{col:'29WX30L',sec:'mw'},{col:'30WX30L',sec:'mw'},{col:'31WX30L',sec:'mw'},{col:'32WX30L',sec:'mw'},{col:'33WX30L',sec:'mw'},{col:'34WX30L',sec:'mw'},{col:'35WX30L',sec:'mw'},{col:'36WX30L',sec:'mw'},{col:'38WX30L',sec:'mw'},{col:'40WX30L',sec:'mw'},{col:'42WX30L',sec:'mw'},
+  {col:'28WX32L',sec:'mw'},{col:'29WX32L',sec:'mw'},{col:'30WX32L',sec:'mw'},{col:'31WX32L',sec:'mw'},{col:'32WX32L',sec:'mw'},{col:'33WX32L',sec:'mw'},{col:'34WX32L',sec:'mw'},{col:'35WX32L',sec:'mw'},{col:'36WX32L',sec:'mw'},{col:'38WX32L',sec:'mw'},{col:'40WX32L',sec:'mw'},{col:'42WX32L',sec:'mw'},
+  {col:'28WX34L',sec:'mw'},{col:'29WX34L',sec:'mw'},{col:'30WX34L',sec:'mw'},{col:'31WX34L',sec:'mw'},{col:'32WX34L',sec:'mw'},{col:'33WX34L',sec:'mw'},{col:'34WX34L',sec:'mw'},{col:'35WX34L',sec:'mw'},{col:'36WX34L',sec:'mw'},{col:'38WX34L',sec:'mw'},{col:'40WX34L',sec:'mw'},{col:'42WX34L',sec:'mw'},
+  {col:'1XL',sec:'mw'},{col:'2XL',sec:'mw'},{col:'3XL',sec:'mw'},{col:'4XL',sec:'mw'},{col:'5XL',sec:'mw'},
+  {col:'1XLT',sec:'mw'},{col:'2XLT',sec:'mw'},{col:'3XLT',sec:'mw'},{col:'4XLT',sec:'mw'},
+  {col:'40W36L',sec:'mw'},{col:'42W32L',sec:'mw'},{col:'42W34L',sec:'mw'},{col:'44W30L',sec:'mw'},{col:'44W32L',sec:'mw'},{col:'44W34L',sec:'mw'},
+  {col:'46W30L',sec:'mw'},{col:'46W32L',sec:'mw'},{col:'48W30L',sec:'mw'},{col:'48W32L',sec:'mw'},{col:'50W30L',sec:'mw'},{col:'52W30L',sec:'mw'},
+  {col:'36_',sec:'mw',match:'36',tailored:true},{col:'38_',sec:'mw',match:'38',tailored:true},{col:'40_',sec:'mw',match:'40',tailored:true},{col:'42_',sec:'mw',match:'42',tailored:true},{col:'44_',sec:'mw',match:'44',tailored:true},{col:'46_',sec:'mw',match:'46',tailored:true},{col:'48_',sec:'mw',match:'48',tailored:true},{col:'50_',sec:'mw',match:'50',tailored:true}
+];
+
 // V9.1: route the top-bar Export button based on the active module
 function exportCurrent(){
   if(A.module==='chase')return exportChase();
@@ -2806,37 +3236,7 @@ function exportCSV(){
   // section: 'kidsOS' (Kids & OS — sizes 2T-XXXL plus shared 6/8/10 for kids), 'mw' (Mens & Womens)
   // Kids 6/8/10 share numeric labels with women's adult, so kidsMatch:true gates them to kids only.
   // We rename women's "00"/"0" to "00_"/"0_" so Excel won't render them indistinguishably from numeric "0".
-  const SIZE_DEFS=[
-    // Kids & OS
-    {col:'2T',sec:'kidsOS'},{col:'3T',sec:'kidsOS'},{col:'4T',sec:'kidsOS'},{col:'5',sec:'kidsOS'},
-    // Kids 6/8/10 — same numeric label as women's adult, but in the kidsOS section.
-    // We use a `kidsMatch:true` flag so that population logic skips these for non-kids divisions.
-    {col:'6',sec:'kidsOS',kidsMatch:true},{col:'8',sec:'kidsOS',kidsMatch:true},{col:'10',sec:'kidsOS',kidsMatch:true},
-    {col:'OS',sec:'kidsOS'},
-    // Mens & Womens — letter sizes
-    {col:'XXS',sec:'mw'},{col:'XS',sec:'mw'},{col:'S',sec:'mw'},{col:'M',sec:'mw'},{col:'L',sec:'mw'},{col:'XL',sec:'mw'},{col:'XXL',sec:'mw'},{col:'XXXL',sec:'mw'},
-    {col:'XS/S',sec:'mw'},{col:'S/M',sec:'mw'},{col:'M/L',sec:'mw'},{col:'L/XL',sec:'mw'},
-    {col:'MT',sec:'mw'},{col:'LT',sec:'mw'},{col:'XLT',sec:'mw'},{col:'XXLT',sec:'mw'},
-    // Mens & Womens — Womens dress sizes (renamed to avoid Excel's leading-zero collapse on 00/0)
-    {col:'00_',sec:'mw',match:'00'},{col:'0_',sec:'mw',match:'0'},
-    {col:'2',sec:'mw'},{col:'4',sec:'mw'},{col:'6',sec:'mw'},{col:'8',sec:'mw'},{col:'10',sec:'mw'},
-    {col:'12',sec:'mw'},{col:'14',sec:'mw'},{col:'16',sec:'mw'},
-    // Mens & Womens — numeric (waist/etc.)
-    {col:'24',sec:'mw'},{col:'25',sec:'mw'},{col:'26',sec:'mw'},{col:'27',sec:'mw'},{col:'28',sec:'mw'},{col:'29',sec:'mw'},
-    {col:'30',sec:'mw'},{col:'31',sec:'mw'},{col:'32',sec:'mw'},{col:'33',sec:'mw'},{col:'34',sec:'mw'},{col:'35',sec:'mw'},
-    {col:'36',sec:'mw'},{col:'38',sec:'mw'},{col:'40',sec:'mw'},{col:'42',sec:'mw'},
-    // Tall variants
-    {col:'30T',sec:'mw'},{col:'32T',sec:'mw'},{col:'34T',sec:'mw'},{col:'36T',sec:'mw'},{col:'38T',sec:'mw'},{col:'40T',sec:'mw'},
-    // Mens denim WxL combos
-    {col:'28WX30L',sec:'mw'},{col:'29WX30L',sec:'mw'},{col:'30WX30L',sec:'mw'},{col:'31WX30L',sec:'mw'},{col:'32WX30L',sec:'mw'},{col:'33WX30L',sec:'mw'},{col:'34WX30L',sec:'mw'},{col:'35WX30L',sec:'mw'},{col:'36WX30L',sec:'mw'},{col:'38WX30L',sec:'mw'},{col:'40WX30L',sec:'mw'},{col:'42WX30L',sec:'mw'},
-    {col:'28WX32L',sec:'mw'},{col:'29WX32L',sec:'mw'},{col:'30WX32L',sec:'mw'},{col:'31WX32L',sec:'mw'},{col:'32WX32L',sec:'mw'},{col:'33WX32L',sec:'mw'},{col:'34WX32L',sec:'mw'},{col:'35WX32L',sec:'mw'},{col:'36WX32L',sec:'mw'},{col:'38WX32L',sec:'mw'},{col:'40WX32L',sec:'mw'},{col:'42WX32L',sec:'mw'},
-    {col:'28WX34L',sec:'mw'},{col:'29WX34L',sec:'mw'},{col:'30WX34L',sec:'mw'},{col:'31WX34L',sec:'mw'},{col:'32WX34L',sec:'mw'},{col:'33WX34L',sec:'mw'},{col:'34WX34L',sec:'mw'},{col:'35WX34L',sec:'mw'},{col:'36WX34L',sec:'mw'},{col:'38WX34L',sec:'mw'},{col:'40WX34L',sec:'mw'},{col:'42WX34L',sec:'mw'},
-    {col:'1XL',sec:'mw'},{col:'2XL',sec:'mw'},{col:'3XL',sec:'mw'},{col:'4XL',sec:'mw'},{col:'5XL',sec:'mw'},
-    {col:'1XLT',sec:'mw'},{col:'2XLT',sec:'mw'},{col:'3XLT',sec:'mw'},{col:'4XLT',sec:'mw'},
-    {col:'40W36L',sec:'mw'},{col:'42W32L',sec:'mw'},{col:'42W34L',sec:'mw'},{col:'44W30L',sec:'mw'},{col:'44W32L',sec:'mw'},{col:'44W34L',sec:'mw'},
-    {col:'46W30L',sec:'mw'},{col:'46W32L',sec:'mw'},{col:'48W30L',sec:'mw'},{col:'48W32L',sec:'mw'},{col:'50W30L',sec:'mw'},{col:'52W30L',sec:'mw'},
-    {col:'36_',sec:'mw',match:'36',tailored:true},{col:'38_',sec:'mw',match:'38',tailored:true},{col:'40_',sec:'mw',match:'40',tailored:true},{col:'42_',sec:'mw',match:'42',tailored:true},{col:'44_',sec:'mw',match:'44',tailored:true},{col:'46_',sec:'mw',match:'46',tailored:true},{col:'48_',sec:'mw',match:'48',tailored:true},{col:'50_',sec:'mw',match:'50',tailored:true}
-  ];
+  const SIZE_DEFS=SIZE_DEFS_GLOBAL;
   const SIZE_COLS=SIZE_DEFS.map(d=>d.col);
 
   // Info columns (everything before size columns) — same set used for Globals + Flows tabs
@@ -3003,6 +3403,7 @@ function exportChase(){
   const acceptedItems=(A.chaseItems||[]).filter(ci=>A.chaseAccepted[ci.id]);
   if(!acceptedItems.length){toast('No accepted Chase POs to export');return}
 
+  const SIZE_DEFS=SIZE_DEFS_GLOBAL;
   const SIZE_COLS=SIZE_DEFS.map(d=>d.col);
   const INFO_COLS=['SIZING TYPE','Year','Season Code','Department','SKU','Location','Delivery','Customer','From Sales Tier','Sales Tier','Sizing Tab Total','Unit Variance','Total'];
   const sectionRow=[];
@@ -3856,6 +4257,10 @@ function renderDetail(el,rec){
   if(manualLevel){
     trail+='<span class="rs rovr" title="A manual curve level is forced for this SKU.">Manual override active</span>';
     trail+='<button class="rovr-reset" onclick="setCurveOverride(\''+esc(rec.sku)+'\',\'auto\')" title="Revert to automatic curve selection">↺ Auto</button>';
+  } else if(rec._retailOverride||rec._onlineOverride){
+    // V9.3: an imported curve override is driving this SKU's curve (not history)
+    const chans=[];if(rec._retailOverride)chans.push('Retail');if(rec._onlineOverride)chans.push('Online');
+    trail+='<span class="rs rg" title="An imported curve override for '+esc(rec.category)+' ('+chans.join(' + ')+') is driving this curve instead of sales history. Click a hierarchy level above to use L52W history instead.">⤳ Curve override active — '+esc(rec.category)+' ('+chans.join(' + ')+')</span>';
   }
   trail+='</div>';
 
@@ -4171,76 +4576,162 @@ function attrPills(rec){
 let pmStaged={};
 
 function renderPresMins(el){
-  // ONLY show scales the user has explicitly added (presMinsMeta)
-  // Do not auto-include scales from scaleSizes (data-derived)
+  // V9.3: if a scale is selected, show its detail page; otherwise the compact grid
+  if(A.selectedScale&&A.presMinsMeta[A.selectedScale]){
+    return renderScaleDetail(el,A.selectedScale);
+  }
   const scales=Object.keys(A.presMinsMeta).sort();
-
   let h='<div class="pm-page anim"><button class="d-back" onclick="goBackFromModule()">← Back</button>'+
-    '<h2 style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:4px">Presentation Minimums</h2>'+
-    '<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Per-size units per store. Only user-created scales appear here.</p>'+
-    '<div class="pm-actions"><button class="btn btn-b btn-sm" onclick="openAddScaleModal()">+ Add Size Scale</button></div>'+
-    '<div class="pm-cards">';
+    '<h2 style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:4px">Size Scales</h2>'+
+    '<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Presentation minimums and sales-curve overrides by size scale. Click a scale to view details.</p>'+
+    '<div class="pm-actions">'+
+      '<button class="btn btn-b btn-sm" onclick="openAddScaleModal()">+ Add Size Scale</button>'+
+      '<button class="btn btn-g btn-sm" onclick="downloadCurveTemplate()">⬇ Curve Template</button>'+
+      '<label class="btn btn-g btn-sm" style="cursor:pointer;margin:0">⬆ Import Curves<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleCurveImportFile(this.files[0]);this.value=\'\'"></label>'+
+    '</div>'+
+    '<div id="curve-import-report">'+curveImportReportHtml(A._curveImportState)+'</div>';
 
+  h+='<div class="sg pm-grid">';
   scales.forEach(scale=>{
-    // Use ONLY the sizes the user defined when creating/editing this scale, in their defined order
     const meta=A.presMinsMeta[scale]||{};
-    const sizes=(meta.sizes||[]).slice(); // preserve user-defined order
+    const sizes=(meta.sizes||[]).slice();
     if(!sizes.length)return;
     const onlineOnly=meta.onlineOnly||[];
-    const onlineOnlySet=new Set(onlineOnly);
-
-    const cfg=A.presMins[scale]||{};
-    const staged=pmStaged[scale]||{};
-    const divCls=meta.div==='Womens'?'div-w':meta.div==='Non-Apparel'?'div-n':'div-m';
-    const divTag=meta.div==='Womens'?'pm-div-w':meta.div==='Non-Apparel'?'pm-div-n':'pm-div-m';
-    // OMNI = sizes that go to both retail and online (i.e., everything except online-only).
-    // Even sizes with pres min = 0 are OMNI — they still receive curve-driven retail allocation, just no floor.
     const omniCount=sizes.length-onlineOnly.length;
     const ooCount=onlineOnly.length;
     const onlineFlatVal=meta.onlineFlat!==undefined?meta.onlineFlat:5;
-    const hasStagedChanges=Object.keys(staged).length>0&&Object.keys(staged).some(s=>{const sv=staged[s];const cv=cfg[s];return sv!==cv});
-
-    h+='<div class="pm-card '+divCls+'" style="position:relative"><button class="pm-delete" onclick="deleteScale(\''+esc(scale)+'\')" title="Delete scale">✕</button>'+
-      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><h3 style="margin:0">'+esc(scale)+' <span style="font-weight:400;color:var(--txt3)">('+sizes.length+' sizes · '+omniCount+' OMNI'+(ooCount?' · '+ooCount+' OO':'')+' · online flat '+onlineFlatVal+')</span></h3>'+
-      '<button class="btn btn-g btn-sm" onclick="openEditScaleModal(\''+esc(scale)+'\')">Edit Sizes</button></div>';
-    if(meta.div)h+='<span class="pm-div-tag '+divTag+'">'+esc(meta.div)+'</span>';
-    // Attribution
-    const pmm=A.pmMeta&&A.pmMeta[scale];
-    if(pmm&&pmm.updated_by_name){
-      h+='<div style="font-family:var(--mono);font-size:9px;color:var(--txt3);margin:6px 0 10px;letter-spacing:.3px">Last updated by <b style="color:var(--navy);font-family:var(--sans)">'+esc(pmm.updated_by_name)+'</b> · '+formatRelTime(pmm.updated_at)+'</div>';
-    }
-    h+='<table class="pm-tbl"><thead><tr><th></th>';
-    sizes.forEach(s=>{
-      const oo=onlineOnlySet.has(s);
-      h+='<th'+(oo?' class="pm-th-online" title="Online-only size"':'')+'>'+esc(s)+(oo?' 🌐':'')+'</th>';
-    });
-    h+='</tr></thead><tbody>';
-    h+='<tr><td class="pm-row-lbl">Current</td>';
-    sizes.forEach(s=>{
-      const oo=onlineOnlySet.has(s);
-      if(oo){h+='<td class="pm-cell-online"><span class="pm-val pm-val-online">—</span></td>';return}
-      const v=cfg[s]!==undefined?cfg[s]:'—';
-      h+='<td><span class="pm-val">'+v+'</span></td>';
-    });
-    h+='</tr>';
-    h+='<tr class="pm-sep"><td class="pm-row-lbl">Overwrite</td>';
-    sizes.forEach(s=>{
-      const oo=onlineOnlySet.has(s);
-      if(oo){h+='<td class="pm-cell-online"><span style="color:var(--pink);font-family:var(--mono);font-size:10px">online-only</span></td>';return}
-      const sv=staged[s]!==undefined?staged[s]:(cfg[s]!==undefined?cfg[s]:'');
-      h+='<td><input class="pm-input" type="number" step="0.5" min="0" value="'+sv+'" onchange="stagePM(\''+esc(scale)+'\',\''+esc(s)+'\',this.value)"></td>';
-    });
-    h+='</tr></tbody></table>';
-    if(hasStagedChanges){
-      h+='<div class="pm-dirty-bar"><span class="dt-text">Unsaved changes</span>'+
-        '<button class="btn btn-grn btn-sm" onclick="acceptPMOverwrites(\''+esc(scale)+'\')">Accept Overwrites</button>'+
-        '<button class="btn btn-g btn-sm" onclick="clearPMStaged(\''+esc(scale)+'\')">Discard</button></div>';
-    }
-    h+='</div>';
+    const divCls=meta.div==='Womens'?'dv-w':(meta.div==='Non-Apparel'||meta.div==='Accessories')?'dv-n':'dv-m';
+    // Count active overrides touching this scale
+    let ovCount=0;for(const k in A.curveImports){if(k.split('|')[1]===scale)ovCount++}
+    h+='<div class="sc '+divCls+'" onclick="goScaleDetail(\''+esc(scale)+'\')">'+
+      '<div class="sc-top"><div class="sid">'+esc(scale)+'</div></div>'+
+      '<div class="pm-card-meta">'+sizes.length+' sizes · '+omniCount+' OMNI'+(ooCount?' · '+ooCount+' OO':'')+'</div>'+
+      '<div class="pm-card-meta">online flat '+onlineFlatVal+'</div>'+
+      '<div class="sc-bot"><span class="pm-div-tag pm-div-'+(meta.div==='Womens'?'w':(meta.div==='Non-Apparel'||meta.div==='Accessories')?'n':'m')+'">'+esc(meta.div||'')+'</span>'+
+      (ovCount?'<span class="pm-ov-chip" title="'+ovCount+' curve override'+(ovCount===1?'':'s')+' active">⤳ '+ovCount+'</span>':'')+'</div>'+
+      '</div>';
   });
-
+  h+='</div>';
   if(!scales.length)h+='<div class="gnote">No size scales configured. Click "+ Add Size Scale" to create one.</div>';
-  h+='</div></div>';el.innerHTML=h;
+  h+='</div>';el.innerHTML=h;
+}
+
+function goScaleDetail(scale){A.selectedScale=scale;render()}
+function goScaleGrid(){A.selectedScale=null;render()}
+
+function renderScaleDetail(el,scale){
+  const meta=A.presMinsMeta[scale]||{};
+  const sizes=(meta.sizes||[]).slice();
+  const onlineOnly=meta.onlineOnly||[];
+  const onlineOnlySet=new Set(onlineOnly);
+  const cfg=A.presMins[scale]||{};
+  const staged=pmStaged[scale]||{};
+  const omniCount=sizes.length-onlineOnly.length;
+  const ooCount=onlineOnly.length;
+  const onlineFlatVal=meta.onlineFlat!==undefined?meta.onlineFlat:5;
+  const hasStagedChanges=Object.keys(staged).length>0&&Object.keys(staged).some(s=>staged[s]!==cfg[s]);
+  const div=meta.div||'Mens';
+
+  let h='<div class="pm-page anim"><button class="d-back" onclick="goScaleGrid()">← Back to Size Scales</button>'+
+    '<div class="sd-hdr"><h2 style="margin:0;font-size:20px;color:var(--navy)">'+esc(scale)+'</h2>'+
+    '<span class="pm-div-tag pm-div-'+(div==='Womens'?'w':(div==='Non-Apparel'||div==='Accessories')?'n':'m')+'">'+esc(div)+'</span>'+
+    '<button class="btn btn-g btn-sm" onclick="openEditScaleModal(\''+esc(scale)+'\')">Edit Sizes</button></div>'+
+    '<div class="sd-topline">'+sizes.length+' sizes · '+omniCount+' OMNI'+(ooCount?' · '+ooCount+' OO':'')+' · online flat '+onlineFlatVal+'</div>';
+  const pmm=A.pmMeta&&A.pmMeta[scale];
+  if(pmm&&pmm.updated_by_name){
+    h+='<div style="font-family:var(--mono);font-size:9px;color:var(--txt3);margin:2px 0 14px;letter-spacing:.3px">Last updated by <b style="color:var(--navy);font-family:var(--sans)">'+esc(pmm.updated_by_name)+'</b> · '+formatRelTime(pmm.updated_at)+'</div>';
+  }
+
+  // ── Pres mins table (current + overwrite) ──
+  h+='<div class="sd-section-lbl">Presentation Minimums</div>';
+  h+='<table class="pm-tbl"><thead><tr><th></th>';
+  sizes.forEach(s=>{const oo=onlineOnlySet.has(s);h+='<th'+(oo?' class="pm-th-online" title="Online-only size"':'')+'>'+esc(s)+(oo?' 🌐':'')+'</th>'});
+  h+='</tr></thead><tbody>';
+  h+='<tr><td class="pm-row-lbl">Current</td>';
+  sizes.forEach(s=>{
+    const oo=onlineOnlySet.has(s);
+    if(oo){h+='<td class="pm-cell-online"><span class="pm-val pm-val-online">—</span></td>';return}
+    const v=cfg[s]!==undefined?cfg[s]:'—';h+='<td><span class="pm-val">'+v+'</span></td>';
+  });
+  h+='</tr><tr class="pm-sep"><td class="pm-row-lbl">Overwrite</td>';
+  sizes.forEach(s=>{
+    const oo=onlineOnlySet.has(s);
+    if(oo){h+='<td class="pm-cell-online"><span style="color:var(--pink);font-family:var(--mono);font-size:10px">online-only</span></td>';return}
+    const sv=staged[s]!==undefined?staged[s]:(cfg[s]!==undefined?cfg[s]:'');
+    h+='<td><input class="pm-input" type="number" step="0.5" min="0" value="'+sv+'" onchange="stagePM(\''+esc(scale)+'\',\''+esc(s)+'\',this.value)"></td>';
+  });
+  h+='</tr></tbody></table>';
+  if(hasStagedChanges){
+    h+='<div class="pm-dirty-bar"><span class="dt-text">Unsaved changes</span>'+
+      '<button class="btn btn-grn btn-sm" onclick="acceptPMOverwrites(\''+esc(scale)+'\')">Accept Overwrites</button>'+
+      '<button class="btn btn-g btn-sm" onclick="clearPMStaged(\''+esc(scale)+'\')">Discard</button></div>';
+  }
+
+  // ── Sales curves by Category → Channel ──
+  h+='<div class="sd-section-lbl" style="margin-top:24px">Sales Curves by Category & Channel <span style="font-weight:400;color:var(--txt3);text-transform:none;letter-spacing:0">— L52W history, with imported overrides where present</span></div>';
+  const cats=getCategoriesForScale(div,scale);
+  if(!cats.length){
+    h+='<div class="gnote">No categories with L52W sales found for '+esc(div)+' / '+esc(scale)+'.</div>';
+  } else {
+    cats.forEach(cat=>{
+      ['Retail','Online'].forEach(channel=>{
+        const sc=getCategorySalesCurve(div,scale,cat,channel);
+        const ov=getCurveOverride(div,scale,cat,channel);
+        // Skip channel rows with literally no sales AND no override (keeps the list tight)
+        if(sc.total===0&&!ov)return;
+        const rowKey=div+'|'+scale+'|'+cat+'|'+channel;
+        const expanded=A._expandedCurveRow===rowKey;
+        const ovSum=ov?Object.values(ov.curve).reduce((a,v)=>a+v,0):0;
+        const ovFlag=ov&&ovSum<99.9999;
+        h+='<div class="cc-block">'+
+          '<div class="cc-hdr" onclick="toggleCurveRow(\''+esc(rowKey)+'\')">'+
+            '<span class="cc-caret">'+(expanded?'▼':'▶')+'</span>'+
+            '<span class="cc-cat">'+esc(cat)+'</span><span class="cc-chan cc-chan-'+channel.toLowerCase()+'">'+channel[0]+'</span>'+
+            '<span class="cc-total">'+fmt(sc.total)+' units L52W</span>'+
+            (ov?'<span class="cc-ov-tag'+(ovFlag?' cc-ov-flag':'')+'" title="'+(ovFlag?'Override sums to '+ovSum.toFixed(1)+'% — suboptimal':'Override active')+'">⤳ override'+(ovFlag?' '+ovSum.toFixed(0)+'%':'')+'</span>':'')+
+          '</div>';
+        if(expanded){
+          h+='<table class="cc-tbl"><thead><tr><th>Source</th>';
+          sizes.forEach(s=>{h+='<th>'+esc(s)+'</th>'});
+          h+='<th>Total</th></tr></thead><tbody>';
+          // Sales % row
+          h+='<tr><td class="cc-src">Sales %</td>';
+          sizes.forEach(s=>{h+='<td>'+(sc.total>0?sc.pctBySize[s].toFixed(1)+'%':'—')+'</td>'});
+          h+='<td class="cc-tot">'+fmt(sc.total)+'</td></tr>';
+          // Sales units row
+          h+='<tr class="cc-units"><td class="cc-src">Sales units</td>';
+          sizes.forEach(s=>{h+='<td>'+(sc.bySize[s]?fmt(sc.bySize[s]):'—')+'</td>'});
+          h+='<td class="cc-tot">'+fmt(sc.total)+'</td></tr>';
+          // Override row (if exists)
+          if(ov){
+            h+='<tr class="cc-ovrow'+(ovFlag?' cc-ovrow-flag':'')+'"><td class="cc-src">Override %'+(ov.by?' <span class="cc-by">('+esc(ov.by)+')</span>':'')+'</td>';
+            sizes.forEach(s=>{const p=ov.curve[s]||0;h+='<td>'+(p?p.toFixed(1)+'%':'—')+'</td>'});
+            h+='<td class="cc-tot'+(ovFlag?' cc-tot-flag':'')+'">'+ovSum.toFixed(0)+'%</td></tr>';
+            h+='<tr><td class="cc-src" colspan="'+(sizes.length+2)+'" style="text-align:right">'+
+              '<button class="btn btn-g btn-sm" onclick="removeCurveOverride(\''+esc(div)+'\',\''+esc(scale)+'\',\''+esc(cat)+'\',\''+channel+'\')">Remove override</button></td></tr>';
+          }
+          h+='</tbody></table>';
+        }
+        h+='</div>';
+      });
+    });
+  }
+
+  h+='</div>';el.innerHTML=h;
+}
+
+function toggleCurveRow(key){A._expandedCurveRow=A._expandedCurveRow===key?null:key;render()}
+
+async function removeCurveOverride(div,scale,cat,channel){
+  if(!confirm('Remove the '+channel+' curve override for '+cat+' ('+scale+')?'))return;
+  try{
+    await cloudDeleteCurveOverride(div,scale,cat,channel);
+    await cloudLogEvent('curve_override_remove','curve',div+' '+scale+' '+cat+' '+channel,
+      'removed '+channel+' curve override for '+cat+' ('+div+' '+scale+')',null);
+    delete A.curveImports[div+'|'+scale+'|'+cat+'|'+channel];
+    toast('Override removed');
+    render();
+  }catch(err){toast('Remove failed: '+err.message)}
 }
 
 function stagePM(scale,size,val){
@@ -4546,7 +5037,8 @@ async function renderChangelog(el){
     '<div class="cl-filters">'+
       '<button class="sb'+(_changelogState.category==='all'?' on':'')+'" onclick="setChangelogCategory(\'all\')">All</button>'+
       '<button class="sb'+(_changelogState.category==='csv'?' on':'')+'" onclick="setChangelogCategory(\'csv\')">CSV Uploads</button>'+
-      '<button class="sb'+(_changelogState.category==='presmins'?' on':'')+'" onclick="setChangelogCategory(\'presmins\')">Pres Mins</button>'+
+      '<button class="sb'+(_changelogState.category==='presmins'?' on':'')+'" onclick="setChangelogCategory(\'presmins\')">Size Scales</button>'+
+      '<button class="sb'+(_changelogState.category==='curve'?' on':'')+'" onclick="setChangelogCategory(\'curve\')">Curve Overrides</button>'+
     '</div>'+
     '<div id="cl-list" class="cl-list"><div class="cl-loading">Loading...</div></div>'+
     '</div>';
@@ -4568,8 +5060,8 @@ async function renderChangelog(el){
   let h='';
   events.forEach(ev=>{
     const cat=ev.category;
-    const catCls=cat==='csv'?'cl-cat-csv':'cl-cat-pm';
-    const catLabel=cat==='csv'?'CSV':'PRES MINS';
+    const catCls=cat==='csv'?'cl-cat-csv':cat==='curve'?'cl-cat-curve':'cl-cat-pm';
+    const catLabel=cat==='csv'?'CSV':cat==='curve'?'CURVE':'SIZE SCALE';
     const isExpandable=cat==='presmins'&&ev.event_type==='presmins_update'&&ev.details&&Array.isArray(ev.details.changes)&&ev.details.changes.length>0;
     const expanded=isExpandable&&_changelogState.expanded[ev.id];
     const when=new Date(ev.created_at);
