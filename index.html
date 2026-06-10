@@ -482,7 +482,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V9.4 · SCALE CLEANSING</div>
+<div class="version-tag">V9.5 · SIZE SCALES EXPORT</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -1883,6 +1883,49 @@ function downloadCurveTemplate(){
   ws['!cols']=[{wch:12},{wch:12},{wch:18},{wch:10},{wch:12},{wch:10}];
   XLSX.utils.book_append_sheet(wb,ws,'Curve Overrides');
   XLSX.writeFile(wb,'Curve_Override_Template.xlsx');
+}
+
+// V9.5: export every size scale — one row per (scale × size).
+// Columns: Size Scale, Division, Size, Retail Pres Min, Online Pres Min (flat), Online Only (Y/N).
+function exportSizeScales(){
+  const header=['Size Scale','Division','Size','Retail Pres Min','Online Pres Min','Online Only'];
+  const rows=[header];
+  // Sort scales by division, then name, so each division's scales group together.
+  const scales=Object.keys(A.presMinsMeta||{})
+    .filter(s=>((A.presMinsMeta[s].sizes||[]).length))
+    .sort((a,b)=>{
+      const da=A.presMinsMeta[a].div||'',db=A.presMinsMeta[b].div||'';
+      return da.localeCompare(db)||a.localeCompare(b);
+    });
+  scales.forEach(scale=>{
+    const meta=A.presMinsMeta[scale]||{};
+    const div=meta.div||'';
+    const sizes=meta.sizes||[];
+    const onlineOnly=new Set(meta.onlineOnly||[]);
+    const onlineFlat=meta.onlineFlat!==undefined?meta.onlineFlat:5;
+    const cfg=A.presMins[scale]||{};
+    sizes.forEach(s=>{
+      const isOO=onlineOnly.has(s);
+      // Online-only sizes have no retail presence → blank retail pres min (matches the "—" in the detail view).
+      const retailPM=isOO?'':(cfg[s]!==undefined?cfg[s]:'');
+      // Online pres min is the scale's flat online value, applied to every size.
+      rows.push([scale,div,s,retailPM,onlineFlat,isOO?'Y':'N']);
+    });
+  });
+  if(rows.length===1){toast('No size scales to export');return}
+  const stamp=new Date().toISOString().slice(0,10);
+  if(typeof XLSX==='undefined'){
+    const csv=rows.map(r=>r.map(c=>{const v=String(c);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(',')).join('\n');
+    const b=new Blob([csv],{type:'text/csv'});const u=URL.createObjectURL(b);
+    const a=document.createElement('a');a.href=u;a.download='Size_Scales_'+stamp+'.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);
+    return;
+  }
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:14},{wch:14},{wch:12},{wch:16},{wch:16},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws,'Size Scales');
+  XLSX.writeFile(wb,'Size_Scales_'+stamp+'.xlsx');
+  toast('Exported '+(rows.length-1)+' size-scale rows');
 }
 
 // ─── Curve override import: parse + validate + apply ───
@@ -4622,6 +4665,7 @@ function renderPresMins(el){
     '<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Presentation minimums and sales-curve overrides by size scale. Click a scale to view details.</p>'+
     '<div class="pm-actions">'+
       '<button class="btn btn-b btn-sm" onclick="openAddScaleModal()">+ Add Size Scale</button>'+
+      '<button class="btn btn-g btn-sm" onclick="exportSizeScales()">⬇ Export Size Scales</button>'+
       '<button class="btn btn-g btn-sm" onclick="downloadCurveTemplate()">⬇ Curve Template</button>'+
       '<label class="btn btn-g btn-sm" style="cursor:pointer;margin:0">⬆ Import Curves<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleCurveImportFile(this.files[0]);this.value=\'\'"></label>'+
     '</div>'+
