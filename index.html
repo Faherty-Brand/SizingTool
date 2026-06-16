@@ -482,7 +482,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V9.5 · SIZE SCALES EXPORT</div>
+<div class="version-tag">V9.6 · GLOBAL FLOOR FIX</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -2852,41 +2852,61 @@ function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve,bopByS
 
   if(numFlows===1&&flowUnits[0]<300){result.reason='Single flow below 300u';return result}
 
-  // Build size break for Global (hit per-size floor first, then distribute by combined curve)
+  // ── Build the Global size break (it carries the per-size presentation floor) ──
+  // V9.6 FIX: mirror the CF logic. The Global PO must independently satisfy each size's
+  // presentation floor, so we seat the floor FIRST — but capped at the size's total
+  // allocation, because we can't put more of a size in Global than the whole buy contains.
+  // (e.g. a small-selling size whose floor is 177 but whose total buy is only 162 → Global
+  // takes all 162, replenishment gets 0.) Any units that overflow a capped size, plus the
+  // bump-to-target extra, are redistributed by curve to sizes that still have headroom.
+  // Previously the raw floor was dumped into Global and an UNPROTECTED reconcile was free to
+  // rob it back below presentation minimums (the bug: Global S showed 112 vs a 177 floor).
+  const cappedFloor={};
+  rec.sizes.forEach(s=>{cappedFloor[s]=Math.min(perSizeFloor[s].total,combinedAlloc[s]||0)});
+  const cappedFloorTotal=rec.sizes.reduce((a,s)=>a+cappedFloor[s],0);
+  const allocSumAll=rec.sizes.reduce((a,s)=>a+(combinedAlloc[s]||0),0);
+  const globalExtra=Math.max(0,globalUnits-cappedFloorTotal); // floor shortfall (from capping) + bump-to-target
   const globalSb={};
-  rec.sizes.forEach(s=>{globalSb[s]=perSizeFloor[s].total});
-  let globalAssigned=globalFloorTotal;
-  // Distribute the bump-up extra (if any) by combined alloc curve
-  const bumpExtra=globalUnits-globalFloorTotal;
-  if(bumpExtra>0){
-    const allocSum=rec.sizes.reduce((a,s)=>a+(combinedAlloc[s]||0),0);
-    if(allocSum>0){
-      rec.sizes.forEach(s=>{
-        const share=Math.round((combinedAlloc[s]||0)/allocSum*bumpExtra);
-        globalSb[s]+=share;
-      });
-      // Reconcile
-      const sum=rec.sizes.reduce((a,s)=>a+globalSb[s],0);
-      const diff=globalUnits-sum;
-      if(diff!==0&&rec.sizes.length){const ms=rec.sizes.reduce((a,b)=>globalSb[a]>=globalSb[b]?a:b);globalSb[ms]+=diff}
-    }
+  rec.sizes.forEach(s=>{
+    const curveShare=allocSumAll>0?Math.round((combinedAlloc[s]||0)/allocSumAll*globalExtra):0;
+    const want=cappedFloor[s]+curveShare;
+    globalSb[s]=Math.min(combinedAlloc[s]||0,want); // never exceed the size's total allocation
+  });
+  // Redistribute any remaining shortfall to sizes with the most headroom (combinedAlloc − globalSb).
+  let guard=10000;
+  let globalShort=globalUnits-rec.sizes.reduce((a,s)=>a+globalSb[s],0);
+  while(globalShort>0&&guard-->0){
+    let best=null,bestHead=0;
+    rec.sizes.forEach(s=>{const head=(combinedAlloc[s]||0)-globalSb[s];if(head>bestHead){bestHead=head;best=s}});
+    if(!best)break; // no headroom anywhere — buy is fully floored
+    globalSb[best]++;globalShort--;
   }
+  // If rounding over-assigned, trim from the most over-floor size (never below its capped floor).
+  while(globalShort<0&&guard-->0){
+    let best=null,bestExcess=0;
+    rec.sizes.forEach(s=>{const ex=globalSb[s]-cappedFloor[s];if(ex>bestExcess){bestExcess=ex;best=s}});
+    if(!best)break;
+    globalSb[best]--;globalShort++;
+  }
+  globalUnits=rec.sizes.reduce((a,s)=>a+globalSb[s],0); // actual Global total after capping/redistribution
 
-  // Flow size breaks: distribute by combined alloc curve, scaled to flow units
+  // ── Downstream flows get whatever's left per size (combinedAlloc − globalSb), by share ──
   const flowSplits=[{label:'Global',units:globalUnits,offset:0,sizeBreak:globalSb}];
+  const leftBySize={};rec.sizes.forEach(s=>{leftBySize[s]=Math.max(0,(combinedAlloc[s]||0)-globalSb[s])});
+  const totalLeft=rec.sizes.reduce((a,s)=>a+leftBySize[s],0);
   flowUnits.forEach((u,idx)=>{
     const sb={};
-    const allocSum=rec.sizes.reduce((a,s)=>a+(combinedAlloc[s]||0),0);
-    if(allocSum>0){
-      rec.sizes.forEach(s=>{sb[s]=Math.round((combinedAlloc[s]||0)/allocSum*u)});
+    if(totalLeft>0){
+      rec.sizes.forEach(s=>{sb[s]=Math.round(leftBySize[s]/totalLeft*u)});
     } else rec.sizes.forEach(s=>{sb[s]=Math.round(u/rec.sizes.length)});
     const sum=rec.sizes.reduce((a,sz)=>a+sb[sz],0);
     const diff=u-sum;
-    if(diff!==0&&rec.sizes.length){const ms=rec.sizes.reduce((a,b)=>sb[a]>=sb[b]?a:b);sb[ms]+=diff}
+    if(diff!==0&&rec.sizes.length){const ms=rec.sizes.reduce((a,b)=>leftBySize[a]>=leftBySize[b]?a:b);sb[ms]+=diff}
     flowSplits.push({label:'Flow '+(idx+1),units:u,offset:idx+1,sizeBreak:sb});
   });
-  // V8.3.1: Force cross-flow per-size totals to match combinedAlloc (each flow's total units preserved)
-  reconcileFlowsBySize(flowSplits,combinedAlloc,rec.sizes);
+  // Force cross-flow per-size totals to match combinedAlloc — but PROTECT the Global floor (index 0)
+  // so reconciliation can never rob the Global PO below presentation minimums.
+  reconcileFlowsBySize(flowSplits,combinedAlloc,rec.sizes,{0:cappedFloor});
 
   result.eligible=true;result.count=flowSplits.length;result.splits=flowSplits;
   result.math={
@@ -3624,18 +3644,24 @@ function renderFlowsModal(rec){
   let mathHtml='';
   if(isInitials&&m.perSizeFloor){
     let perSizeRows='';
+    let anyCapped=false;
     const stCt=rec.storeCount||0;
     rec.sizes.forEach(s=>{
       const f=m.perSizeFloor[s];
       const retailCurvePct=Math.round((retailCurve[s]||0)*1000)/10;
       const onlineCurvePct=Math.round((onlineCurve[s]||0)*1000)/10;
+      // Combined buy for this size = sum across flows. If the floor exceeds it, the Global PO
+      // can only hold the combined amount — the floor is capped by what the buy actually contains.
+      let combinedS=0;flows.splits.forEach(sp=>{combinedS+=(sp.sizeBreak[s]||0)});
+      const capped=f.total>combinedS;
+      if(capped)anyCapped=true;
       perSizeRows+='<tr>'+
         '<td class="fm-sz">'+esc(s)+'</td>'+
         '<td class="fm-num">'+fmt(f.presMinUnits)+'</td>'+
         '<td class="fm-num">'+f.onlineFlat+'</td>'+
         '<td class="fm-num">'+f.retailWos.toFixed(1)+' <span class="fm-sub">('+m.apsRetail.toFixed(1)+'×'+stCt+'×6×'+retailCurvePct+'%)</span></td>'+
         '<td class="fm-num">'+f.onlineWos.toFixed(1)+' <span class="fm-sub">('+m.apsOnline.toFixed(1)+'×6×'+onlineCurvePct+'%)</span></td>'+
-        '<td class="fm-num fm-tot">'+f.total+'</td>'+
+        '<td class="fm-num fm-tot">'+(capped?'<span title="Floor capped to the buy — only '+fmt(combinedS)+'u of this size exists across all flows">'+f.total+' → '+fmt(combinedS)+'</span>':f.total)+'</td>'+
         '</tr>';
     });
     const onlineFlatLabel=(A.presMinsMeta[rec.sizeScale]&&A.presMinsMeta[rec.sizeScale].onlineFlat!==undefined)?A.presMinsMeta[rec.sizeScale].onlineFlat:5;
@@ -3650,6 +3676,7 @@ function renderFlowsModal(rec){
         '<div><span class="fm-summary-lbl">Final Global:</span> <span class="fm-summary-val">'+fmt(m.globalUnits)+'u'+(m.bumpedAboveFloor?' <span class="fm-bump">(bumped above floor to baseline %)</span>':' <span class="fm-bump">(at minimum floor)</span>')+'</span></div>'+
         '<div><span class="fm-summary-lbl">Remaining to flow:</span> <span class="fm-summary-val">'+fmt(pool-m.globalUnits)+'u</span></div>'+
       '</div>'+
+      (anyCapped?'<div class="fm-math-desc" style="margin-top:8px;color:var(--txt2)">Sizes marked <b>→</b> have a presentation floor larger than the whole buy allocates to that size; the Global PO holds the full available quantity (so the size is front-loaded into the initial set and not replenished).</div>':'')+
     '</div>';
   } else if(m.type==='CF'){
     if(m.globalFloorBOP){
