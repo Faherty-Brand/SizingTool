@@ -481,7 +481,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V9.8 · P-SEG OVERWRITES</div>
+<div class="version-tag">V9.8.1 · SIZE ZERO FIX</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -1964,7 +1964,11 @@ async function handleCurveImportFile(file){
       const scale=String(r[ci.scale]||'').trim();
       const cat=String(r[ci.cat]||'').trim();
       const chan=String(r[ci.chan]||'').trim();
-      const size=String(r[ci.size]||'').trim();
+      // V9.8.1: size 0 is a real size (e.g. the "0" in scale "00-16"). Don't use `|| ''` here —
+      // `0 || ''` is '' in JS (zero is falsy), which silently turned size 0 into an empty string and
+      // failed the "is in scale" check. Stringify only when the cell is genuinely null/undefined.
+      const szCell=r[ci.size];
+      const size=(szCell===undefined||szCell===null)?'':String(szCell).trim();
       const pct=numF(r[ci.pct]);
       if(!div&&!scale&&!cat&&!size)continue; // blank row
       raw.push({div,scale,cat,chan,size,pct,line:i+1});
