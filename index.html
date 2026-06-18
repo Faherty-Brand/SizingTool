@@ -481,7 +481,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V9.7 · SUBCAT OVERWRITES</div>
+<div class="version-tag">V9.8 · P-SEG OVERWRITES</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -1138,7 +1138,7 @@ const A={
   view:'grid',module:null,
   overrides:{},accepted:{},curveAdjustments:{},curveAdjStaged:{},curveOverrides:{},
   chaseItems:[],chaseAccepted:{},chaseSelected:null,
-  curveImports:{},  // V9.3/V9.7: "div|scale|subcategory|channel" -> {curve:{size:pct}, rawSum, by, at} (cloud column is still named `category`)
+  curveImports:{},  // V9.3/V9.8: "div|scale|segmentation|channel" -> {curve:{size:pct}, rawSum, by, at} (cloud column is still named `category`)
   searchTerm:'',sortKey:'dtcBuy',sortDir:'desc',
   scaleSort:'name',scaleSortDir:'asc',scaleFilterDiv:'All', // V9.4: Size Scales grid sort/filter
   filters:{type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All',deliveryMonth:'All'},
@@ -1809,35 +1809,35 @@ function getLinelistSeasons(){
 // Find the categories that have L52W sales in a given division + size-scale combo.
 // Match rule (per spec C): division matches the sales division AND at least one size overlaps
 // between the scale's configured sizes and the historicals for that division.
-// V9.7: subcategories (not categories) drive curve overrides. Returns the distinct subcats of
-// SKUs whose sizes overlap the scale, in the given division.
-function getSubcatsForScale(division,sizeScale){
+// V9.8: generalized over a hierarchy field. `field` is one of 'category' | 'subcategory' | 'segment'.
+// Returns the distinct values of that field for SKUs whose sizes overlap the scale, in the division.
+function getValuesForScale(division,sizeScale,field){
   ensureDataMaps();
   const meta=A.presMinsMeta[sizeScale];
   if(!meta)return [];
   const scaleSizes=new Set((meta.sizes||[]).map(s=>String(s).toUpperCase()));
   if(!scaleSizes.size||!A.salSkuMeta)return [];
   const divLc=(division||'').toLowerCase();
-  const subs=new Set();
+  const vals=new Set();
   for(const sku in A.salSkuMeta){
     const m=A.salSkuMeta[sku];
     if((m.division||'').toLowerCase()!==divLc)continue;
     // does this SKU have any size overlapping the scale?
     let overlap=false;
     for(const sz of m.sizes){if(scaleSizes.has(String(sz).toUpperCase())){overlap=true;break}}
-    if(overlap&&m.subcategory)subs.add(m.subcategory);
+    if(overlap&&m[field])vals.add(m[field]);
   }
-  return [...subs].sort();
+  return [...vals].sort();
 }
 
-// Compute a subcategory's L52W sales-by-size for a given division+scale+channel.
+// Compute a hierarchy value's L52W sales-by-size for a division+scale+channel.
 // Returns { bySize:{size:units}, total, pctBySize:{size:pct} } restricted to the scale's sizes.
-function getSubcatSalesCurve(division,sizeScale,subcat,channel){
+function getFieldSalesCurve(division,sizeScale,field,value,channel){
   ensureDataMaps();
   const meta=A.presMinsMeta[sizeScale];
   if(!meta)return{bySize:{},total:0,pctBySize:{}};
   const sizes=(meta.sizes||[]).map(s=>String(s));
-  const divLc=(division||'').toLowerCase(),subLc=(subcat||'').toLowerCase();
+  const divLc=(division||'').toLowerCase(),valLc=(value||'').toLowerCase();
   // Pick the right channel-scoped per-SKU sales source
   const srcBySize=channel==='Retail'?A.salSKURetBySize:channel==='Online'?A.salSKUOnlineBySize:A.salSKUbySize;
   const bySize={};sizes.forEach(s=>{bySize[s]=0});
@@ -1845,7 +1845,7 @@ function getSubcatSalesCurve(division,sizeScale,subcat,channel){
   for(const sku in A.salSkuMeta){
     const m=A.salSkuMeta[sku];
     if((m.division||'').toLowerCase()!==divLc)continue;
-    if((m.subcategory||'').toLowerCase()!==subLc)continue;
+    if((m[field]||'').toLowerCase()!==valLc)continue;
     const sk=(srcBySize&&srcBySize[sku])||{};
     sizes.forEach(s=>{const u=sk[s]||0;if(u){bySize[s]+=u;total+=u}});
   }
@@ -1853,29 +1853,28 @@ function getSubcatSalesCurve(division,sizeScale,subcat,channel){
   return{bySize,total,pctBySize};
 }
 
-// Look up an active curve override for a subcategory+channel (concrete key). Returns {curve,rawSum,...} or null.
-// NB: the override key's 3rd segment holds the SUBCATEGORY as of V9.7 (stored in the cloud's
-// `category` column, which is reused rather than renamed — like `pres_mins`).
-function getCurveOverride(division,sizeScale,subcat,channel){
-  const key=division+'|'+sizeScale+'|'+subcat+'|'+channel;
+// Look up an active curve override. The key's 3rd segment holds the PRODUCT SEGMENTATION as of V9.8
+// (stored in the cloud's `category` column, which is reused rather than renamed — like `pres_mins`).
+function getCurveOverride(division,sizeScale,value,channel){
+  const key=division+'|'+sizeScale+'|'+value+'|'+channel;
   return A.curveImports[key]||null;
 }
 
 // ─── Curve override import: template download ───
 function downloadCurveTemplate(){
-  const header=['Division','Size Scale','Subcategory','Channel','Size','Percent'];
-  // Provide a couple of example rows using a real configured scale + subcat if available
+  const header=['Division','Size Scale','Product Segmentation','Channel','Size','Percent'];
+  // Provide a couple of example rows using a real configured scale + segment if available
   const rows=[header];
   const scales=Object.keys(A.presMinsMeta||{});
   if(scales.length){
     const sc=scales[0];const meta=A.presMinsMeta[sc];const div=meta.div||'Womens';
-    const subs=getSubcatsForScale(div,sc);
-    const exSub=subs.length?subs[0]:'ALL';
+    const segs=getValuesForScale(div,sc,'segment');
+    const exSeg=segs.length?segs[0]:'ALL';
     const sizes=(meta.sizes||[]).slice(0,3);
-    sizes.forEach((s,i)=>rows.push([div,sc,exSub,'ALL',s,i===0?40:i===1?35:25]));
+    sizes.forEach((s,i)=>rows.push([div,sc,exSeg,'ALL',s,i===0?40:i===1?35:25]));
   } else {
     rows.push(['Womens','00-16','ALL','ALL','4',40]);
-    rows.push(['Womens','00-16','Pants','Retail','6',60]);
+    rows.push(['Womens','00-16','Core','Retail','6',60]);
   }
   if(typeof XLSX==='undefined'){
     const csv=rows.map(r=>r.join(',')).join('\n');
@@ -1947,14 +1946,14 @@ async function handleCurveImportFile(file){
     const ci={
       div:hdr.findIndex(h=>h==='division'),
       scale:hdr.findIndex(h=>h==='size scale'||h==='scale'),
-      // V9.7: column C is now Subcategory. Accept legacy "category" as an alias so old templates
-      // don't hard-fail; the value is treated as a subcategory either way.
-      cat:hdr.findIndex(h=>h==='subcategory'||h==='sub-category'||h==='subcat'||h==='category'),
+      // V9.8: column C is now Product Segmentation. Accept legacy "subcategory"/"category" as aliases
+      // so older templates don't hard-fail; the value is treated as a Product Segmentation either way.
+      cat:hdr.findIndex(h=>h==='product segmentation'||h==='segmentation'||h==='segment'||h==='subcategory'||h==='sub-category'||h==='subcat'||h==='category'),
       chan:hdr.findIndex(h=>h==='channel'),
       size:hdr.findIndex(h=>h==='size'),
       pct:hdr.findIndex(h=>h==='percent'||h==='percent to scale curve'||h==='pct')
     };
-    const missing=Object.entries(ci).filter(([k,v])=>v<0).map(([k])=>k==='cat'?'subcategory':k);
+    const missing=Object.entries(ci).filter(([k,v])=>v<0).map(([k])=>k==='cat'?'product segmentation':k);
     if(missing.length){curveImportReport({errors:['Missing required column(s): '+missing.join(', ')+'. Use the template.']});return}
 
     // Collect raw rows
@@ -2004,12 +2003,12 @@ async function handleCurveImportFile(file){
       const channels=expandChannels(row.chan,row.line);
       if(!channels.length)return; // bad channel already logged
       const isAllCat=row.cat.toLowerCase()==='all'||row.cat==='';
-      // V9.7: gentle nudge if a specific subcategory isn't found in this division+scale (likely a typo).
+      // V9.8: gentle nudge if a specific Product Segmentation isn't found in this division+scale (likely a typo).
       // Not a hard error — the override is simply inert until a matching SKU appears.
       if(!isAllCat){
-        const subsHere=getSubcatsForScale(div,row.scale).map(x=>x.toLowerCase());
-        if(subsHere.length&&!subsHere.includes(row.cat.toLowerCase())){
-          warnings.push('Line '+row.line+': subcategory "'+row.cat+'" has no L52W sales in '+div+' / '+row.scale+' — the override will be stored but won\'t apply until a matching SKU exists.');
+        const segsHere=getValuesForScale(div,row.scale,'segment').map(x=>x.toLowerCase());
+        if(segsHere.length&&!segsHere.includes(row.cat.toLowerCase())){
+          warnings.push('Line '+row.line+': Product Segmentation "'+row.cat+'" has no L52W sales in '+div+' / '+row.scale+' — the override will be stored but won\'t apply until a matching SKU exists.');
         }
       }
       validRows.push({...row,div,scale:row.scale,channels,isAllCat});
@@ -2027,10 +2026,10 @@ async function handleCurveImportFile(file){
         let cats;
         if(row.isAllCat){
           allScopes.push({div:row.div,scale:row.scale,channel,size:row.size,pct:row.pct});
-          // ALL only populates subcategories NOT explicitly targeted by a specific row in this file
-          cats=getSubcatsForScale(row.div,row.scale).filter(cat=>!specificBlocks.has(row.scale+'|'+cat+'|'+channel));
-          if(!getSubcatsForScale(row.div,row.scale).length){
-            warnings.push('Line '+row.line+': no subcategories with sales found for '+row.div+' / '+row.scale+'.');
+          // ALL only populates Product Segmentations NOT explicitly targeted by a specific row in this file
+          cats=getValuesForScale(row.div,row.scale,'segment').filter(cat=>!specificBlocks.has(row.scale+'|'+cat+'|'+channel));
+          if(!getValuesForScale(row.div,row.scale,'segment').length){
+            warnings.push('Line '+row.line+': no Product Segmentations with sales found for '+row.div+' / '+row.scale+'.');
           }
         } else {
           cats=[row.cat];
@@ -3098,18 +3097,18 @@ function computeAlloc(rec){
   const retailCurveResult=buildCurve(rec,A.hierSalesRet,forcedLevel);
   const onlineCurveResult=buildCurve(rec,A.hierSalesOnline,forcedLevel);
 
-  // V9.3: Curve OVERRIDES. If an imported override exists for this SKU's subcategory+channel, it
-  // supersedes the historical curve BY DEFAULT (we don't trust the history). The user can still
+  // V9.3: Curve OVERRIDES. If an imported override exists for this SKU's Product Segmentation+channel,
+  // it supersedes the historical curve BY DEFAULT (we don't trust the history). The user can still
   // opt back into history by manually pinning a hierarchy level (A.curveOverrides[sku]) — when a
   // manual level is set, we honor it and ignore the import. Precedence: manual > import > auto.
   // Overrides are stored as {size:pct}; we normalize non-zero percents to sum to 1 (proportional
   // uplift) so the curve distributes a full buy.
-  // V9.7: keyed on SUBCATEGORY (was category) — subcats map 1-1 to cats but let us target e.g. Pants
-  // without touching Shorts within the same division+scale.
+  // V9.8: keyed on PRODUCT SEGMENTATION (was subcategory in V9.7) — the single granularity allowed
+  // for overrides. SKUs with no segment fall through to history.
   function overrideCurveFor(channel){
     if(manualLevel)return null; // user explicitly chose history
-    if(!rec.subcategory)return null;
-    const ov=getCurveOverride(rec.division,rec.sizeScale,rec.subcategory,channel);
+    if(!rec.segment)return null;
+    const ov=getCurveOverride(rec.division,rec.sizeScale,rec.segment,channel);
     if(!ov||!ov.curve)return null;
     const norm={};let sum=0;
     rec.sizes.forEach(s=>{const p=ov.curve[s]||0;norm[s]=p;sum+=p});
@@ -4359,7 +4358,7 @@ function renderDetail(el,rec){
   } else if(rec._retailOverride||rec._onlineOverride){
     // V9.3: an imported curve override is driving this SKU's curve (not history)
     const chans=[];if(rec._retailOverride)chans.push('Retail');if(rec._onlineOverride)chans.push('Online');
-    trail+='<span class="rs rg" title="An imported curve override for '+esc(rec.subcategory)+' ('+chans.join(' + ')+') is driving this curve instead of sales history. Click a hierarchy level above to use L52W history instead.">⤳ Curve override active — '+esc(rec.subcategory)+' ('+chans.join(' + ')+')</span>';
+    trail+='<span class="rs rg" title="An imported curve override for '+esc(rec.segment)+' ('+chans.join(' + ')+') is driving this curve instead of sales history. Click a hierarchy level above to use L52W history instead.">⤳ Curve override active — '+esc(rec.segment)+' ('+chans.join(' + ')+')</span>';
   }
   trail+='</div>';
 
@@ -4815,51 +4814,69 @@ function renderScaleDetail(el,scale){
       '<button class="btn btn-g btn-sm" onclick="clearPMStaged(\''+esc(scale)+'\')">Discard</button></div>';
   }
 
-  // ── Sales curves by Subcategory → Channel (V9.7) ──
-  // V9.4: count active overrides for this scale so we can offer a one-click bulk clear
-  let scaleOvCount=0;for(const k in A.curveImports){if(k.split('|')[1]===scale)scaleOvCount++}
-  const clearAllBtn=scaleOvCount>0?'<button class="btn btn-g btn-sm" style="margin-left:auto" onclick="clearAllCurveOverrides(\''+esc(div)+'\',\''+esc(scale)+'\')" title="Remove every imported curve override on this size scale">✕ Clear all overwrites ('+scaleOvCount+')</button>':'';
-  h+='<div class="sd-section-lbl" style="margin-top:24px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">Sales Curves by Subcategory &amp; Channel <span style="font-weight:400;color:var(--txt3);text-transform:none;letter-spacing:0">— L52W history, with imported overrides where present</span>'+clearAllBtn+'</div>';
-  const subcats=getSubcatsForScale(div,scale);
-  if(!subcats.length){
-    h+='<div class="gnote">No subcategories with L52W sales found for '+esc(div)+' / '+esc(scale)+'.</div>';
-  } else {
-    subcats.forEach(sub=>{
-      ['Retail','Online'].forEach(channel=>{
-        const sc=getSubcatSalesCurve(div,scale,sub,channel);
-        const ov=getCurveOverride(div,scale,sub,channel);
-        // Skip channel rows with literally no sales AND no override (keeps the list relevant)
-        if(sc.total===0&&!ov)return;
-        const ovSum=ov?Object.values(ov.curve).reduce((a,v)=>a+v,0):0;
-        const ovFlag=ov&&ovSum<99.9999;
-        h+='<div class="cc-block">'+
-          '<div class="cc-hdr">'+
-            '<span class="cc-cat">'+esc(sub)+'</span><span class="cc-chan cc-chan-'+channel.toLowerCase()+'">'+channel+'</span>'+
-            '<span class="cc-total">'+fmt(sc.total)+' units L52W</span>'+
-            (ov?'<span class="cc-ov-tag'+(ovFlag?' cc-ov-flag':'')+'" title="'+(ovFlag?'Override sums to '+ovSum.toFixed(1)+'% — suboptimal':'Override active')+'">⤳ override'+(ovFlag?' '+ovSum.toFixed(0)+'%':'')+'</span><button class="cc-ov-rm" title="Remove this '+channel+' override for '+esc(sub)+'" onclick="removeCurveOverride(\''+esc(div)+'\',\''+esc(scale)+'\',\''+esc(sub)+'\',\''+channel+'\')">✕</button>':'')+
-          '</div>';
-        // Always show the detail (no dropdown): Sales %, Sales units, and Override % if present.
-        h+='<table class="cc-tbl"><thead><tr><th>Source</th>';
-        sizes.forEach(s=>{h+='<th>'+esc(s)+'</th>'});
-        h+='<th>Total</th></tr></thead><tbody>';
-        h+='<tr><td class="cc-src">Sales %</td>';
-        sizes.forEach(s=>{h+='<td>'+(sc.total>0?sc.pctBySize[s].toFixed(1)+'%':'—')+'</td>'});
-        h+='<td class="cc-tot">'+fmt(sc.total)+'</td></tr>';
-        h+='<tr class="cc-units"><td class="cc-src">Sales units</td>';
-        sizes.forEach(s=>{h+='<td>'+(sc.bySize[s]?fmt(sc.bySize[s]):'—')+'</td>'});
-        h+='<td class="cc-tot">'+fmt(sc.total)+'</td></tr>';
-        if(ov){
-          h+='<tr class="cc-ovrow'+(ovFlag?' cc-ovrow-flag':'')+'"><td class="cc-src">Override %'+(ov.by?' <span class="cc-by">('+esc(ov.by)+')</span>':'')+'</td>';
-          sizes.forEach(s=>{const p=ov.curve[s]||0;h+='<td>'+(p?p.toFixed(1)+'%':'—')+'</td>'});
-          h+='<td class="cc-tot'+(ovFlag?' cc-tot-flag':'')+'">'+ovSum.toFixed(0)+'%</td></tr>';
-        }
-        h+='</tbody></table>';
-        h+='</div>';
-      });
-    });
-  }
+  // ── Sales curves at all three hierarchy levels (V9.8) ──
+  // Three cleanly stacked, independent grids (NOT drilldowns): Category → Subcategory → Product
+  // Segmentation. Each grid shows Sales % and Sales units per value × channel. Overwrites (the
+  // override % row, per-row ✕, and the bulk "Clear all overwrites" button) live ONLY at the
+  // Product Segmentation level, since that's the single granularity overrides are keyed on.
+  h+=curveLevelGridHtml(div,scale,sizes,'category','Category',false);
+  h+=curveLevelGridHtml(div,scale,sizes,'subcategory','Subcategory',false);
+  h+=curveLevelGridHtml(div,scale,sizes,'segment','Product Segmentation',true);
 
   h+='</div>';el.innerHTML=h;
+}
+
+// V9.8: render one hierarchy level's sales-curve grid (Category | Subcategory | Product Segmentation).
+// withOverrides=true (Product Segmentation only) adds the override % row, per-row remove ✕, and the
+// scale-wide "Clear all overwrites" button.
+function curveLevelGridHtml(div,scale,sizes,field,levelLabel,withOverrides){
+  let h='';
+  let clearAllBtn='';
+  if(withOverrides){
+    let scaleOvCount=0;for(const k in A.curveImports){if(k.split('|')[1]===scale)scaleOvCount++}
+    clearAllBtn=scaleOvCount>0?'<button class="btn btn-g btn-sm" style="margin-left:auto" onclick="clearAllCurveOverrides(\''+esc(div)+'\',\''+esc(scale)+'\')" title="Remove every imported curve override on this size scale">✕ Clear all overwrites ('+scaleOvCount+')</button>':'';
+  }
+  const subtitle=withOverrides?'— L52W history, with imported overrides where present':'— L52W history (reference only — overrides apply at Product Segmentation)';
+  h+='<div class="sd-section-lbl" style="margin-top:24px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">Sales Curves by '+esc(levelLabel)+' &amp; Channel <span style="font-weight:400;color:var(--txt3);text-transform:none;letter-spacing:0">'+subtitle+'</span>'+clearAllBtn+'</div>';
+  const vals=getValuesForScale(div,scale,field);
+  if(!vals.length){
+    h+='<div class="gnote">No '+esc(levelLabel)+' values with L52W sales found for '+esc(div)+' / '+esc(scale)+'.</div>';
+    return h;
+  }
+  vals.forEach(val=>{
+    ['Retail','Online'].forEach(channel=>{
+      const sc=getFieldSalesCurve(div,scale,field,val,channel);
+      const ov=withOverrides?getCurveOverride(div,scale,val,channel):null;
+      // Skip channel rows with literally no sales AND no override (keeps each grid relevant)
+      if(sc.total===0&&!ov)return;
+      const ovSum=ov?Object.values(ov.curve).reduce((a,v)=>a+v,0):0;
+      const ovFlag=ov&&ovSum<99.9999;
+      h+='<div class="cc-block">'+
+        '<div class="cc-hdr">'+
+          '<span class="cc-cat">'+esc(val)+'</span><span class="cc-chan cc-chan-'+channel.toLowerCase()+'">'+channel+'</span>'+
+          '<span class="cc-total">'+fmt(sc.total)+' units L52W</span>'+
+          (ov?'<span class="cc-ov-tag'+(ovFlag?' cc-ov-flag':'')+'" title="'+(ovFlag?'Override sums to '+ovSum.toFixed(1)+'% — suboptimal':'Override active')+'">⤳ override'+(ovFlag?' '+ovSum.toFixed(0)+'%':'')+'</span><button class="cc-ov-rm" title="Remove this '+channel+' override for '+esc(val)+'" onclick="removeCurveOverride(\''+esc(div)+'\',\''+esc(scale)+'\',\''+esc(val)+'\',\''+channel+'\')">✕</button>':'')+
+        '</div>';
+      // Always show the detail (no dropdown): Sales %, Sales units, and (P-Seg only) Override % if present.
+      h+='<table class="cc-tbl"><thead><tr><th>Source</th>';
+      sizes.forEach(s=>{h+='<th>'+esc(s)+'</th>'});
+      h+='<th>Total</th></tr></thead><tbody>';
+      h+='<tr><td class="cc-src">Sales %</td>';
+      sizes.forEach(s=>{h+='<td>'+(sc.total>0?sc.pctBySize[s].toFixed(1)+'%':'—')+'</td>'});
+      h+='<td class="cc-tot">'+fmt(sc.total)+'</td></tr>';
+      h+='<tr class="cc-units"><td class="cc-src">Sales units</td>';
+      sizes.forEach(s=>{h+='<td>'+(sc.bySize[s]?fmt(sc.bySize[s]):'—')+'</td>'});
+      h+='<td class="cc-tot">'+fmt(sc.total)+'</td></tr>';
+      if(ov){
+        h+='<tr class="cc-ovrow'+(ovFlag?' cc-ovrow-flag':'')+'"><td class="cc-src">Override %'+(ov.by?' <span class="cc-by">('+esc(ov.by)+')</span>':'')+'</td>';
+        sizes.forEach(s=>{const p=ov.curve[s]||0;h+='<td>'+(p?p.toFixed(1)+'%':'—')+'</td>'});
+        h+='<td class="cc-tot'+(ovFlag?' cc-tot-flag':'')+'">'+ovSum.toFixed(0)+'%</td></tr>';
+      }
+      h+='</tbody></table>';
+      h+='</div>';
+    });
+  });
+  return h;
 }
 
 function toggleCurveRow(key){/* V9.7: curve rows always expanded; retained as no-op for safety */}
