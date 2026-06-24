@@ -481,7 +481,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V9.9.1 · OVERRIDE MATCH FIX</div>
+<div class="version-tag">V9.10 · P-SEG FILTER + CURVE DISPLAY</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -1141,7 +1141,7 @@ const A={
   curveImports:{},  // V9.3/V9.8: "div|scale|segmentation|channel" -> {curve:{size:pct}, rawSum, by, at} (cloud column is still named `category`)
   searchTerm:'',sortKey:'dtcBuy',sortDir:'desc',
   scaleSort:'name',scaleSortDir:'asc',scaleFilterDiv:'All', // V9.4: Size Scales grid sort/filter
-  filters:{type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All',deliveryMonth:'All'},
+  filters:{type:'All',division:'All',category:'All',subcategory:'All',segment:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All',deliveryMonth:'All'},
   presMins:{},
   presMinsMeta:{},
   scaleSizes:{},scaleSizeCount:{},hierSales:{},salSKU:{},cols:{},
@@ -1533,7 +1533,7 @@ function goSeason(s){
   A.activeSeason=s;A.selectedSKU=null;A.view='grid';A.module=null;
   if(!sameSeason){
     A.overrides={};A.accepted={};A.sortKey='dtcBuy';A.sortDir='desc';
-    A.filters={type:'All',division:'All',category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All',deliveryMonth:'All'};
+    A.filters={type:'All',division:'All',category:'All',subcategory:'All',segment:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All',deliveryMonth:'All'};
   }
   processData();
   document.getElementById('welcome').classList.add('hidden');
@@ -3230,6 +3230,28 @@ function computeAlloc(rec){
     rec.sizes.forEach(s=>{onlineCurveSales[s]=hs[s]||0});
   } else rec.sizes.forEach(s=>{onlineCurveSales[s]=0});
 
+  // V9.10: when a curve OVERRIDE is driving the buy, reflect the OVERRIDE shape in the displayed
+  // "Curve Sales" series (histogram + table) and the DTC Curve %, instead of raw L52W history —
+  // otherwise the curve section silently contradicts the buy it produced. We redistribute each
+  // channel's historical sales total along the EFFECTIVE channel curve (retailCurve/onlineCurve are
+  // already override-aware AND have online-only sizes zeroed for retail), so magnitudes stay familiar
+  // while the shape matches what actually drove the allocation. Channels without an override are
+  // unaffected (their effective curve equals the historical curve).
+  let dispDtcCurve=dtcCurveResult.curve;
+  if(retailOverride||onlineOverride){
+    const sumOf=o=>rec.sizes.reduce((a,s)=>a+(o[s]||0),0);
+    let Tr=sumOf(retailCurveSales);if(Tr<=0)Tr=effRetailPool; // fall back to pool so the bar still shows
+    let To=sumOf(onlineCurveSales);if(To<=0)To=effOnlinePool;
+    rec.sizes.forEach(s=>{
+      retailCurveSales[s]=(retailCurve[s]||0)*Tr; // retailCurve sums to 1 over non-online-only sizes
+      onlineCurveSales[s]=(onlineCurve[s]||0)*To;
+      dtcCurveSales[s]=retailCurveSales[s]+onlineCurveSales[s];
+    });
+    const Tdtc=sumOf(dtcCurveSales);
+    const odc={};rec.sizes.forEach(s=>{odc[s]=Tdtc>0?dtcCurveSales[s]/Tdtc:0});
+    dispDtcCurve=odc; // drives the CURVE % column when an override is active
+  }
+
   // ── Flows: applied to combined DTC pool ──
   // V8.6: pass projected BOP per size so CF flows can guarantee the Global flow + BOP meets min pres.
   const flows=computeFlows(rec,pool,alloc,retailCurve,onlineCurve,useBOP?bop:null);
@@ -3240,7 +3262,7 @@ function computeAlloc(rec){
   const ideal={};rec.sizes.forEach(s=>{ideal[s]=retailIdeals[s]+onlineIdeals[s]});
 
   return{
-    alloc,curve:dtcCurveResult.curve,cr,pm,pmRate,
+    alloc,curve:dispDtcCurve,cr,pm,pmRate,
     bop:useBOP?bop:null,wtr:useBOP?wtr:null,ideal:useBOP?ideal:null,
     bopRateInfo:useBOP?bopRateInfo:null,
     bopStockoutWeeks:useBOP?bopStockoutWeeks:null,
@@ -3801,6 +3823,7 @@ function getFiltered(){
   if(f.division!=='All')list=list.filter(r=>r.division===f.division);
   if(f.category!=='All')list=list.filter(r=>r.category===f.category);
   if(f.subcategory!=='All')list=list.filter(r=>r.subcategory===f.subcategory);
+  if(f.segment&&f.segment!=='All')list=list.filter(r=>r.segment===f.segment);
   if(f.sizeScale&&f.sizeScale!=='All')list=list.filter(r=>r.sizeScale===f.sizeScale);
   if(f.commitCoding&&f.commitCoding!=='All'){
     if(f.commitCoding==='—')list=list.filter(r=>!(r.commitCoding||'').trim());
@@ -3867,6 +3890,7 @@ function getFilterOptions(){
       if(skipKey!=='division'&&f.division!=='All'&&r.division!==f.division)return false;
       if(skipKey!=='category'&&f.category!=='All'&&r.category!==f.category)return false;
       if(skipKey!=='subcategory'&&f.subcategory!=='All'&&r.subcategory!==f.subcategory)return false;
+      if(skipKey!=='segment'&&f.segment&&f.segment!=='All'&&r.segment!==f.segment)return false;
       if(skipKey!=='sizeScale'&&f.sizeScale!=='All'&&r.sizeScale!==f.sizeScale)return false;
       if(skipKey!=='commitCoding'&&f.commitCoding!=='All'){
         if(f.commitCoding==='—'&&(r.commitCoding||'').trim())return false;
@@ -3902,6 +3926,8 @@ function getFilterOptions(){
   const cats=[...new Set(catsBase.map(r=>r.category).filter(Boolean))].sort();
   const subsBase=applyFiltersExcept('subcategory');
   const subs=[...new Set(subsBase.map(r=>r.subcategory).filter(Boolean))].sort();
+  const segsBase=applyFiltersExcept('segment');
+  const segs=[...new Set(segsBase.map(r=>r.segment).filter(Boolean))].sort();
   const scalesBase=applyFiltersExcept('sizeScale');
   const scales=[...new Set(scalesBase.map(r=>r.sizeScale).filter(Boolean))].sort();
   const commitsBase=applyFiltersExcept('commitCoding');
@@ -3943,7 +3969,7 @@ function getFilterOptions(){
     if(ma1!==mb1)return ma1-mb1;
     return parseInt(ma[2],10)-parseInt(mb[2],10);
   });
-  return{divs,cats,subs,scales,commits,dms,
+  return{divs,cats,subs,segs,scales,commits,dms,
     ssOptions:{Configured:ssHasConfigured,'Not Configured':ssHasUnconfigured},
     stOptions:stPossible,
     typeOptions:{cf:typeHasCF,initials:typeHasInitials},
@@ -4091,7 +4117,7 @@ function renderChaseForm(){
 
 function renderGrid(el){
   const fo=getFilterOptions();
-  const{divs,cats,subs,scales,commits,dms,ssOptions,stOptions,typeOptions,accOptions}=fo;
+  const{divs,cats,subs,segs,scales,commits,dms,ssOptions,stOptions,typeOptions,accOptions}=fo;
   function opts(arr,lbl,cur){let h='<option value="All">'+lbl+': All</option>';arr.forEach(v=>{h+='<option value="'+esc(v)+'"'+(cur===v?' selected':'')+'>'+esc(v)+'</option>'});return h}
   function sb(k,l){
     const on=A.sortKey===k;
@@ -4101,6 +4127,7 @@ function renderGrid(el){
   // Reset deeper filters if their currently-selected value is no longer valid
   if(A.filters.category!=='All'&&!cats.includes(A.filters.category))A.filters.category='All';
   if(A.filters.subcategory!=='All'&&!subs.includes(A.filters.subcategory))A.filters.subcategory='All';
+  if(A.filters.segment!=='All'&&!segs.includes(A.filters.segment))A.filters.segment='All';
   if(A.filters.sizeScale!=='All'&&!scales.includes(A.filters.sizeScale))A.filters.sizeScale='All';
   if(A.filters.commitCoding!=='All'&&!commits.includes(A.filters.commitCoding))A.filters.commitCoding='All';
   if(A.filters.deliveryMonth!=='All'&&!dms.includes(A.filters.deliveryMonth))A.filters.deliveryMonth='All';
@@ -4138,6 +4165,7 @@ function renderGrid(el){
     '<select class="'+fcls(A.filters.type!=='All')+'" onchange="setFilter(\'type\',this.value)"><option value="All">Type: All</option>'+typeOpt('cf','CF')+typeOpt('initials','Initials')+'</select>'+
     '<select class="'+fcls(A.filters.category!=='All')+(cats.length<=1?' dim':'')+'" onchange="setFilter(\'category\',this.value)">'+opts(cats,'Category',A.filters.category)+'</select>'+
     '<select class="'+fcls(A.filters.subcategory!=='All')+(subs.length<=1?' dim':'')+'" onchange="setFilter(\'subcategory\',this.value)">'+opts(subs,'Subcategory',A.filters.subcategory)+'</select>'+
+    '<select class="'+fcls(A.filters.segment!=='All')+(segs.length<=1?' dim':'')+'" onchange="setFilter(\'segment\',this.value)">'+opts(segs,'Product Seg',A.filters.segment)+'</select>'+
     '<select class="'+fcls(A.filters.sizeScale!=='All')+(scales.length<=1?' dim':'')+'" onchange="setFilter(\'sizeScale\',this.value)">'+opts(scales,'Size Scale',A.filters.sizeScale)+'</select>'+
     '<select class="'+fcls(A.filters.commitCoding!=='All')+(commits.length<=1?' dim':'')+'" onchange="setFilter(\'commitCoding\',this.value)">'+opts(commits,'Commit Code',A.filters.commitCoding)+'</select>'+
     '<select class="'+fcls(A.filters.deliveryMonth!=='All')+(dms.length<=1?' dim':'')+'" onchange="setFilter(\'deliveryMonth\',this.value)">'+opts(dms,'Delivery',A.filters.deliveryMonth)+'</select>'+
@@ -4176,7 +4204,7 @@ function setDivision(div){
 function clearAllFilters(){
   // Reset every filter EXCEPT division (which is now controlled by header pills)
   const keepDiv=A.filters.division;
-  A.filters={type:'All',division:keepDiv,category:'All',subcategory:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All',deliveryMonth:'All'};
+  A.filters={type:'All',division:keepDiv,category:'All',subcategory:'All',segment:'All',sizeScale:'All',commitCoding:'All',ssConfigured:'All',storeCount:'All',accepted:'All',deliveryMonth:'All'};
   A.searchTerm='';
   renderGrid(document.getElementById('main-area'));
 }
