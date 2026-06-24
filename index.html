@@ -481,7 +481,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V9.9 · IMPORT TAB</div>
+<div class="version-tag">V9.9.1 · OVERRIDE MATCH FIX</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -1381,11 +1381,14 @@ async function loadFromCloud(){
     A.curveImports={};
     rows.forEach(r=>{
       const key=r.division+'|'+r.size_scale+'|'+r.category+'|'+r.channel;
-      A.curveImports[key]={curve:r.curve||{},rawSum:r.raw_sum,by:r.updated_by_name,at:r.updated_at};
+      // _div/_scale/_value/_channel carry the RAW stored values for normalized matching + exact deletes
+      A.curveImports[key]={curve:r.curve||{},rawSum:r.raw_sum,by:r.updated_by_name,at:r.updated_at,
+        _div:r.division,_scale:r.size_scale,_value:r.category,_channel:r.channel};
     });
+    rebuildCurveImportIndex();
   }catch(err){
     console.warn('cloudListCurveOverrides failed (table may not exist yet):',err);
-    A.curveImports={};
+    A.curveImports={};rebuildCurveImportIndex();
   }
   // 3. Rebuild derived caches
   A.scaleSizes={};A.scaleSizeCount={};
@@ -1853,11 +1856,31 @@ function getFieldSalesCurve(division,sizeScale,field,value,channel){
   return{bySize,total,pctBySize};
 }
 
-// Look up an active curve override. The key's 3rd segment holds the PRODUCT SEGMENTATION as of V9.8
-// (stored in the cloud's `category` column, which is reused rather than renamed — like `pres_mins`).
+// V9.9.1: Override matching is NORMALIZED, not exact. The stored value comes from a hand-filled
+// spreadsheet (trimmed) while a SKU's division/scale/segment come from the Linelist export, which is
+// NOT trimmed/cased consistently — so a trailing space, double space, or different casing in the
+// Product Segmentation silently broke the exact-string match (override stored but never applied).
+// We canonicalize each key part (trim, collapse internal whitespace, uppercase) for matching only;
+// the raw values remain the source of truth for storage, deletes, and the bulk-clear counter.
+function _ovNorm(s){return String(s==null?'':s).trim().toUpperCase().replace(/\s+/g,' ');}
+function _ovNormKey(div,scale,value,channel){return _ovNorm(div)+'|'+_ovNorm(scale)+'|'+_ovNorm(value)+'|'+_ovNorm(channel);}
+// Build the normalized lookup index from A.curveImports. Each entry carries the RAW components so
+// deletes can target the exact stored values regardless of how the lookup was spelled.
+function rebuildCurveImportIndex(){
+  const idx={};
+  for(const key in A.curveImports){
+    const o=A.curveImports[key];
+    const div=o._div,scale=o._scale,value=o._value,channel=o._channel;
+    if(div===undefined)continue; // older entry without raw parts — skip (will be repopulated on next cloud load)
+    idx[_ovNormKey(div,scale,value,channel)]={...o};
+  }
+  A._curveImportsNorm=idx;
+}
+
+// Look up an active curve override. Matching is case/whitespace-insensitive (see _ovNorm above).
 function getCurveOverride(division,sizeScale,value,channel){
-  const key=division+'|'+sizeScale+'|'+value+'|'+channel;
-  return A.curveImports[key]||null;
+  if(!A._curveImportsNorm)rebuildCurveImportIndex();
+  return A._curveImportsNorm[_ovNormKey(division,sizeScale,value,channel)]||null;
 }
 
 // ─── Curve override import: template download ───
@@ -4873,6 +4896,20 @@ function curveLevelGridHtml(div,scale,sizes,field,levelLabel,withOverrides){
   const subtitle=withOverrides?'— L52W history, with imported overrides where present':'— L52W history (reference only — overrides apply at Product Segmentation)';
   h+='<div class="sd-section-lbl" style="margin-top:24px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">Sales Curves by '+esc(levelLabel)+' &amp; Channel <span style="font-weight:400;color:var(--txt3);text-transform:none;letter-spacing:0">'+subtitle+'</span>'+clearAllBtn+'</div>';
   const vals=getValuesForScale(div,scale,field);
+  // V9.9.1: at the override level, also surface segments that have a stored override but NO L52W
+  // sales (otherwise an override on a no-history segmentation is invisible — stored "under the
+  // covers" with no way to see or remove it). Union them in by normalized value.
+  if(withOverrides){
+    const dN=_ovNorm(div),sN=_ovNorm(scale);
+    const seen=new Set(vals.map(v=>_ovNorm(v)));
+    for(const k in A.curveImports){
+      const o=A.curveImports[k];if(o._div===undefined)continue;
+      if(_ovNorm(o._div)===dN&&_ovNorm(o._scale)===sN&&!seen.has(_ovNorm(o._value))){
+        seen.add(_ovNorm(o._value));vals.push(o._value);
+      }
+    }
+    vals.sort();
+  }
   if(!vals.length){
     h+='<div class="gnote">No '+esc(levelLabel)+' values with L52W sales found for '+esc(div)+' / '+esc(scale)+'.</div>';
     return h;
@@ -4885,11 +4922,15 @@ function curveLevelGridHtml(div,scale,sizes,field,levelLabel,withOverrides){
       if(sc.total===0&&!ov)return;
       const ovSum=ov?Object.values(ov.curve).reduce((a,v)=>a+v,0):0;
       const ovFlag=ov&&ovSum<99.9999;
+      const dDel=ov&&ov._div!==undefined?ov._div:div;
+      const sDel=ov&&ov._scale!==undefined?ov._scale:scale;
+      const vDel=ov&&ov._value!==undefined?ov._value:val;
+      const cDel=ov&&ov._channel!==undefined?ov._channel:channel;
       h+='<div class="cc-block">'+
         '<div class="cc-hdr">'+
           '<span class="cc-cat">'+esc(val)+'</span><span class="cc-chan cc-chan-'+channel.toLowerCase()+'">'+channel+'</span>'+
           '<span class="cc-total">'+fmt(sc.total)+' units L52W</span>'+
-          (ov?'<span class="cc-ov-tag'+(ovFlag?' cc-ov-flag':'')+'" title="'+(ovFlag?'Override sums to '+ovSum.toFixed(1)+'% — suboptimal':'Override active')+'">⤳ override'+(ovFlag?' '+ovSum.toFixed(0)+'%':'')+'</span><button class="cc-ov-rm" title="Remove this '+channel+' override for '+esc(val)+'" onclick="removeCurveOverride(\''+esc(div)+'\',\''+esc(scale)+'\',\''+esc(val)+'\',\''+channel+'\')">✕</button>':'')+
+          (ov?'<span class="cc-ov-tag'+(ovFlag?' cc-ov-flag':'')+'" title="'+(ovFlag?'Override sums to '+ovSum.toFixed(1)+'% — suboptimal':'Override active')+'">⤳ override'+(ovFlag?' '+ovSum.toFixed(0)+'%':'')+'</span><button class="cc-ov-rm" title="Remove this '+channel+' override for '+esc(val)+'" onclick="removeCurveOverride(\''+esc(dDel)+'\',\''+esc(sDel)+'\',\''+esc(vDel)+'\',\''+esc(cDel)+'\')">✕</button>':'')+
         '</div>';
       // Always show the detail (no dropdown): Sales %, Sales units, and (P-Seg only) Override % if present.
       h+='<table class="cc-tbl"><thead><tr><th>Source</th>';
@@ -4925,6 +4966,7 @@ async function clearAllCurveOverrides(div,scale){
     await cloudLogEvent('curve_override_clear_all','curve',div+' '+scale,
       'cleared all '+count+' curve override'+(count===1?'':'s')+' for '+div+' '+scale,{count:count});
     for(const k in A.curveImports){if(k.split('|')[1]===scale)delete A.curveImports[k]}
+    rebuildCurveImportIndex();
     toast('Cleared '+count+' override'+(count===1?'':'s')+' for '+scale);
     render();
   }catch(err){toast('Clear failed: '+err.message)}
@@ -4937,6 +4979,7 @@ async function removeCurveOverride(div,scale,cat,channel){
     await cloudLogEvent('curve_override_remove','curve',div+' '+scale+' '+cat+' '+channel,
       'removed '+channel+' curve override for '+cat+' ('+div+' '+scale+')',null);
     delete A.curveImports[div+'|'+scale+'|'+cat+'|'+channel];
+    rebuildCurveImportIndex();
     toast('Override removed');
     render();
   }catch(err){toast('Remove failed: '+err.message)}
