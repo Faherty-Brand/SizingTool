@@ -1163,6 +1163,13 @@ function shiftDeliveryMonth(deliveryMonth,offset){
 // The HO window is expressed as 11–13, where 13 means January of the following year.
 const SEASON_WINDOWS={SP:[1,4],SU:[5,7],FA:[8,10],HO:[11,13]};
 
+// The season FAMILY ('SU27' -> 'SU'). Year is deliberately dropped: a SU27 buy should learn its
+// seasonal shape from SU26 and SU25 selling, not from whatever else shipped in 2027.
+function seasonPrefix(seasonCode){
+  const m=String(seasonCode||'').trim().toUpperCase().match(/^([A-Z]{2})/);
+  return m?m[1]:null;
+}
+
 function seasonMonthWindow(seasonCode){
   const m=String(seasonCode||'').trim().toUpperCase().match(/^([A-Z]{2})/);
   if(!m)return null;
@@ -1654,8 +1661,21 @@ function processData(){
   const skuWeeks={};         // SKU -> Set<weekLabel> with sales > 0
   const skuWkUnits={};       // V9.9: SKU -> {weekOfYear: units} — the seasonal shape, per SKU
   const hierWk={};           // V9.9: hierarchy key -> {weekOfYear: units} — parent seasonal shapes
+  const hierWkSeas={};       // V9.9.1: 'SU|<hierKey>' -> {weekOfYear: units} — season-aligned cohorts
   let wkParsed=0,wkUnparsed=0;  // V9.9: diagnostics for the Week column
   A.salSkuMeta={};           // V9: SKU -> {division,category,subcategory,segment,styleDescription,colorDescription, sizes:Set}
+  // V9.9.1: SKU -> season family, so weekly sales can be bucketed into season-aligned cohorts.
+  // A blended 'all men's shirts' curve is nearly FLAT (it mixes summer and fall product), which is
+  // why the first cut of the seasonal index barely moved the rate. Restricting the curve to the
+  // same season family is what actually gives it a summer peak and a dead winter.
+  const skuSeasonPfx={};
+  if(ll&&ll[0]&&c.lS!=null&&c.lSe!=null){
+    ll.forEach(r=>{
+      const k=r[c.lS];if(!k)return;
+      const pfx=seasonPrefix(r[c.lSe]);
+      if(pfx)skuSeasonPfx[k]=pfx;
+    });
+  }
   const hasWeekCol=c.sWk!==null&&c.sWk!==undefined;
   const hasSegCol=c.sSeg!==null&&c.sSeg!==undefined;
   sales.forEach(r=>{
@@ -1702,10 +1722,17 @@ function processData(){
       if(!skuWkUnits[sku])skuWkUnits[sku]={};
       skuWkUnits[sku][wkNum]=(skuWkUnits[sku][wkNum]||0)+u;
     }
+    const rowPfx=skuSeasonPfx[sku]||null;
     keys.forEach(k=>{
       if(wkNum){
         if(!hierWk[k])hierWk[k]={};
         hierWk[k][wkNum]=(hierWk[k][wkNum]||0)+u;
+        // Same level, but only styles from the same season family.
+        if(rowPfx){
+          const ck=rowPfx+'|'+k;
+          if(!hierWkSeas[ck])hierWkSeas[ck]={};
+          hierWkSeas[ck][wkNum]=(hierWkSeas[ck][wkNum]||0)+u;
+        }
       }
       if(!hS[k])hS[k]={};hS[k][sz]=(hS[k][sz]||0)+u;
       if(isRetail){if(!hSr[k])hSr[k]={};hSr[k][sz]=(hSr[k][sz]||0)+u}
@@ -1729,6 +1756,8 @@ function processData(){
   }
   A.skuWkUnits=skuWkUnits;      // V9.9: SKU -> {weekOfYear: units}
   A.hierWeekly=hierWk;          // V9.9: hierarchy key -> {weekOfYear: units}
+  A.hierWeeklySeason=hierWkSeas; // V9.9.1: 'SU|<hierKey>' -> {weekOfYear: units}
+  A.skuSeasonPfx=skuSeasonPfx;   // V9.9.1: SKU -> season family
   A.seasonIdxCache={};          // V9.9: cleared on every reprocess — the shapes just changed
   A.weekParseStats={parsed:wkParsed,unparsed:wkUnparsed};
   if(hasWeekCol&&wkUnparsed>wkParsed){
@@ -2573,19 +2602,22 @@ function buildSeasonIndex(wkUnits){
   const mean=sum/cnt;
   if(mean<=0)return null;
   const idx={};
-  for(const w in clean)idx[w]=clean[w]/mean;   // averages exactly 1.0 over the weeks present
+  // Averages 1.0 over the weeks present. Clamped so a single dead or freak week can't drive the
+  // rate to zero or blow it up; the bounds are wide enough not to flatten real seasonality.
+  for(const w in clean)idx[w]=Math.min(4,Math.max(0.02,clean[w]/mean));
   return{idx,weeks:cnt,units:sum};
 }
 
-// The chain of levels a seasonal shape can come from, finest-to-broadest.
+// The chain of levels a seasonal shape can come from, finest-to-broadest. `key` is the hierarchy
+// key used for both the blended curve and (prefixed with the season family) the cohort curve.
 function seasonChain(rec){
   return[
-    {level:'SKU',label:rec.sku,units:A.skuWkUnits&&A.skuWkUnits[rec.sku]},
-    {level:'Program',label:rec.styleDescription,units:A.hierWeekly&&A.hierWeekly[rec._hk.prog]},
-    {level:'Segment',label:rec.segment||'(no segment)',units:A.hierWeekly&&A.hierWeekly[rec._hk.seg]},
-    {level:'Subcategory',label:rec.subcategory,units:A.hierWeekly&&A.hierWeekly[rec._hk.sub]},
-    {level:'Category',label:rec.category,units:A.hierWeekly&&A.hierWeekly[rec._hk.cat]},
-    {level:'Division',label:rec.division,units:A.hierWeekly&&A.hierWeekly[rec._hk.div]}
+    {level:'SKU',label:rec.sku,key:null},
+    {level:'Program',label:rec.styleDescription,key:rec._hk.prog},
+    {level:'Segment',label:rec.segment||'(no segment)',key:rec._hk.seg},
+    {level:'Subcategory',label:rec.subcategory,key:rec._hk.sub},
+    {level:'Category',label:rec.category,key:rec._hk.cat},
+    {level:'Division',label:rec.division,key:rec._hk.div}
   ];
 }
 
@@ -2595,20 +2627,37 @@ function baseRateLevel(wkInfo){
 }
 
 // Seasonal shape for this SKU, measured no lower than the level the RATE resolved to and walking
-// up until a level has enough weekly coverage. Keeping the two in step matters: a shape measured
-// finer than its own rate would be reading noise the rate deliberately walked away from.
+// up until a level has enough weekly coverage.
+//
+// V9.9.1: at each level the SEASON-ALIGNED COHORT is tried first, and only then the blended curve.
+// This is the fix that makes the correction actually bite. A blended parent curve ('all men's
+// shirts', 'all of Men's') is nearly FLAT, because it mixes summer product with fall and holiday
+// product — averaged together they cover the whole year evenly. Multiplying an elevated summer
+// rate by a flat index leaves it elevated, which is why the first cut barely moved the rate.
+// Restricted to the same season family, the same level shows a real summer peak and a dead winter.
 function getSeasonalIndex(rec,wkInfo){
   if(!A.seasonIdxCache)A.seasonIdxCache={};
   const src=baseRateLevel(wkInfo);
-  const ck=rec.sku+'|'+src;
+  const pfx=seasonPrefix(rec.season);
+  const ck=rec.sku+'|'+src+'|'+(pfx||'-');
   if(A.seasonIdxCache[ck]!==undefined)return A.seasonIdxCache[ck];
   const chain=seasonChain(rec);
   let start=chain.findIndex(c=>c.level===src);
   if(start<0)start=0;
   let out=null;
-  for(let i=start;i<chain.length;i++){
-    const b=buildSeasonIndex(chain[i].units);
-    if(b){out={idx:b.idx,level:chain[i].level,label:chain[i].label,weeks:b.weeks};break}
+  for(let i=start;i<chain.length&&!out;i++){
+    const c=chain[i];
+    // 1. Season-aligned cohort at this level.
+    if(pfx&&c.key&&A.hierWeeklySeason){
+      const b=buildSeasonIndex(A.hierWeeklySeason[pfx+'|'+c.key]);
+      if(b){out={idx:b.idx,level:c.level+' \u00b7 '+pfx,label:c.label,weeks:b.weeks,cohort:true}}
+    }
+    // 2. Fall back to the blended curve at this level (or the SKU's own, at the SKU level).
+    if(!out){
+      const units=c.key?(A.hierWeekly||{})[c.key]:(A.skuWkUnits||{})[rec.sku];
+      const b=buildSeasonIndex(units);
+      if(b){out={idx:b.idx,level:c.level,label:c.label,weeks:b.weeks,cohort:false}}
+    }
   }
   A.seasonIdxCache[ck]=out;
   return out;
@@ -2640,6 +2689,52 @@ function seasonRebase(seas,measuredWeeks){
   const avg=sum/n;
   return avg>0.05?avg:1;   // guard a degenerate divisor from blowing the rate up
 }
+
+// V9.9.1: console diagnostic — `debugRate('MBS2511-DOR')` prints every input to the weekly rate,
+// so a rate that looks wrong can be traced to the level it came from rather than guessed at.
+function debugRate(sku){
+  const rec=A.skus&&A.skus[sku];
+  if(!rec){console.log('No such SKU in the active season:',sku);return}
+  const wkInfo=getWeeklyRate(rec);
+  const seas=getSeasonalIndex(rec,wkInfo);
+  const measured=rateMeasuredWeeks(rec,wkInfo);
+  const rebase=seas?seasonRebase(seas,measured):1;
+  const w=deliveryToWeeks(rec.deliveryMonth,rec.season);
+  const today=new Date();today.setHours(0,0,0,0);
+
+  console.log('%c=== debugRate '+sku+' ===','font-weight:bold');
+  console.log('season / delivery      :',rec.season,'/',rec.deliveryMonth,'-> '+w+' weeks forward');
+  console.log('weekly data present    :',A.hasWeeklyData,' parse stats:',A.weekParseStats);
+  if(A.raw&&A.raw.sales&&A.raw.sales[0])console.log('sample Week label      :',JSON.stringify(A.raw.sales[0][A.cols.sWk]));
+  console.log('rate source level      :',wkInfo.sourceLevel,'('+wkInfo.sourceLabel+')');
+  const rawTot=rec.sizes.reduce((a,x)=>a+(wkInfo.rate[x]||0),0);
+  console.log('RAW rate (all sizes)   :',rawTot.toFixed(1)+'/wk');
+  if(!seas){
+    console.log('%cNO SEASONAL INDEX — rate is NOT being corrected.','color:#c00;font-weight:bold');
+    console.log('  Nothing in the chain cleared '+SEASON_IDX_MIN_WEEKS+'w / '+SEASON_IDX_MIN_UNITS+'u.');
+    console.log('  Cohort keys checked under prefix:',seasonPrefix(rec.season));
+    return;
+  }
+  console.log('seasonal index source  :',seas.level,'('+seas.label+')','weeks='+seas.weeks,
+              seas.cohort?'[season-aligned cohort]':'[BLENDED — likely to under-correct]');
+  console.log('rebase divisor         :',rebase.toFixed(3),
+              '(mean index across the '+measured.length+' weeks the raw rate was measured on)');
+  const mults=[];
+  for(let k=0;k<w;k++){
+    const cw=weekOfYear(new Date(today.getTime()+k*7*86400000));
+    mults.push({wk:k,calWeek:cw,mult:+( (seas.idx[cw]===undefined?1:seas.idx[cw]) ).toFixed(3)});
+  }
+  const avgMult=mults.reduce((a,x)=>a+x.mult,0)/(mults.length||1);
+  console.log('forward-window avg mult:',avgMult.toFixed(3));
+  console.log('EFFECTIVE rate         :',(rawTot/rebase*avgMult).toFixed(1)+'/wk',
+              '  (raw '+rawTot.toFixed(1)+' / rebase '+rebase.toFixed(2)+' x mult '+avgMult.toFixed(2)+')');
+  console.log('index by calendar week (1-53):');
+  console.table(Object.keys(seas.idx).map(function(k){return{calWeek:+k,index:+seas.idx[k].toFixed(3)}}));
+  console.log('forward window week by week:');
+  console.table(mults);
+  return{wkInfo:wkInfo,seas:seas,rebase:rebase,avgMult:avgMult,weeks:w};
+}
+window.debugRate=debugRate;
 
 function projBOP(rec){
   const w=deliveryToWeeks(rec.deliveryMonth,rec.season);const bop={};
@@ -2720,7 +2815,7 @@ function projBOP(rec){
   bop._stockoutWeeks=stockoutWeeks;
   bop._rates=effRates;        // V9.9: window-average seasonal rate (was the flat trailing rate)
   bop._rawRates=rawRates;     // V9.9: pre-seasonal rate, kept for the tooltip
-  bop._seasonal=seas?{level:seas.level,label:seas.label,weeks:seas.weeks,rebase:rebase}:null;
+  bop._seasonal=seas?{level:seas.level,label:seas.label,weeks:seas.weeks,rebase:rebase,cohort:!!seas.cohort}:null;
   bop._burnWindows=burnWindows;
   return bop;
 }
@@ -4799,7 +4894,7 @@ function renderDetail(el,rec){
   const seasTip=function(size){
     if(!bopSeasonal)return '';
     let t='\nSeasonal rate: '+bopSeasonal.level+' curve ('+bopSeasonal.label+', '+
-      bopSeasonal.weeks+'w of history)';
+      bopSeasonal.weeks+'w of history'+(bopSeasonal.cohort?', season-aligned':', BLENDED — may under-correct')+')';
     if(bopSeasonal.rebase&&Math.abs(bopSeasonal.rebase-1)>0.05){
       t+='\nTrailing rate rebased ÷'+bopSeasonal.rebase.toFixed(2)+
          ' to an annual average, then re-seasonalised week by week';
