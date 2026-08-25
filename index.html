@@ -1766,6 +1766,11 @@ function processData(){
   for(const k in hierWk)for(const w in hierWk[k])allWeeks.add(+w);
   A.weeklySpan=allWeeks.size;
   A.weeklyFullYear=allWeeks.size>=40;
+  if(!hasWeekCol){
+    console.warn('[SizingTool] No "Week" column found in the sales export. Weekly rates fall back '+
+      'to a 52-week denominator and the SEASONAL RATE ADJUSTMENT IS DISABLED. Columns present:',
+      (A.raw.sales&&A.raw.sales[0])?Object.keys(A.raw.sales[0]):'(none)');
+  }
   if(hasWeekCol&&wkUnparsed>wkParsed){
     console.warn('[V9.9] Week column mostly unparseable ('+wkUnparsed+' vs '+wkParsed+
       ' rows). Seasonal rate adjustment will stay OFF. Sample label:',
@@ -1778,7 +1783,11 @@ function processData(){
   A.hierMeta={};
   for(const k in hierSkus){
     const skus=hierSkus[k];
-    let sumW=0;skus.forEach(s=>{sumW+=(A.skuWeeksLive[s]||4)});
+    // V9.9.3: the default must honour A.hasWeeklyData, as the other two call sites do. With no
+    // Week column A.skuWeeksLive is empty, so a bare ||4 collapsed avgWeeksLive to 4 rather than
+    // 52 and inflated every hierarchy-sourced rate by ~13x.
+    const wlDefault=A.hasWeeklyData?4:52;
+    let sumW=0;skus.forEach(s=>{sumW+=(A.skuWeeksLive[s]||wlDefault)});
     A.hierMeta[k]={skuCount:skus.size,sumWeeksLive:sumW,avgWeeksLive:skus.size>0?sumW/skus.size:52};
   }
 
