@@ -2807,6 +2807,7 @@ function projBOP(rec){
   const stockoutWeeks={};
   const effRates={};      // V9.9: the rate that actually applied over the burn window - what the UI quotes
   const burnWindows={};   // V9.9: {startWk, weeks} so the tooltip can say which window that rate covers
+  const demand={};        // V9.9.4: rate x burnWeeks, the units actually deducted for BOP
   rec.sizes.forEach(s=>{
     const annual=(rawRates[s]||0)/(rebase||1);
     const oh=rec.sizeData[s].onHand||0;
@@ -2819,6 +2820,9 @@ function projBOP(rec){
     for(let wk=startWk;wk<w;wk++){rSum+=annual*seasMult(wk);rN++}
     effRates[s]=rN>0?rSum/rN:annual*seasMult(0);
     burnWindows[s]={startWk,weeks:rN};
+    // V9.9.4: total demand across the burn window ONLY. With no on-hand, selling cannot begin
+    // before stock lands, so the deduction is rate x burnWeeks - never rate x weeks-to-delivery.
+    demand[s]=rSum;
     let avail=oh;
     let stockoutW=0;
     for(let wk=0;wk<w;wk++){
@@ -2850,6 +2854,7 @@ function projBOP(rec){
   bop._rawRates=rawRates;     // V9.9: pre-seasonal rate, kept for the tooltip
   bop._seasonal=seas?{level:seas.level,label:seas.label,weeks:seas.weeks,activeWeeks:seas.activeWeeks,units:seas.units,rebase:rebase,cohort:!!seas.cohort}:null;
   bop._burnWindows=burnWindows;
+  bop._demand=demand;
   return bop;
 }
 
@@ -3451,7 +3456,7 @@ function computeAlloc(rec){
   // V8.3: a SKU is BOP-relevant if it has OH, sales, OR pending receipts (matches the new CF gate)
   const useBOP=rec.totalOH>0||totalPending>0||rec.totalSales>0;
   let bop={},wtr=0,bopRateInfo=null,bopStockoutWeeks={},bopRates={};
-  let bopRawRates={},bopSeasonal=null,bopBurnWindows={};
+  let bopRawRates={},bopSeasonal=null,bopBurnWindows={},bopDemand={};
   if(useBOP){
     const bp=projBOP(rec);
     wtr=bp._w;
@@ -3461,9 +3466,10 @@ function computeAlloc(rec){
     bopRawRates=bp._rawRates||{};
     bopSeasonal=bp._seasonal||null;
     bopBurnWindows=bp._burnWindows||{};
+    bopDemand=bp._demand||{};
     // Every underscore key must be stripped - `bop` is summed with Object.values() below.
     delete bp._w;delete bp._rateInfo;delete bp._stockoutWeeks;delete bp._rates;
-    delete bp._rawRates;delete bp._seasonal;delete bp._burnWindows;
+    delete bp._rawRates;delete bp._seasonal;delete bp._burnWindows;delete bp._demand;
     bop=bp;
   }
   const totalBOP=useBOP?Object.values(bop).reduce((a,b)=>a+b,0):0;
@@ -3628,6 +3634,7 @@ function computeAlloc(rec){
     bopRawRates:useBOP?bopRawRates:null,
     bopSeasonal:useBOP?bopSeasonal:null,
     bopBurnWindows:useBOP?bopBurnWindows:null,
+    bopDemand:useBOP?bopDemand:null,
     pool,curveSales:dtcCurveSales,useBOP,
     // New channel-aware fields:
     retailAlloc,onlineAlloc,
@@ -4716,7 +4723,7 @@ function renderDetail(el,rec){
   if(rec.sizingType==='nosize'){
     el.innerHTML='<div class="dv anim"><button class="d-back" onclick="goGrid()">← Back to '+esc(A.activeSeason)+'</button><div class="detail-sticky"><div class="ds-row1"><div class="ds-left"><h2>'+esc(rec.sku)+'</h2><span class="bdg bdg-ns">NO BUY</span></div></div></div><p style="color:var(--txt3);margin-top:12px">No buy — sizing not required.</p></div>';return}
   const{alloc,curve,cr,pm,pmRate,bop,wtr,ideal,pool,curveSales,useBOP,
-    bopRateInfo,bopStockoutWeeks,bopRates,bopRawRates,bopSeasonal,bopBurnWindows,
+    bopRateInfo,bopStockoutWeeks,bopRates,bopRawRates,bopSeasonal,bopBurnWindows,bopDemand,
     retailAlloc,onlineAlloc,retailCurveSales,onlineCurveSales,
     retailCurve,onlineCurve,retailCurveResult,onlineCurveResult,
     retailPool,onlinePool,useChannelSplit,flows,flowSizeBreaks}=res;
@@ -4960,11 +4967,23 @@ function renderDetail(el,rec){
     tBody+='<td class="cod">'+fmt(totPend)+'</td>';
     if(showDateCols){dateRows.forEach(dr=>{tBody+='<td class="cod-date" style="font-weight:700">'+fmt(dr.total)+'</td>'})}
     // BOP tooltip on totals row (V8.3): includes rate source and total stockout weeks
-    const totProjSales=Math.round(cumRate*wks);
+    // V9.9.4: sum the per-size demand actually applied. Multiplying the (already windowed) rate
+    // by weeks-to-delivery double-counted the wait: a SKU with no on-hand whose first receipt lands
+    // 26w out has only ~10 selling weeks before delivery, not 40.
+    let totProjSales=0;
+    if(bopDemand&&Object.keys(bopDemand).length){
+      rec.sizes.forEach(s=>{totProjSales+=(bopDemand[s]||0)});
+      totProjSales=Math.round(totProjSales);
+    } else totProjSales=Math.round(cumRate*wks);
+    const burnW=bopBurnWindows?rec.sizes.map(s=>(bopBurnWindows[s]||{}).weeks).filter(v=>v!==undefined):[];
+    const bwMin=burnW.length?Math.min.apply(null,burnW):wks;
+    const bwMax=burnW.length?Math.max.apply(null,burnW):wks;
+    const bwLbl=bwMin===bwMax?bwMin+'w':bwMin+'-'+bwMax+'w';
     let totStockout=0;
     if(bopStockoutWeeks)rec.sizes.forEach(s=>{totStockout+=(bopStockoutWeeks[s]||0)});
-    let totBopTip='Weekly rate × weeks until order = projected sales\n'+
-      cumRate.toFixed(1)+' × '+wks+'w = '+fmt(totProjSales)+' projected sales\n\n'+
+    let totBopTip='Weekly rate × selling weeks before delivery = projected sales\n'+
+      cumRate.toFixed(1)+' × '+bwLbl+' = '+fmt(totProjSales)+' projected sales\n'+
+      (bwMax<wks?'(delivery is '+wks+'w out, but selling starts when stock lands)\n':'')+'\n'+
       'Current OH − Projected sales + Pending receipts = Projected BOP\n'+
       fmt(totOH)+' − '+fmt(totProjSales)+' + '+fmt(totPend)+' = '+fmt(totBOP);
     const avgStockout=totStockout/(rec.sizes.length||1);
@@ -5038,11 +5057,15 @@ function renderDetail(el,rec){
       // BOP tooltip (V8.3): walks week-by-week, only depletes if stock present.
       // Now shows the rate source (SKU's own data vs parent-level fallback) and total stockout weeks.
       const szRate=(bopRates&&bopRates[s]!==undefined)?bopRates[s]:(sd.sales/(rec.weeksLive||52));
-      const szProjSales=Math.round(szRate*wks);
+      // V9.9.4: deduct only across this size's burn window (see the totals row).
+      const szBw=(bopBurnWindows&&bopBurnWindows[s])?bopBurnWindows[s]:null;
+      const szWks=szBw?szBw.weeks:wks;
+      const szProjSales=(bopDemand&&bopDemand[s]!==undefined)?Math.round(bopDemand[s]):Math.round(szRate*wks);
       const szBop=bop[s]||0;
       const szStockout=bopStockoutWeeks&&bopStockoutWeeks[s]?bopStockoutWeeks[s]:0;
-      let szBopTip='Weekly rate × weeks until order = projected sales\n'+
-        szRate.toFixed(1)+' × '+wks+'w = '+fmt(szProjSales)+' projected sales\n\n'+
+      let szBopTip='Weekly rate × selling weeks before delivery = projected sales\n'+
+        szRate.toFixed(1)+' × '+szWks+'w = '+fmt(szProjSales)+' projected sales\n'+
+        (szBw&&szBw.startWk>0?'(no on-hand; selling starts wk '+szBw.startWk+' when the first receipt lands, '+wks+'w to delivery)\n':'')+'\n'+
         'Current OH − Projected sales + Pending receipts = Projected BOP\n'+
         fmt(sd.onHand)+' − '+fmt(szProjSales)+' + '+fmt(pendingForSize)+' = '+fmt(szBop);
       if(szStockout>=0.5)szBopTip+='\n\n'+szStockout.toFixed(1)+'w of expected stockout';
@@ -5119,7 +5142,16 @@ function renderDetail(el,rec){
       '<span class="metric-pill">'+esc(rec.season)+' Buy: '+fmt(pool)+'</span>'+
       '<span class="metric-pill">Stores: '+fmt(rec.storeCount)+'</span>'+
       '<span class="metric-pill">Current OH: '+fmt(rec.totalOH)+'</span>'+
-      (useBOP?'<span class="metric-pill">Proj. BOP: '+fmt(totalBOPv)+' ('+wks+'w)</span>':'')+
+      (useBOP?'<span class="metric-pill">Proj. BOP: '+fmt(totalBOPv)+' ('+(function(){
+        // V9.9.4: quote the SELLING weeks, which is shorter than weeks-to-delivery whenever a size
+        // has no on-hand and is waiting on a receipt.
+        if(!bopBurnWindows)return wks+'w';
+        const bws=rec.sizes.map(function(s){return (bopBurnWindows[s]||{}).weeks}).filter(function(v){return v!==undefined});
+        if(!bws.length)return wks+'w';
+        const lo=Math.min.apply(null,bws),hi=Math.max.apply(null,bws);
+        if(hi>=wks)return wks+'w';
+        return (lo===hi?lo+'w':lo+'-'+hi+'w')+' selling of '+wks+'w';
+      })()+')</span>':'')+
       '<span class="metric-pill">L52W SKU Sales: '+fmt(skuL52W)+(A.hasWeeklyData?' <span style="color:var(--txt3)">/ '+(rec.weeksLive||52)+'w live</span>':'')+'</span>'+
       '<span class="metric-pill mp-ch">'+apsRpill+'</span>'+
       '<span class="metric-pill mp-ch">Online APS: '+apsO_disp+'</span>'+
