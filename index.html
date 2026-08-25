@@ -1087,6 +1087,37 @@ function toast(msg){const d=document.createElement('div');d.className='toast ok'
 
 // ─── Delivery month calc ───
 const MONTH_MAP={january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12};
+
+// ═══ V9.9: week-of-year helpers for the seasonal rate ═══
+// The sales export carries a Week column that until now was only used to COUNT weeks-live; the
+// weekly units themselves were summed away. We now keep the weekly shape, which requires mapping
+// each label onto a 1-53 week-of-year slot.
+function weekOfYear(d){
+  if(!d||isNaN(d))return null;
+  const jan1=new Date(d.getFullYear(),0,1);
+  const n=Math.floor((d-jan1)/(7*86400000))+1;
+  return Math.max(1,Math.min(53,n));
+}
+
+// Tolerant of the label shapes these exports use: 'W22', '2026-W22', 'Week 22', '202622',
+// a bare '22', or a plain date. NOTE: a 4-5-4 fiscal week number can sit ~1 week off the
+// calendar week this returns. That offset is immaterial for a seasonality curve, but it is the
+// reason we never join on this number — it only ever indexes a shape.
+function parseWeekLabel(raw){
+  const t=String(raw==null?'':raw).trim();
+  if(!t)return null;
+  let m=t.match(/(?:WEEK|WK|W)\s*[-_ ]?(\d{1,2})(?!\d)/i);
+  if(m){const n=parseInt(m[1],10);if(n>=1&&n<=53)return n}
+  m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m)return weekOfYear(new Date(+m[1],+m[2]-1,+m[3]));
+  m=t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m)return weekOfYear(new Date(+m[3],+m[1]-1,+m[2]));
+  m=t.match(/^(\d{4})(\d{2})$/);          // YYYYWW
+  if(m){const n=parseInt(m[2],10);if(n>=1&&n<=53)return n}
+  m=t.match(/^(\d{1,2})$/);
+  if(m){const n=parseInt(m[1],10);if(n>=1&&n<=53)return n}
+  return null;
+}
 function deliveryToWeeks(deliveryMonth,seasonCode){
   if(!deliveryMonth||!seasonCode)return 12;
   const base=deliveryMonth.toLowerCase().replace(/_\d+$/,'');
@@ -1122,6 +1153,36 @@ function shiftDeliveryMonth(deliveryMonth,offset){
   while(newMo<1)newMo+=12;
   const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
   return monthNames[newMo-1]+suffix;
+}
+
+// ═══ V9.9: Season delivery windows ═══
+// Each season owns a contiguous block of delivery months, so a flow must never push a receipt
+// past the end of its OWN season. An August receipt on a SU27 buy is a FA27 month and is not a
+// valid SU delivery. Windows below match the linelist's observed season/month distribution:
+//   SP → Jan–Apr    SU → May–Jul    FA → Aug–Oct    HO → Nov–Jan (wraps the calendar year)
+// The HO window is expressed as 11–13, where 13 means January of the following year.
+const SEASON_WINDOWS={SP:[1,4],SU:[5,7],FA:[8,10],HO:[11,13]};
+
+function seasonMonthWindow(seasonCode){
+  const m=String(seasonCode||'').trim().toUpperCase().match(/^([A-Z]{2})/);
+  if(!m)return null;
+  return SEASON_WINDOWS[m[1]]||null;
+}
+
+// How many months forward a flow may shift before it leaves the buy's own season.
+//   0 → the base delivery is already the season's last month, so there is nowhere to flow to.
+//   Unknown season prefixes (e.g. LO, which has no regular window) keep the previous ceiling of 2.
+function maxFlowOffset(rec){
+  const win=seasonMonthWindow(rec.season);
+  if(!win)return 2;
+  const base=String(rec.deliveryMonth||'').toLowerCase().replace(/_\d+$/,'');
+  const mo=MONTH_MAP[base];
+  if(!mo)return 2;
+  // Normalise into the window's own numbering so a Nov–Jan season compares correctly.
+  let cur=mo;const end=win[1];
+  if(end>12&&cur<win[0])cur+=12;      // January sits at 13 on an 11–13 window
+  if(cur<win[0]||cur>end)return 0;    // delivery already outside its season — don't push it further
+  return Math.max(0,end-cur);
 }
 
 // ═══ APP STATE ═══
@@ -1591,6 +1652,9 @@ function processData(){
   const salIr={},salIo={};  // V9.3: per-SKU per-size sales split by channel
   const hierSkus={};  // V8.3: hierarchy key -> Set<sku> with sales > 0 (denominator for parent-rate fallback)
   const skuWeeks={};         // SKU -> Set<weekLabel> with sales > 0
+  const skuWkUnits={};       // V9.9: SKU -> {weekOfYear: units} — the seasonal shape, per SKU
+  const hierWk={};           // V9.9: hierarchy key -> {weekOfYear: units} — parent seasonal shapes
+  let wkParsed=0,wkUnparsed=0;  // V9.9: diagnostics for the Week column
   A.salSkuMeta={};           // V9: SKU -> {division,category,subcategory,segment,styleDescription,colorDescription, sizes:Set}
   const hasWeekCol=c.sWk!==null&&c.sWk!==undefined;
   const hasSegCol=c.sSeg!==null&&c.sSeg!==undefined;
@@ -1624,6 +1688,9 @@ function processData(){
         skuWeeks[sku].add(wk);
       }
     }
+    // V9.9: keep the weekly units, not just the week count, so we can build a seasonality curve.
+    const wkNum=hasWeekCol?parseWeekLabel(r[c.sWk]):null;
+    if(hasWeekCol){if(wkNum)wkParsed++;else if(String(r[c.sWk]||'').trim())wkUnparsed++}
     const d=(r[c.sD]||'').toLowerCase(),ca=(r[c.sC]||'').toLowerCase(),sc=(r[c.sSC]||'').toLowerCase(),pr=(r[c.sSD]||'').toLowerCase();
     const seg=hasSegCol?(r[c.sSeg]||'').toLowerCase():'';
     // V7.8: hierarchy walks Program -> Segment -> Subcategory -> Category -> Division
@@ -1631,7 +1698,15 @@ function processData(){
     // (the SKU's own walk will skip Segment if its segment is unmapped).
     const keys=['prog|'+d+'|'+ca+'|'+sc+'|'+pr,'sub|'+d+'|'+ca+'|'+sc,'cat|'+d+'|'+ca,'div|'+d];
     if(seg)keys.push('seg|'+d+'|'+ca+'|'+sc+'|'+seg);
+    if(wkNum){
+      if(!skuWkUnits[sku])skuWkUnits[sku]={};
+      skuWkUnits[sku][wkNum]=(skuWkUnits[sku][wkNum]||0)+u;
+    }
     keys.forEach(k=>{
+      if(wkNum){
+        if(!hierWk[k])hierWk[k]={};
+        hierWk[k][wkNum]=(hierWk[k][wkNum]||0)+u;
+      }
       if(!hS[k])hS[k]={};hS[k][sz]=(hS[k][sz]||0)+u;
       if(isRetail){if(!hSr[k])hSr[k]={};hSr[k][sz]=(hSr[k][sz]||0)+u}
       if(isOnline){if(!hSo[k])hSo[k]={};hSo[k][sz]=(hSo[k][sz]||0)+u}
@@ -1651,6 +1726,15 @@ function processData(){
   A.skuWeeksLive={};
   for(const sku in skuWeeks){
     A.skuWeeksLive[sku]=Math.max(4,skuWeeks[sku].size);
+  }
+  A.skuWkUnits=skuWkUnits;      // V9.9: SKU -> {weekOfYear: units}
+  A.hierWeekly=hierWk;          // V9.9: hierarchy key -> {weekOfYear: units}
+  A.seasonIdxCache={};          // V9.9: cleared on every reprocess — the shapes just changed
+  A.weekParseStats={parsed:wkParsed,unparsed:wkUnparsed};
+  if(hasWeekCol&&wkUnparsed>wkParsed){
+    console.warn('[V9.9] Week column mostly unparseable ('+wkUnparsed+' vs '+wkParsed+
+      ' rows). Seasonal rate adjustment will stay OFF. Sample label:',
+      (A.raw.sales&&A.raw.sales[0])?A.raw.sales[0][c.sWk]:'(n/a)');
   }
   A.hasWeeklyData=hasWeekCol;   // engine flag — falls back to 52 if false (legacy sales file)
   A.hasSegmentData=hasSegCol;   // engine flag — skips segment level if false
@@ -2457,15 +2541,124 @@ function getWeeklyRate(rec){
   return{rate,sourceLevel:'SKU (sparse)',sourceLabel:rec.sku};
 }
 
+// === V9.9: seasonal weekly rate ===
+// PROBLEM: getWeeklyRate returns total sales / weeks-live, i.e. the average rate over the weeks
+// the style ACTUALLY SOLD IN. Applying that flat across a forward window is only valid when the
+// window sits in the same part of the year. It doesn't for a forward seasonal buy: a SU27 buy
+// delivering June 2027 has a now-to-receipt window running through fall, winter and spring, but
+// the rate being burned was measured on elevated summer selling. The sim burned ~40 weeks at a
+// summer rate and drove projected BOP to 0, which in turn inflated the CF Global floor
+// (minPres - BOP).
+//
+// FIX: split the rate into LEVEL and SHAPE.
+//   1. Build a seasonal index from the weekly sales curve, normalised to average 1.0.
+//   2. Rebase the measured rate to an annual-average equivalent by dividing out the average index
+//      over the weeks that rate was measured on. (A summer style measured only in summer has a
+//      rebase well above 1.0, so its annual-average level lands correctly below its summer rate.)
+//   3. Re-apply the index week by week at each projected week's real calendar position.
+// A style with full-year selling has a rebase of ~1.0 and an index of ~1.0 throughout, so this is
+// a no-op for core product - it only bites where the window and the selling history disagree.
+const SEASON_IDX_MIN_WEEKS=40;   // need most of a year present before a curve is trustworthy
+const SEASON_IDX_MIN_UNITS=200;  // ...and enough volume that the shape isn't noise
+
+function buildSeasonIndex(wkUnits){
+  if(!wkUnits)return null;
+  const clean={};let cnt=0,sum=0;
+  for(let w=1;w<=53;w++){
+    if(wkUnits[w]===undefined)continue;
+    const u=Math.max(0,wkUnits[w]);   // returns can push a week negative; floor at 0
+    clean[w]=u;cnt++;sum+=u;
+  }
+  if(cnt<SEASON_IDX_MIN_WEEKS||sum<SEASON_IDX_MIN_UNITS)return null;
+  const mean=sum/cnt;
+  if(mean<=0)return null;
+  const idx={};
+  for(const w in clean)idx[w]=clean[w]/mean;   // averages exactly 1.0 over the weeks present
+  return{idx,weeks:cnt,units:sum};
+}
+
+// The chain of levels a seasonal shape can come from, finest-to-broadest.
+function seasonChain(rec){
+  return[
+    {level:'SKU',label:rec.sku,units:A.skuWkUnits&&A.skuWkUnits[rec.sku]},
+    {level:'Program',label:rec.styleDescription,units:A.hierWeekly&&A.hierWeekly[rec._hk.prog]},
+    {level:'Segment',label:rec.segment||'(no segment)',units:A.hierWeekly&&A.hierWeekly[rec._hk.seg]},
+    {level:'Subcategory',label:rec.subcategory,units:A.hierWeekly&&A.hierWeekly[rec._hk.sub]},
+    {level:'Category',label:rec.category,units:A.hierWeekly&&A.hierWeekly[rec._hk.cat]},
+    {level:'Division',label:rec.division,units:A.hierWeekly&&A.hierWeekly[rec._hk.div]}
+  ];
+}
+
+// Normalise a sourceLevel string ('Category (below threshold)', 'SKU (sparse)') to its bare level.
+function baseRateLevel(wkInfo){
+  return String(wkInfo&&wkInfo.sourceLevel||'').replace(/\s*\((?:below threshold|sparse)\)$/,'');
+}
+
+// Seasonal shape for this SKU, measured no lower than the level the RATE resolved to and walking
+// up until a level has enough weekly coverage. Keeping the two in step matters: a shape measured
+// finer than its own rate would be reading noise the rate deliberately walked away from.
+function getSeasonalIndex(rec,wkInfo){
+  if(!A.seasonIdxCache)A.seasonIdxCache={};
+  const src=baseRateLevel(wkInfo);
+  const ck=rec.sku+'|'+src;
+  if(A.seasonIdxCache[ck]!==undefined)return A.seasonIdxCache[ck];
+  const chain=seasonChain(rec);
+  let start=chain.findIndex(c=>c.level===src);
+  if(start<0)start=0;
+  let out=null;
+  for(let i=start;i<chain.length;i++){
+    const b=buildSeasonIndex(chain[i].units);
+    if(b){out={idx:b.idx,level:chain[i].level,label:chain[i].label,weeks:b.weeks};break}
+  }
+  A.seasonIdxCache[ck]=out;
+  return out;
+}
+
+// The weeks the base rate's denominator actually covered - the weeks with sales at its source.
+function rateMeasuredWeeks(rec,wkInfo){
+  const src=baseRateLevel(wkInfo);
+  let units=null;
+  if(src.indexOf('SKU')===0){
+    units=A.skuWkUnits&&A.skuWkUnits[rec.sku];
+  } else {
+    const map={Program:'prog',Segment:'seg',Subcategory:'sub',Category:'cat',Division:'div'};
+    const hk=map[src]&&rec._hk[map[src]];
+    units=hk&&A.hierWeekly?A.hierWeekly[hk]:null;
+  }
+  if(!units)return[];
+  return Object.keys(units).map(Number).filter(w=>units[w]>0);
+}
+
+// Average index across the measured weeks. Because rate = SUM(units) / Nweeks and we model
+// units_w = annualLevel * idx_w, the UNWEIGHTED mean over those weeks is the exact divisor that
+// recovers the annual level.
+function seasonRebase(seas,measuredWeeks){
+  if(!seas||!measuredWeeks||!measuredWeeks.length)return 1;
+  let sum=0,n=0;
+  measuredWeeks.forEach(w=>{const v=seas.idx[w];if(v!==undefined){sum+=v;n++}});
+  if(!n)return 1;
+  const avg=sum/n;
+  return avg>0.05?avg:1;   // guard a degenerate divisor from blowing the rate up
+}
+
 function projBOP(rec){
   const w=deliveryToWeeks(rec.deliveryMonth,rec.season);const bop={};
   // Get per-size weekly rate (SKU's own data, or parent-rate fallback)
   const wkInfo=getWeeklyRate(rec);
-  const rates=wkInfo.rate;
+  const rawRates=wkInfo.rate;
+  // V9.9: rebase that rate to an annual-average level, then re-apply seasonality per week.
+  const seas=getSeasonalIndex(rec,wkInfo);
+  const rebase=seas?seasonRebase(seas,rateMeasuredWeeks(rec,wkInfo)):1;
   // Get pending receipts AND when they arrive (week offset from today, 0 = this week).
   // Filter to receipts arriving before the buy delivery, since later ones don't affect BOP.
   const buyDelivery=getBuyDeliveryDate(rec);
   const today=new Date();today.setHours(0,0,0,0);
+  // Seasonal multiplier for projected week `wk`, by that week's real calendar position.
+  const seasMult=function(wk){
+    if(!seas)return 1;
+    const v=seas.idx[weekOfYear(new Date(today.getTime()+wk*7*86400000))];
+    return v===undefined?1:v;
+  };
   // Build a per-size, per-week receipt schedule: receipts[size][weekOffset] = units arriving that week
   const receiptsByWeek={};rec.sizes.forEach(s=>{receiptsByWeek[s]=[]});
   if(rec.wipByDate){
@@ -2474,7 +2667,7 @@ function projBOP(rec){
       if(buyDelivery&&entry._sortDate&&entry._sortDate>buyDelivery)continue;
       const d=entry._sortDate||today;
       const weekOffset=Math.max(0,Math.floor((d-today)/(7*86400000)));
-      if(weekOffset>=w)continue; // arrives at or after delivery — doesn't help BOP
+      if(weekOffset>=w)continue; // arrives at or after delivery - doesn't help BOP
       for(const s in entry.sizes){
         if(receiptsByWeek[s]===undefined)continue;
         if(!receiptsByWeek[s][weekOffset])receiptsByWeek[s][weekOffset]=0;
@@ -2484,20 +2677,33 @@ function projBOP(rec){
   }
   // Per-size week-by-week simulation
   const stockoutWeeks={};
+  const effRates={};      // V9.9: the rate that actually applied over the burn window - what the UI quotes
+  const burnWindows={};   // V9.9: {startWk, weeks} so the tooltip can say which window that rate covers
   rec.sizes.forEach(s=>{
-    const rate=rates[s]||0;
-    let avail=rec.sizeData[s].onHand||0;
+    const annual=(rawRates[s]||0)/(rebase||1);
+    const oh=rec.sizeData[s].onHand||0;
+    // V9.9: with nothing on hand there is nothing to deplete until stock lands, so the quoted rate
+    // must cover first-pending-receipt -> delivery rather than today -> delivery.
+    let firstRcpt=-1;
+    if(receiptsByWeek[s])for(let k=0;k<w;k++){if(receiptsByWeek[s][k]>0){firstRcpt=k;break}}
+    const startWk=oh>0?0:(firstRcpt>=0?firstRcpt:w);
+    let rSum=0,rN=0;
+    for(let wk=startWk;wk<w;wk++){rSum+=annual*seasMult(wk);rN++}
+    effRates[s]=rN>0?rSum/rN:annual*seasMult(0);
+    burnWindows[s]={startWk,weeks:rN};
+    let avail=oh;
     let stockoutW=0;
     for(let wk=0;wk<w;wk++){
+      const rate=annual*seasMult(wk);
       // Receipts arriving this week land at the START of the week
       const arriving=(receiptsByWeek[s]&&receiptsByWeek[s][wk])||0;
       avail+=arriving;
       if(avail<=0){
-        // No stock this week at all → full stockout
+        // No stock this week at all -> full stockout
         stockoutW+=1;
         avail=0;
-      } else if(avail<rate){
-        // Partial week — we sell what we have, then run out for the rest of the week
+      } else if(rate>0&&avail<rate){
+        // Partial week - we sell what we have, then run out for the rest of the week
         const fillPct=avail/rate;
         stockoutW+=(1-fillPct);
         avail=0;
@@ -2512,7 +2718,10 @@ function projBOP(rec){
   bop._w=w;
   bop._rateInfo=wkInfo;
   bop._stockoutWeeks=stockoutWeeks;
-  bop._rates=rates;
+  bop._rates=effRates;        // V9.9: window-average seasonal rate (was the flat trailing rate)
+  bop._rawRates=rawRates;     // V9.9: pre-seasonal rate, kept for the tooltip
+  bop._seasonal=seas?{level:seas.level,label:seas.label,weeks:seas.weeks,rebase:rebase}:null;
+  bop._burnWindows=burnWindows;
   return bop;
 }
 
@@ -2735,24 +2944,29 @@ function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve,bopByS
     }
     // Remaining after the Global setup need (floor) is satisfied.
     const remaining=totalPool-cfGlobalFloorTotal;
-    // ── V8.8.1 Flow-count decision (confirmed logic train) ──
-    //   • Total buy gates the CEILING of flows: ≥2000 may do 3 POs; ≥1200 may do 2 POs; <1200 = 1 PO.
+    // ── V9.9 Flow-count decision ──
+    //   • Total buy gates the CEILING of flows: ≥3000 may do 3 POs; ≥1200 may do 2 POs; <1200 = 1 PO.
+    //     (V9.9: the 3-PO gate moved 2,000 → 3,000 — a ~2,000u buy split three ways left flows too thin.)
     //   • The post-global REMAINING must exceed 1,200 to do ANY downstream flowing at all.
+    //   • V9.9: the season's delivery window caps the flow count too — we can never schedule more
+    //     flows than there are remaining months inside the buy's own season.
     //   • When we do flow, the split is a % of the TOTAL POOL (40/30/30 for 3, 60/40 for 2),
     //     with Global always guaranteed to carry at least its floor.
+    const maxOff=maxFlowOffset(rec);
     let poolPcts=null; // [globalPct, flow1Pct, (flow2Pct)] of total pool
-    if(remaining>1200&&totalPool>=2000){
-      poolPcts=[0.4,0.3,0.3];     // 3 POs
-    } else if(remaining>1200&&totalPool>=1200){
-      poolPcts=[0.6,0.4];          // 2 POs
+    if(remaining>1200&&totalPool>=3000&&maxOff>=2){
+      poolPcts=[0.4,0.3,0.3];     // 3 POs — needs 2 months of runway
+    } else if(remaining>1200&&maxOff>=1){
+      poolPcts=[0.6,0.4];          // 2 POs — needs 1 month of runway
     }
     if(!poolPcts){
-      // Not enough post-global balance (or buy too small) to justify flowing — single Global PO.
+      // Not enough post-global balance, buy too small, or no month left in season — single Global PO.
       const sb={...combinedAlloc};
       result.eligible=true;result.count=1;
       result.splits=[{label:'Global',units:totalPool,offset:0,sizeBreak:sb}];
-      result.math={type:'CF',globalFloorBOP:true,cfGlobalFloor,cfGlobalFloorTotal,remaining,
-        note:remaining<=1200?'Post-global balance ≤ 1,200u; single PO':'Buy below flow threshold; single PO',totalPool};
+      result.math={type:'CF',globalFloorBOP:true,cfGlobalFloor,cfGlobalFloorTotal,remaining,maxOff,
+        note:maxOff<1?'No later delivery month inside '+(rec.season||'season')+'; single PO'
+          :(remaining<=1200?'Post-global balance ≤ 1,200u; single PO':'Buy below flow threshold; single PO'),totalPool};
       return result;
     }
     // Flow unit totals as % of total pool, but Global must be ≥ its floor.
@@ -2846,7 +3060,7 @@ function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve,bopByS
     result.splits=splits;
     // Reconcile per-size cross-flow totals to combinedAlloc, protecting the Global floor (index 0)
     reconcileFlowsBySize(result.splits,combinedAlloc,rec.sizes,{0:cfGlobalFloor});
-    result.math={type:'CF',globalFloorBOP:true,cfGlobalFloor,cfGlobalFloorTotal,remaining,poolPcts,totalPool};
+    result.math={type:'CF',globalFloorBOP:true,cfGlobalFloor,cfGlobalFloorTotal,remaining,poolPcts,maxOff,totalPool};
     return result;
   }
 
@@ -2860,9 +3074,19 @@ function computeFlows(rec,totalPool,combinedAlloc,retailCurve,onlineCurve,bopByS
   // Otherwise, one big flow is more economical than two ~400u flows.
   // Each flow must still be ≥ 300u individually.
   let numFlows=0;
-  if(remaining>=1200)numFlows=2;
+  // V9.9: 2 downstream flows (3 POs total) now require a ≥3,000u buy, up from the old
+  // remaining-only test — a ~2,000u buy split three ways left each flow too thin.
+  if(remaining>=1200&&totalPool>=3000)numFlows=2;
   else if(remaining>=300)numFlows=1;
-  if(numFlows===0){result.reason='Remaining after global floor ('+remaining+'u) too small to flow';return result}
+  // V9.9: never schedule more flows than there are months left inside the buy's own season.
+  const maxOff=maxFlowOffset(rec);
+  numFlows=Math.min(numFlows,maxOff);
+  if(numFlows===0){
+    result.reason=maxOff===0
+      ?'No later delivery month inside '+(rec.season||'season')+'; single PO'
+      :'Remaining after global floor ('+remaining+'u) too small to flow';
+    return result;
+  }
 
   // Target Global percentage based on total split count
   // If numFlows=2 → target 40% Global; if numFlows=1 → target 60% Global
@@ -3099,13 +3323,19 @@ function computeAlloc(rec){
   // V8.3: a SKU is BOP-relevant if it has OH, sales, OR pending receipts (matches the new CF gate)
   const useBOP=rec.totalOH>0||totalPending>0||rec.totalSales>0;
   let bop={},wtr=0,bopRateInfo=null,bopStockoutWeeks={},bopRates={};
+  let bopRawRates={},bopSeasonal=null,bopBurnWindows={};
   if(useBOP){
     const bp=projBOP(rec);
     wtr=bp._w;
     bopRateInfo=bp._rateInfo;
     bopStockoutWeeks=bp._stockoutWeeks||{};
     bopRates=bp._rates||{};
+    bopRawRates=bp._rawRates||{};
+    bopSeasonal=bp._seasonal||null;
+    bopBurnWindows=bp._burnWindows||{};
+    // Every underscore key must be stripped - `bop` is summed with Object.values() below.
     delete bp._w;delete bp._rateInfo;delete bp._stockoutWeeks;delete bp._rates;
+    delete bp._rawRates;delete bp._seasonal;delete bp._burnWindows;
     bop=bp;
   }
   const totalBOP=useBOP?Object.values(bop).reduce((a,b)=>a+b,0):0;
@@ -3267,6 +3497,9 @@ function computeAlloc(rec){
     bopRateInfo:useBOP?bopRateInfo:null,
     bopStockoutWeeks:useBOP?bopStockoutWeeks:null,
     bopRates:useBOP?bopRates:null,
+    bopRawRates:useBOP?bopRawRates:null,
+    bopSeasonal:useBOP?bopSeasonal:null,
+    bopBurnWindows:useBOP?bopBurnWindows:null,
     pool,curveSales:dtcCurveSales,useBOP,
     // New channel-aware fields:
     retailAlloc,onlineAlloc,
@@ -4353,7 +4586,7 @@ function renderDetail(el,rec){
   if(rec.sizingType==='nosize'){
     el.innerHTML='<div class="dv anim"><button class="d-back" onclick="goGrid()">← Back to '+esc(A.activeSeason)+'</button><div class="detail-sticky"><div class="ds-row1"><div class="ds-left"><h2>'+esc(rec.sku)+'</h2><span class="bdg bdg-ns">NO BUY</span></div></div></div><p style="color:var(--txt3);margin-top:12px">No buy — sizing not required.</p></div>';return}
   const{alloc,curve,cr,pm,pmRate,bop,wtr,ideal,pool,curveSales,useBOP,
-    bopRateInfo,bopStockoutWeeks,bopRates,
+    bopRateInfo,bopStockoutWeeks,bopRates,bopRawRates,bopSeasonal,bopBurnWindows,
     retailAlloc,onlineAlloc,retailCurveSales,onlineCurveSales,
     retailCurve,onlineCurve,retailCurveResult,onlineCurveResult,
     retailPool,onlinePool,useChannelSplit,flows,flowSizeBreaks}=res;
@@ -4578,6 +4811,26 @@ function renderDetail(el,rec){
     const totProjSales=Math.round(cumRate*wks);
     let totStockout=0;
     if(bopStockoutWeeks)rec.sizes.forEach(s=>{totStockout+=(bopStockoutWeeks[s]||0)});
+    // V9.9: explain the seasonal rate adjustment wherever a BOP figure is shown.
+    const seasTip=function(size){
+      if(!bopSeasonal)return '';
+      let t='\nSeasonal rate: '+bopSeasonal.level+' curve ('+bopSeasonal.label+', '+
+        bopSeasonal.weeks+'w of history)';
+      if(bopSeasonal.rebase&&Math.abs(bopSeasonal.rebase-1)>0.05){
+        t+='\nTrailing rate rebased ÷'+bopSeasonal.rebase.toFixed(2)+
+           ' to an annual average, then re-seasonalised week by week';
+      }
+      if(size&&bopRawRates&&bopRawRates[size]!==undefined&&bopRates&&bopRates[size]!==undefined){
+        t+='\nRate this window: '+bopRates[size].toFixed(1)+
+           '/wk (trailing was '+bopRawRates[size].toFixed(1)+'/wk)';
+      }
+      const bw=size&&bopBurnWindows?bopBurnWindows[size]:null;
+      if(bw&&bw.startWk>0){
+        t+='\nNo on-hand — rate covers wk '+bw.startWk+' (first pending receipt) to delivery, '+
+           bw.weeks+'w';
+      }
+      return t;
+    };
     let totBopTip='Weekly rate × weeks until order = projected sales\n'+
       cumRate.toFixed(1)+' × '+wks+'w = '+fmt(totProjSales)+' projected sales\n\n'+
       'Current OH − Projected sales + Pending receipts = Projected BOP\n'+
@@ -4585,6 +4838,7 @@ function renderDetail(el,rec){
     const avgStockout=totStockout/(rec.sizes.length||1);
     if(avgStockout>=0.5)totBopTip+='\n\nAvg '+avgStockout.toFixed(1)+'w of expected stockout per size';
     if(bopRateInfo&&bopRateInfo.sourceLevel!=='SKU')totBopTip+='\nRate source: '+bopRateInfo.sourceLevel+' avg ('+bopRateInfo.sourceLabel+')';
+    totBopTip+=seasTip(null);
     tBody+='<td class="col c-t bop-cell" title="'+esc(totBopTip)+'">'+fmt(totBOP)+'</td>';
   }
   tBody+='<td class="cod">'+fmt(totIdeal)+'</td><td class="col"></td><td class="cod">'+fmt(totMinRet)+'</td>';
@@ -4661,6 +4915,7 @@ function renderDetail(el,rec){
         fmt(sd.onHand)+' − '+fmt(szProjSales)+' + '+fmt(pendingForSize)+' = '+fmt(szBop);
       if(szStockout>=0.5)szBopTip+='\n\n'+szStockout.toFixed(1)+'w of expected stockout';
       if(bopRateInfo&&bopRateInfo.sourceLevel!=='SKU')szBopTip+='\nRate source: '+bopRateInfo.sourceLevel+' avg ('+bopRateInfo.sourceLabel+')';
+      szBopTip+=seasTip(s);
       tBody+='<td class="col c-t bop-cell" title="'+esc(szBopTip)+'">'+fmt(szBop)+'</td>';
     }
     tBody+='<td class="cod">'+fmt(useBOP?(ideal[s]||0):Math.round(cv*pool))+'</td>';
