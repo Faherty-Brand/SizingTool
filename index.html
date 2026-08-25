@@ -481,7 +481,7 @@ input,select,button,textarea{font-family:inherit}
 <div class="toast-area" id="toasts"></div>
 <div id="modal-root"></div>
 <div id="refresh-banner-host"></div>
-<div class="version-tag">V9.10 · P-SEG FILTER + CURVE DISPLAY</div>
+<div class="version-tag">V9.11 · IMPORT TAB FORMAT</div>
 
 <!-- Login screen — shown when not authenticated. Default visible so there's no flash. -->
 <div id="login" class="active">
@@ -3728,12 +3728,15 @@ const SIZE_DEFS_GLOBAL=[
 // Flows, the Size is printed EXACTLY as it comes out of the tool (the internal size key), with NO
 // SIZE_DEFS column remapping — e.g. men's tailored "40" prints as "40" here, even though it routes
 // to the "40_" column in Globals/Flows. Only non-zero sizes are emitted.
-const IMPORT_HEADER=['Year','Season Code','Department','SKU','Location','Delivery','Customer','Sales Tier','Size','Units'];
-function pushImportRows(aoa,r,sku,year,season,salesTier,delivery,sizeBreak){
+// V9.11: column order matches the third-party upload format — Year and Customer removed, SKU moved
+// after Sales Tier. Order is exactly: Season Code, Department, Location, Delivery, Sales Tier, SKU,
+// Size, Units. Do not reorder without confirming against the vendor's upload spec.
+const IMPORT_HEADER=['Season Code','Department','Location','Delivery','Sales Tier','SKU','Size','Units'];
+function pushImportRows(aoa,r,sku,season,salesTier,delivery,sizeBreak){
   (r.sizes||[]).forEach(s=>{
     const u=sizeBreak[s];
     if(!u||u<=0)return; // skip zero/blank sizes (mirrors the blank cells in the Flows tab)
-    aoa.push([year,season,r.division||'',sku,'DTC',delivery,'',salesTier,s,u]);
+    aoa.push([season,r.division||'','DTC',delivery,salesTier,sku,s,u]);
   });
 }
 
@@ -3831,11 +3834,11 @@ function exportCSV(){
       res.flowSizeBreaks.forEach(fb=>{
         const flowDelivery=shiftDeliveryMonth(baseDelivery,fb.offset);
         aoaFlows.push(makeRow(r,sku,fb.sizeBreak,fb.units,fb.label,flowDelivery));
-        pushImportRows(aoaImport,r,sku,year,A.activeSeason,fb.label,flowDelivery,fb.sizeBreak);
+        pushImportRows(aoaImport,r,sku,A.activeSeason,fb.label,flowDelivery,fb.sizeBreak);
       });
     } else {
       aoaFlows.push(makeRow(r,sku,sizeMap,total,'Global',baseDelivery));
-      pushImportRows(aoaImport,r,sku,year,A.activeSeason,'Global',baseDelivery,sizeMap);
+      pushImportRows(aoaImport,r,sku,A.activeSeason,'Global',baseDelivery,sizeMap);
     }
     // Tab 3 (Channel Buys): one row per SKU+size combination, with per-size retail/online split.
     // Lets the merch team review channel allocation at the size grain.
@@ -3916,7 +3919,7 @@ function exportCSV(){
 
   // Tab 4: Import (transposed Flows)
   const wsImport=XLSX.utils.aoa_to_sheet(aoaImport);
-  wsImport['!cols']=[{wch:8},{wch:12},{wch:14},{wch:16},{wch:10},{wch:12},{wch:12},{wch:12},{wch:10},{wch:9}];
+  wsImport['!cols']=[{wch:12},{wch:14},{wch:10},{wch:12},{wch:12},{wch:16},{wch:10},{wch:9}];
   XLSX.utils.book_append_sheet(wb,wsImport,'Import');
 
   // Trigger download
@@ -3977,16 +3980,15 @@ function exportChase(){
     const sizeMap={};r.sizes.forEach(s=>{sizeMap[s]=res.alloc[s]||0});
     const baseDelivery=r.deliveryMonth||'';
     aoaGlobals.push(makeRow(r,ci.sku,sizeMap,total,'Chase',baseDelivery,ci.season));
-    const chYear=((ci.season||'').match(/(\d{2})$/))?'20'+ci.season.match(/(\d{2})$/)[1]:'2026';
     if(res.flows&&res.flows.count>1&&res.flowSizeBreaks){
       res.flowSizeBreaks.forEach(fb=>{
         const flowDelivery=shiftDeliveryMonth(baseDelivery,fb.offset);
         aoaFlows.push(makeRow(r,ci.sku,fb.sizeBreak,fb.units,fb.label,flowDelivery,ci.season));
-        pushImportRows(aoaImport,r,ci.sku,chYear,ci.season||'',fb.label,flowDelivery,fb.sizeBreak);
+        pushImportRows(aoaImport,r,ci.sku,ci.season||'',fb.label,flowDelivery,fb.sizeBreak);
       });
     } else {
       aoaFlows.push(makeRow(r,ci.sku,sizeMap,total,'Chase',baseDelivery,ci.season));
-      pushImportRows(aoaImport,r,ci.sku,chYear,ci.season||'','Chase',baseDelivery,sizeMap);
+      pushImportRows(aoaImport,r,ci.sku,ci.season||'','Chase',baseDelivery,sizeMap);
     }
     if(res.retailAlloc&&res.onlineAlloc){
       r.sizes.forEach(s=>{
@@ -4014,7 +4016,7 @@ function exportChase(){
   const wsG=XLSX.utils.aoa_to_sheet(aoaGlobals);wsG['!cols']=globalsCols;XLSX.utils.book_append_sheet(wb,wsG,'Globals');
   const wsF=XLSX.utils.aoa_to_sheet(aoaFlows);wsF['!cols']=globalsCols;XLSX.utils.book_append_sheet(wb,wsF,'Flows');
   const wsC=XLSX.utils.aoa_to_sheet(aoaChannel);wsC['!cols']=[{wch:14},{wch:14},{wch:18},{wch:30},{wch:24},{wch:10},{wch:13},{wch:13},{wch:15}];XLSX.utils.book_append_sheet(wb,wsC,'Channel Buys');
-  const wsI=XLSX.utils.aoa_to_sheet(aoaImport);wsI['!cols']=[{wch:8},{wch:12},{wch:14},{wch:16},{wch:10},{wch:12},{wch:12},{wch:12},{wch:10},{wch:9}];XLSX.utils.book_append_sheet(wb,wsI,'Import');
+  const wsI=XLSX.utils.aoa_to_sheet(aoaImport);wsI['!cols']=[{wch:12},{wch:14},{wch:10},{wch:12},{wch:12},{wch:16},{wch:10},{wch:9}];XLSX.utils.book_append_sheet(wb,wsI,'Import');
   XLSX.writeFile(wb,'Chase_PO_Sizing_'+stamp+'.xlsx');
 }
 
