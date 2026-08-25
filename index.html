@@ -4793,6 +4793,28 @@ function renderDetail(el,rec){
   }
   tBody+='<td class="cbl">100%</td>';
   if(showChannelCols)tBody+='<td class="cbl-ch">100%</td><td class="cbl-ch">100%</td>';
+  // V9.9: explain the seasonal rate adjustment wherever a BOP figure is shown. Declared at the
+  // function's own scope because both the totals row and the per-size loop below use it, and the
+  // per-size loop sits outside the `if(useBOP)` block.
+  const seasTip=function(size){
+    if(!bopSeasonal)return '';
+    let t='\nSeasonal rate: '+bopSeasonal.level+' curve ('+bopSeasonal.label+', '+
+      bopSeasonal.weeks+'w of history)';
+    if(bopSeasonal.rebase&&Math.abs(bopSeasonal.rebase-1)>0.05){
+      t+='\nTrailing rate rebased ÷'+bopSeasonal.rebase.toFixed(2)+
+         ' to an annual average, then re-seasonalised week by week';
+    }
+    if(size&&bopRawRates&&bopRawRates[size]!==undefined&&bopRates&&bopRates[size]!==undefined){
+      t+='\nRate this window: '+bopRates[size].toFixed(1)+
+         '/wk (trailing was '+bopRawRates[size].toFixed(1)+'/wk)';
+    }
+    const bw=size&&bopBurnWindows?bopBurnWindows[size]:null;
+    if(bw&&bw.startWk>0){
+      t+='\nNo on-hand — rate covers wk '+bw.startWk+' (first pending receipt) to delivery, '+
+         bw.weeks+'w';
+    }
+    return t;
+  };
   // Cumulative weekly rate (V8.3): sum the per-size rates from bopRates (which apply parent fallback).
   // Falls back to sku-total/weeksLive for non-BOP (Initials) SKUs.
   let cumRate=0;
@@ -4811,26 +4833,6 @@ function renderDetail(el,rec){
     const totProjSales=Math.round(cumRate*wks);
     let totStockout=0;
     if(bopStockoutWeeks)rec.sizes.forEach(s=>{totStockout+=(bopStockoutWeeks[s]||0)});
-    // V9.9: explain the seasonal rate adjustment wherever a BOP figure is shown.
-    const seasTip=function(size){
-      if(!bopSeasonal)return '';
-      let t='\nSeasonal rate: '+bopSeasonal.level+' curve ('+bopSeasonal.label+', '+
-        bopSeasonal.weeks+'w of history)';
-      if(bopSeasonal.rebase&&Math.abs(bopSeasonal.rebase-1)>0.05){
-        t+='\nTrailing rate rebased ÷'+bopSeasonal.rebase.toFixed(2)+
-           ' to an annual average, then re-seasonalised week by week';
-      }
-      if(size&&bopRawRates&&bopRawRates[size]!==undefined&&bopRates&&bopRates[size]!==undefined){
-        t+='\nRate this window: '+bopRates[size].toFixed(1)+
-           '/wk (trailing was '+bopRawRates[size].toFixed(1)+'/wk)';
-      }
-      const bw=size&&bopBurnWindows?bopBurnWindows[size]:null;
-      if(bw&&bw.startWk>0){
-        t+='\nNo on-hand — rate covers wk '+bw.startWk+' (first pending receipt) to delivery, '+
-           bw.weeks+'w';
-      }
-      return t;
-    };
     let totBopTip='Weekly rate × weeks until order = projected sales\n'+
       cumRate.toFixed(1)+' × '+wks+'w = '+fmt(totProjSales)+' projected sales\n\n'+
       'Current OH − Projected sales + Pending receipts = Projected BOP\n'+
