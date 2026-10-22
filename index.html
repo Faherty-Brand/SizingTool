@@ -444,6 +444,11 @@ input,select,button,textarea{font-family:inherit}
 .cf-sku-preview{margin-top:8px;padding:10px 12px;background:#fdf6f0;border:1px solid #e8c9b0;border-radius:var(--r);font-size:12px}
 .cf-sku-attrs{font-family:var(--mono);font-size:10px;color:var(--txt3);margin-top:3px}
 .cf-warn{margin-top:5px;padding:10px 12px;background:#fdf3c4;border:1px solid #e0c349;border-radius:var(--r);font-size:12px;color:#8a6d1e}
+.cf-flow{margin-top:10px;padding:4px 12px 12px;border:1px solid var(--bdr-lt);border-radius:var(--r);background:var(--bg)}
+.cf-flow-hdr{display:flex;align-items:center;justify-content:space-between;margin-top:8px;font-family:var(--mono);font-size:11px;font-weight:700;color:#c4572a}
+.cf-flow-x{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:12px;padding:2px 6px;border-radius:3px}
+.cf-flow-x:hover{background:var(--red);color:#fff}
+.cf-add-flow{margin-top:10px}
 .cf-foot{display:flex;justify-content:flex-end;gap:10px;padding:16px 22px;border-top:1px solid var(--bdr-lt);background:var(--bg)}
 
 /* Login screen */
@@ -1525,22 +1530,39 @@ let chaseForm=null; // transient form state while the Add/Edit Chase modal is op
 
 function openChaseForm(editId){
   ensureDataMaps();
-  if(editId){
-    const ci=(A.chaseItems||[]).find(c=>c.id===editId);
-    if(ci)chaseForm={...ci,skuQuery:ci.sku,editId};
-    else chaseForm=blankChaseForm();
+  const ci=editId?(A.chaseItems||[]).find(c=>c.id===editId):null;
+  if(ci){
+    // V9.12: editing opens every flow of this SKU + season together, in delivery order
+    const group=chaseFlowOrder(ci.sku).filter(g=>g.season===ci.season);
+    chaseForm={...blankChaseForm(),skuQuery:ci.sku,sku:ci.sku,season:ci.season,sizeScale:ci.sizeScale,
+      storeTier:ci.storeTier,storeCount:ci.storeCount,rateOverride:ci.rateOverride>0?ci.rateOverride:'',
+      editId,groupIds:group.map(g=>g.id),
+      flows:group.map(g=>({id:g.id,deliveryMonth:g.deliveryMonth,dtcBuy:g.dtcBuy,
+        retailBuy:g.retailBuy==null?'':g.retailBuy,onlineBuy:g.onlineBuy==null?'':g.onlineBuy}))};
   } else {
     chaseForm=blankChaseForm();
   }
   renderChaseForm();
 }
+function blankChaseFlow(){return{id:null,deliveryMonth:'',dtcBuy:'',retailBuy:'',onlineBuy:''}}
 function blankChaseForm(){
-  return{skuQuery:'',sku:'',season:'',deliveryMonth:'',dtcBuy:'',retailBuy:'',onlineBuy:'',sizeScale:'',storeTier:'',storeCount:0,editId:null};
+  return{skuQuery:'',sku:'',season:'',sizeScale:'',storeTier:'',storeCount:0,rateOverride:'',
+    flows:[blankChaseFlow()],groupIds:[],editId:null};
 }
 function closeChaseForm(){chaseForm=null;render()}
 
 function chaseFormSetSku(sku){
   chaseForm.sku=sku;chaseForm.skuQuery=sku;
+  // The rate override is SKU-level: pick up the one already set on this SKU's other flows
+  const existing=(A.chaseItems||[]).find(c=>c.sku===sku&&c.rateOverride>0);
+  if(existing&&chaseForm.rateOverride==='')chaseForm.rateOverride=existing.rateOverride;
+  renderChaseForm();
+}
+function chaseFlowField(i,field,val){chaseForm.flows[i][field]=val}
+function addChaseFlow(){chaseForm.flows.push(blankChaseFlow());renderChaseForm()}
+function removeChaseFlow(i){
+  chaseForm.flows.splice(i,1);
+  if(!chaseForm.flows.length)chaseForm.flows.push(blankChaseFlow());
   renderChaseForm();
 }
 function chaseFormField(field,val){
@@ -1559,36 +1581,44 @@ function saveChaseForm(){
   const f=chaseForm;
   if(!f.sku){toast('Select a SKU');return}
   if(!f.season){toast('Select a season');return}
-  if(!f.deliveryMonth){toast('Select a delivery month');return}
   if(!f.sizeScale){toast('Select a size scale');return}
   if(!f.storeTier){toast('Select a store group');return}
-  const dtc=numP(f.dtcBuy);
-  if(dtc<=0){toast('Enter a buy quantity');return}
-  let retail=f.retailBuy===''||f.retailBuy==null?null:numP(f.retailBuy);
-  let online=f.onlineBuy===''||f.onlineBuy==null?null:numP(f.onlineBuy);
+  for(let i=0;i<f.flows.length;i++){
+    const fl=f.flows[i],lbl=f.flows.length>1?' for flow '+(i+1):'';
+    if(!fl.deliveryMonth){toast('Select a delivery month'+lbl);return}
+    if(numP(fl.dtcBuy)<=0){toast('Enter a buy quantity'+lbl);return}
+  }
+  const rateOverride=f.rateOverride===''||f.rateOverride==null?null:(numP(f.rateOverride)>0?numP(f.rateOverride):null);
   const groups=getStoreGroupsForSeason(f.season);
   const storeCount=(groups&&groups[f.storeTier])||f.storeCount||0;
-  const item={
-    id:f.editId||('chase_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)),
-    sku:f.sku,season:f.season,deliveryMonth:f.deliveryMonth,
-    dtcBuy:dtc,retailBuy:retail,onlineBuy:online,
-    sizeScale:f.sizeScale,storeTier:f.storeTier,storeCount
-  };
-  if(f.editId){
-    const idx=A.chaseItems.findIndex(c=>c.id===f.editId);
-    if(idx>=0)A.chaseItems[idx]=item;else A.chaseItems.push(item);
-  } else {
-    A.chaseItems.push(item);
-  }
+  const opt=v=>v===''||v==null?null:numP(v);
+  const items=f.flows.map(fl=>({
+    id:fl.id||('chase_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)),
+    sku:f.sku,season:f.season,deliveryMonth:fl.deliveryMonth,
+    dtcBuy:numP(fl.dtcBuy),retailBuy:opt(fl.retailBuy),onlineBuy:opt(fl.onlineBuy),
+    sizeScale:f.sizeScale,storeTier:f.storeTier,storeCount,rateOverride
+  }));
+  // Flows removed in the form are deleted; kept flows are replaced in place so their position
+  // (and acceptance) survives the edit.
+  const keep=new Set(items.map(it=>it.id));
+  (f.groupIds||[]).forEach(id=>{if(!keep.has(id))delete A.chaseAccepted[id]});
+  A.chaseItems=A.chaseItems.filter(c=>!(f.groupIds||[]).includes(c.id)||keep.has(c.id));
+  items.forEach(it=>{
+    const idx=A.chaseItems.findIndex(c=>c.id===it.id);
+    if(idx>=0)A.chaseItems[idx]=it;else A.chaseItems.push(it);
+  });
+  // The weekly rate belongs to the SKU, so every Chase flow of this SKU shares it
+  A.chaseItems.forEach(c=>{if(c.sku===f.sku)c.rateOverride=rateOverride});
+  if(A.chaseSelected&&!A.chaseItems.some(c=>c.id===A.chaseSelected)){A.chaseSelected=null;A.view='grid'}
   saveChaseItems();
   chaseForm=null;
-  toast('Chase PO saved');
+  toast(items.length>1?items.length+' Chase flows saved':'Chase PO saved');
   render();
 }
 function deleteChaseItem(id){
   if(!confirm('Delete this Chase PO?'))return;
   A.chaseItems=A.chaseItems.filter(c=>c.id!==id);
-  delete A.chaseAccepted[id];
+  delete A.chaseAccepted[id];delete A.overrides[id];
   saveChaseItems();
   if(A.chaseSelected===id){A.chaseSelected=null;A.view='grid'}
   toast('Chase PO deleted');
@@ -2288,9 +2318,32 @@ function searchSalesSkus(query,limit){
   return out;
 }
 
+// V9.12: all Chase flows for a SKU, in the order they land (delivery date, then entry order).
+// Inventory is SKU-level, so flows of the same SKU are sized sequentially: each earlier flow's
+// sized buy is a pending receipt for every later one.
+function chaseFlowOrder(sku){
+  const items=(A.chaseItems||[]).filter(ci=>ci.sku===sku);
+  const far=new Date(2099,0,1).getTime();
+  const when=ci=>{const d=getBuyDeliveryDate(ci);return d?d.getTime():far};
+  return items.map((ci,i)=>({ci,i,t:when(ci)})).sort((a,b)=>a.t-b.t||a.i-b.i).map(x=>x.ci);
+}
+
 // Build a synthetic SKU record from a Chase item definition, identical in shape to a seasonal
 // record so the entire downstream engine (curve, BOP, flows, channel split, export) works unchanged.
+// V9.12: earlier Chase flows of the same SKU are sized first and folded in as pending receipts.
 function buildChaseRecord(chase){
+  const order=chaseFlowOrder(chase.sku);
+  const idx=order.findIndex(ci=>ci.id===chase.id);
+  const prior=[];
+  for(let i=0;i<idx;i++){
+    const r=buildChaseRecordBase(order[i],prior);
+    const res=computeAlloc(r);
+    prior.push({chase:order[i],alloc:res?res.alloc:{},date:getBuyDeliveryDate(r)});
+  }
+  return buildChaseRecordBase(chase,prior);
+}
+
+function buildChaseRecordBase(chase,prior){
   const scale=chase.sizeScale;
   let sizes=[];
   if(A.presMinsMeta[scale]&&A.presMinsMeta[scale].sizes)sizes=[...A.presMinsMeta[scale].sizes].sort(ssort);
@@ -2307,6 +2360,26 @@ function buildChaseRecord(chase){
     sd[s]={onHand:oh,sales:sl,wipOrd:wo};
     tOH+=oh;tSl+=sl;tWIP+=wo;
   });
+  // Copy WIP-by-date so prior flows can be added without mutating the shared A.wipSKU map
+  const wipByDate={};
+  const src=wipRec.byDateAgg||{};
+  for(const k in src)wipByDate[k]={...src[k],sizes:{...src[k].sizes}};
+  const myDelivery=getBuyDeliveryDate(chase);
+  (prior||[]).forEach(p=>{
+    // A same-month flow lands a week ahead so it still counts as stock before this delivery
+    let d=p.date||myDelivery;
+    if(myDelivery&&d&&d>=myDelivery)d=new Date(myDelivery.getTime()-7*86400000);
+    let key='Chase '+String(p.chase.deliveryMonth||'').slice(0,3);
+    while(wipByDate[key])key+='+';
+    const entry={_sortDate:d||new Date(2099,0,1),sizes:{},total:0,chaseId:p.chase.id};
+    sizes.forEach(s=>{
+      const u=p.alloc[s]||0;
+      if(!u)return;
+      entry.sizes[s]=u;entry.total+=u;
+      sd[s].wipOrd+=u;tWIP+=u;
+    });
+    if(entry.total>0)wipByDate[key]=entry;
+  });
   const dtcBuy=chase.dtcBuy||0;
   // Channel split: use provided, else 50/50
   let retailBuy=chase.retailBuy,onlineBuy=chase.onlineBuy;
@@ -2320,7 +2393,9 @@ function buildChaseRecord(chase){
   const apsRetail=(stCt>0&&weeksLive>0)?(salesRet/weeksLive/stCt):0;
   const apsOnline=(weeksLive>0)?(salesOnline/weeksLive):0;
   return{
-    sku:chase.sku,isChase:true,chaseId:chase.id,
+    sku:chase.sku,isChase:true,chaseId:chase.id,ovrKey:chase.id,
+    rateOverride:chase.rateOverride>0?chase.rateOverride:null,
+    priorChaseFlows:(prior||[]).length,
     season:chase.season,division:div,category:cat,subcategory:sub,segment:seg,
     style:'',styleDescription:prog,
     colorCode:'',colorDescription:meta.colorDescription||'',
@@ -2336,7 +2411,7 @@ function buildChaseRecord(chase){
     skuSalesTotal:A.salSKU[chase.sku]||0,
     skuSalesRetail:salesRet,skuSalesOnline:salesOnline,
     weeksLive,
-    wipByDate:wipRec.byDateAgg||{},
+    wipByDate,
     _hk:{prog:'prog|'+div.toLowerCase()+'|'+cat.toLowerCase()+'|'+sub.toLowerCase()+'|'+prog.toLowerCase(),
          seg:seg?'seg|'+div.toLowerCase()+'|'+cat.toLowerCase()+'|'+sub.toLowerCase()+'|'+seg.toLowerCase():null,
          sub:'sub|'+div.toLowerCase()+'|'+cat.toLowerCase()+'|'+sub.toLowerCase(),
@@ -2772,10 +2847,19 @@ window.debugRate=debugRate;
 function projBOP(rec){
   const w=deliveryToWeeks(rec.deliveryMonth,rec.season);const bop={};
   // Get per-size weekly rate (SKU's own data, or parent-rate fallback)
-  const wkInfo=getWeeklyRate(rec);
+  let wkInfo=getWeeklyRate(rec);
+  // V9.12: Chase weekly-rate override. The user's number is the total DTC units/wk, applied flat
+  // (no seasonal reshaping) and split across sizes by the calculated rate's size mix.
+  if(rec.rateOverride>0){
+    let mix=wkInfo.rate,mixTot=rec.sizes.reduce((a,s)=>a+(mix[s]||0),0);
+    if(mixTot<=0){mix=buildCurve(rec).curve;mixTot=rec.sizes.reduce((a,s)=>a+(mix[s]||0),0)}
+    const rate={};
+    rec.sizes.forEach(s=>{rate[s]=rec.rateOverride*(mixTot>0?(mix[s]||0)/mixTot:1/rec.sizes.length)});
+    wkInfo={rate,sourceLevel:'Manual override',sourceLabel:fmt(rec.rateOverride)+'/wk',manualRate:true};
+  }
   const rawRates=wkInfo.rate;
   // V9.9: rebase that rate to an annual-average level, then re-apply seasonality per week.
-  const seas=getSeasonalIndex(rec,wkInfo);
+  const seas=wkInfo.manualRate?null:getSeasonalIndex(rec,wkInfo);
   const rebase=seas?seasonRebase(seas,rateMeasuredWeeks(rec,wkInfo)):1;
   // Get pending receipts AND when they arrive (week offset from today, 0 = this week).
   // Filter to receipts arriving before the buy delivery, since later ones don't affect BOP.
@@ -3440,7 +3524,7 @@ function computeAlloc(rec){
   const effRetailPool=useChannelSplit?retailPool:pool;
   const effOnlinePool=useChannelSplit?onlinePool:0;
 
-  const ovr=A.overrides[rec.sku]||{};
+  const ovr=A.overrides[rec.ovrKey||rec.sku]||{};
   const pmRate=getPresMinRate(rec);
   const pm=getPresMin(rec);
   // Online flat floor: per-scale configurable (default 5), applies to each OMNI size.
@@ -4369,13 +4453,16 @@ function renderChaseGrid(el){
       let sized=0,total=ci.dtcBuy;
       if(rec){try{const res=computeAlloc(rec);if(res)sized=rec.sizes.reduce((a,s)=>a+(res.alloc[s]||0),0)}catch(e){}}
       const matchCls=sized===total?'sc-match':(Math.abs(sized-total)<=2?'sc-near':'sc-off');
+      const order=chaseFlowOrder(ci.sku);
+      const flowTag=order.length>1?' · flow '+(order.findIndex(o=>o.id===ci.id)+1)+'/'+order.length:'';
+      const rateTag=ci.rateOverride>0?' · '+fmt(ci.rateOverride)+'/wk ovr':'';
       h+='<div class="sc '+divCls+' chase-card" onclick="goChaseDetail(\''+esc(ci.id)+'\')">'+
         '<div class="sc-top"><div class="sid">'+esc(ci.sku)+'<span class="chase-badge">CHASE</span></div>'+
         '<div class="sc-deliv-wrap"><span class="sc-deliv">'+esc(ci.deliveryMonth||'')+'</span></div>'+
         '<input type="checkbox" class="sc-acc" '+(accepted?'checked':'')+' onclick="event.stopPropagation();toggleChaseAccept(\''+esc(ci.id)+'\')" title="Accept for export"></div>'+
         '<div class="sc-desc">'+esc(rec?rec.styleDescription:ci.sku)+(rec&&rec.colorDescription?' · '+esc(rec.colorDescription):'')+'</div>'+
         '<div class="sc-sized '+matchCls+'">'+fmt(sized)+' sized / '+fmt(total)+'</div>'+
-        '<div class="sc-bot"><span class="sc-chip">'+esc(ci.season)+' · '+esc(ci.sizeScale)+' · '+esc(ci.storeTier)+'</span>'+
+        '<div class="sc-bot"><span class="sc-chip">'+esc(ci.season)+' · '+esc(ci.sizeScale)+' · '+esc(ci.storeTier)+esc(flowTag+rateTag)+'</span>'+
         '<button class="chase-del" onclick="event.stopPropagation();deleteChaseItem(\''+esc(ci.id)+'\')" title="Delete">✕</button></div>'+
         '</div>';
     });
@@ -4460,28 +4547,38 @@ function renderChaseForm(){
         '<div class="cf-col"><label class="cf-label">Season Code</label>'+
           '<select class="cf-input" onchange="chaseFormField(\'season\',this.value)"><option value="">Select…</option>'+
           seasons.map(s=>'<option value="'+esc(s)+'"'+(f.season===s?' selected':'')+'>'+esc(s)+'</option>').join('')+'</select></div>'+
-        '<div class="cf-col"><label class="cf-label">Delivery Month</label>'+
-          '<select class="cf-input" onchange="chaseFormField(\'deliveryMonth\',this.value)"><option value="">Select…</option>'+
-          months.map(mo=>'<option value="'+mo+'"'+(f.deliveryMonth===mo?' selected':'')+'>'+mo+'</option>').join('')+'</select></div>'+
-      '</div>'+
-      '<div class="cf-row">'+
-        '<div class="cf-col"><label class="cf-label">Total DTC Buy</label>'+
-          '<input class="cf-input" type="number" min="0" placeholder="e.g. 800" value="'+esc(f.dtcBuy)+'" oninput="chaseForm.dtcBuy=this.value"></div>'+
         '<div class="cf-col"><label class="cf-label">Size Scale</label>'+
           '<select class="cf-input" onchange="chaseFormField(\'sizeScale\',this.value)"><option value="">Select…</option>'+
           scales.map(sc=>'<option value="'+esc(sc)+'"'+(f.sizeScale===sc?' selected':'')+'>'+esc(sc)+'</option>').join('')+'</select></div>'+
       '</div>'+
-      '<div class="cf-row">'+
-        '<div class="cf-col"><label class="cf-label">Retail Buy <span class="cf-hint">(optional)</span></label>'+
-          '<input class="cf-input" type="number" min="0" placeholder="blank = 50/50" value="'+esc(f.retailBuy)+'" oninput="chaseForm.retailBuy=this.value"></div>'+
-        '<div class="cf-col"><label class="cf-label">Online Buy <span class="cf-hint">(optional)</span></label>'+
-          '<input class="cf-input" type="number" min="0" placeholder="blank = 50/50" value="'+esc(f.onlineBuy)+'" oninput="chaseForm.onlineBuy=this.value"></div>'+
-      '</div>'+
       '<label class="cf-label">Store Group <span class="cf-hint">(from selected season\'s Linelist)</span></label>'+
       storeGroupHtml+
+      '<label class="cf-label">Weekly Rate Override <span class="cf-hint">(optional · total DTC units/wk, used for projected BOP · applies to every Chase flow of this SKU)</span></label>'+
+      '<input class="cf-input" type="number" min="0" placeholder="blank = calculated rate" value="'+esc(f.rateOverride)+'" oninput="chaseForm.rateOverride=this.value">'+
+      '<label class="cf-label">Flows <span class="cf-hint">(sized in delivery order · earlier flows count toward later flows\' BOP)</span></label>'+
+      f.flows.map((fl,i)=>
+        '<div class="cf-flow">'+
+          '<div class="cf-flow-hdr"><span>Flow '+(i+1)+'</span>'+
+            (f.flows.length>1?'<button class="cf-flow-x" onclick="removeChaseFlow('+i+')" title="Remove flow">✕</button>':'')+'</div>'+
+          '<div class="cf-row">'+
+            '<div class="cf-col"><label class="cf-label">Delivery Month</label>'+
+              '<select class="cf-input" onchange="chaseFlowField('+i+',\'deliveryMonth\',this.value)"><option value="">Select…</option>'+
+              months.map(mo=>'<option value="'+mo+'"'+(fl.deliveryMonth===mo?' selected':'')+'>'+mo+'</option>').join('')+'</select></div>'+
+            '<div class="cf-col"><label class="cf-label">Total DTC Buy</label>'+
+              '<input class="cf-input" type="number" min="0" placeholder="e.g. 800" value="'+esc(fl.dtcBuy)+'" oninput="chaseFlowField('+i+',\'dtcBuy\',this.value)"></div>'+
+          '</div>'+
+          '<div class="cf-row">'+
+            '<div class="cf-col"><label class="cf-label">Retail Buy <span class="cf-hint">(optional)</span></label>'+
+              '<input class="cf-input" type="number" min="0" placeholder="blank = 50/50" value="'+esc(fl.retailBuy)+'" oninput="chaseFlowField('+i+',\'retailBuy\',this.value)"></div>'+
+            '<div class="cf-col"><label class="cf-label">Online Buy <span class="cf-hint">(optional)</span></label>'+
+              '<input class="cf-input" type="number" min="0" placeholder="blank = 50/50" value="'+esc(fl.onlineBuy)+'" oninput="chaseFlowField('+i+',\'onlineBuy\',this.value)"></div>'+
+          '</div>'+
+        '</div>'
+      ).join('')+
+      '<button class="btn btn-g btn-sm cf-add-flow" onclick="addChaseFlow()">+ Add Flow</button>'+
     '</div>'+
     '<div class="cf-foot"><button class="btn btn-g" onclick="closeChaseForm()">Cancel</button>'+
-      '<button class="btn btn-b" onclick="saveChaseForm()">'+(f.editId?'Save Changes':'Add Chase PO')+'</button></div>'+
+      '<button class="btn btn-b" onclick="saveChaseForm()">'+(f.editId?'Save Changes':(f.flows.length>1?'Add '+f.flows.length+' Chase Flows':'Add Chase PO'))+'</button></div>'+
   '</div></div>';
 }
 
@@ -4988,7 +5085,8 @@ function renderDetail(el,rec){
       fmt(totOH)+' − '+fmt(totProjSales)+' + '+fmt(totPend)+' = '+fmt(totBOP);
     const avgStockout=totStockout/(rec.sizes.length||1);
     if(avgStockout>=0.5)totBopTip+='\n\nAvg '+avgStockout.toFixed(1)+'w of expected stockout per size';
-    if(bopRateInfo&&bopRateInfo.sourceLevel!=='SKU')totBopTip+='\nRate source: '+bopRateInfo.sourceLevel+' avg ('+bopRateInfo.sourceLabel+')';
+    if(bopRateInfo&&bopRateInfo.manualRate)totBopTip+='\nRate source: manual override ('+bopRateInfo.sourceLabel+' total, flat — no seasonality)';
+    else if(bopRateInfo&&bopRateInfo.sourceLevel!=='SKU')totBopTip+='\nRate source: '+bopRateInfo.sourceLevel+' avg ('+bopRateInfo.sourceLabel+')';
     totBopTip+=seasTip(null);
     tBody+='<td class="col c-t bop-cell" title="'+esc(totBopTip)+'">'+fmt(totBOP)+'</td>';
   }
@@ -5011,8 +5109,9 @@ function renderDetail(el,rec){
     const postBuy=(useBOP?(bop[s]||0):0)+a;
     const minRetail=pm[s];
     const pendingForSize=useBOP?(pendingFiltered[s]||0):0;
-    const hasOv=A.overrides[rec.sku]&&A.overrides[rec.sku][s]!==undefined;
-    const inp=locked?'<span class="c-o">'+fmt(a)+'</span>':'<input class="ai'+(hasOv?' ov':'')+'" type="number" value="'+a+'" onchange="setOvr(\''+esc(rec.sku)+'\',\''+esc(s)+'\',this.value)">';
+    const ovk=rec.ovrKey||rec.sku;
+    const hasOv=A.overrides[ovk]&&A.overrides[ovk][s]!==undefined;
+    const inp=locked?'<span class="c-o">'+fmt(a)+'</span>':'<input class="ai'+(hasOv?' ov':'')+'" type="number" value="'+a+'" onchange="setOvr(\''+esc(ovk)+'\',\''+esc(s)+'\',this.value)">';
     const retCv=retailCurve[s]||0,onCv=onlineCurve[s]||0;
     const isOnlineOnly=(getOnlineOnlySizes(rec)||[]).includes(s);
     const sizeLabel=isOnlineOnly?'<span class="size-row-online" title="Online-only size — no retail allocation">'+esc(s)+' 🌐</span>':esc(s);
@@ -5069,7 +5168,8 @@ function renderDetail(el,rec){
         'Current OH − Projected sales + Pending receipts = Projected BOP\n'+
         fmt(sd.onHand)+' − '+fmt(szProjSales)+' + '+fmt(pendingForSize)+' = '+fmt(szBop);
       if(szStockout>=0.5)szBopTip+='\n\n'+szStockout.toFixed(1)+'w of expected stockout';
-      if(bopRateInfo&&bopRateInfo.sourceLevel!=='SKU')szBopTip+='\nRate source: '+bopRateInfo.sourceLevel+' avg ('+bopRateInfo.sourceLabel+')';
+      if(bopRateInfo&&bopRateInfo.manualRate)szBopTip+='\nRate source: manual override ('+bopRateInfo.sourceLabel+' total, flat — no seasonality)';
+    else if(bopRateInfo&&bopRateInfo.sourceLevel!=='SKU')szBopTip+='\nRate source: '+bopRateInfo.sourceLevel+' avg ('+bopRateInfo.sourceLabel+')';
       szBopTip+=seasTip(s);
       tBody+='<td class="col c-t bop-cell" title="'+esc(szBopTip)+'">'+fmt(szBop)+'</td>';
     }
@@ -5090,8 +5190,9 @@ function renderDetail(el,rec){
   const variance=totAl-pool;
   const vNote=variance!==0?'<span class="tbn c-r">Variance: '+(variance>0?'+':'')+variance+'</span>':'<span class="tbn c-g">Balanced — '+fmt(pool)+' units</span>';
   const lockBtn=locked?'<button class="btn-grn" style="opacity:.6" onclick="toggleAcc(\''+esc(rec.sku)+'\')">✓ Accepted</button>':'<button class="btn-grn" onclick="toggleAcc(\''+esc(rec.sku)+'\')">Accept</button>';
-  const hasOvrs=A.overrides[rec.sku]&&Object.keys(A.overrides[rec.sku]).length>0;
-  const resetBtn=hasOvrs&&!locked?'<button class="btn btn-g btn-sm" onclick="clrOvr(\''+esc(rec.sku)+'\')">Reset</button>':'';
+  const ovKey=rec.ovrKey||rec.sku;
+  const hasOvrs=A.overrides[ovKey]&&Object.keys(A.overrides[ovKey]).length>0;
+  const resetBtn=hasOvrs&&!locked?'<button class="btn btn-g btn-sm" onclick="clrOvr(\''+esc(ovKey)+'\')">Reset</button>':'';
   // Curve adjustment control bar — appears below the data table when changes are staged or applied
   const stagedAdjDirty=hasStagedAdjChanges(rec.sku);
   const hasAcceptedAdj=hasCurveAdjustment(rec.sku);
