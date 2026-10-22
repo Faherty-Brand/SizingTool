@@ -513,6 +513,7 @@ input,select,button,textarea{font-family:inherit}
     <label class="u-chip" id="uc-sales"><span>◰ L52W Sales</span><span class="meta" id="um-sales"></span><input type="file" accept=".csv" onchange="handleUpload('sales',this)"></label>
     <label class="u-chip" id="uc-linelist"><span>◳ Linelist</span><span class="meta" id="um-linelist"></span><input type="file" accept=".csv" onchange="handleUpload('linelist',this)"></label>
     <label class="u-chip" id="uc-wip"><span>◲ WIP</span><span class="meta" id="um-wip"></span><input type="file" accept=".csv" onchange="handleUpload('wip',this)"></label>
+    <label class="u-chip" id="uc-intransit" title="Optional · 42 In Transit Units export. Added to on-hand for Chase sizing only."><span>⇢ In Transit</span><span class="meta" id="um-intransit"></span><input type="file" accept=".csv" onchange="handleUpload('intransit',this)"></label>
   </div>
   <div class="w-center">
     <svg class="sun-svg" width="64" height="44" viewBox="0 0 64 44" fill="none"><line x1="32" y1="2" x2="32" y2="8" stroke="#c4572a" stroke-width="2" stroke-linecap="round"/><line x1="22" y1="4.5" x2="24.5" y2="9.5" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/><line x1="42" y1="4.5" x2="39.5" y2="9.5" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="10" x2="18" y2="14" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/><line x1="50" y1="10" x2="46" y2="14" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/><line x1="10" y1="18" x2="16" y2="19" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/><line x1="54" y1="18" x2="48" y2="19" stroke="#c4572a" stroke-width="1.5" stroke-linecap="round"/><path d="M 20 24 A 12 12 0 0 1 44 24" fill="#c4572a"/><path d="M 6 28 Q 16 22 26 28 Q 36 34 46 28 Q 52 24 58 28" stroke="#3b7bc0" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M 2 34 Q 14 28 26 34 Q 38 40 50 34 Q 56 30 62 34" stroke="#5a9ae0" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
@@ -803,7 +804,7 @@ function setupRealtime(){
 }
 
 function formatCsvLabel(key){
-  const map={inventory:'Inventory',sales:'L52W Sales',linelist:'Linelist',wip:'WIP'};
+  const map={inventory:'Inventory',sales:'L52W Sales',linelist:'Linelist',wip:'WIP',intransit:'In Transit'};
   return map[key]||key;
 }
 
@@ -839,7 +840,7 @@ async function checkAndAutoRefresh(reason){
     const cloudCsvMeta=await cloudListCSVMeta();
     let changed=false;
     let actorByKey={};
-    for(const key of['inventory','sales','linelist','wip']){
+    for(const key of CSV_KEYS){
       const cloud=cloudCsvMeta[key];
       const local=A.cloudMeta&&A.cloudMeta[key];
       if(!cloud)continue;
@@ -1203,8 +1204,11 @@ function maxFlowOffset(rec){
 // Raised from 100 → 200 to demand more statistical significance before trusting a level.
 const SIZE_THRESHOLD_MULTIPLIER=200;
 
+// V9.13: In Transit is optional — the tool runs without it (allUp ignores it), and it only feeds Chase OH.
+const CSV_KEYS=['inventory','sales','linelist','wip','intransit'];
+
 const A={
-  raw:{inventory:null,sales:null,linelist:null,wip:null},
+  raw:{inventory:null,sales:null,linelist:null,wip:null,intransit:null},
   rawCSV:{},uploadMeta:{},cloudMeta:{},pmMeta:{},
   seasons:[],activeSeason:null,
   skus:{},selectedSKU:null,
@@ -1244,12 +1248,13 @@ function handleUpload(key,inp){
     try{
       await cloudUploadCSV(key,text,file.name,rows,cols);
       toast(key.charAt(0).toUpperCase()+key.slice(1)+' synced · '+fmt(rows)+' rows');
-      const labelMap={inventory:'Inventory',sales:'L52W Sales',linelist:'Linelist',wip:'WIP'};
-      cloudLogEvent('csv_upload','csv',key,'updated '+(labelMap[key]||key)+' CSV',{filename:file.name,rows,cols});
+      cloudLogEvent('csv_upload','csv',key,'updated '+formatCsvLabel(key)+' CSV',{filename:file.name,rows,cols});
     }catch(err){
       console.error('Cloud upload failed:',err);
       toast('Cloud upload failed: '+err.message);
     }
+    // In Transit only moves Chase OH — it doesn't touch sales/curves, so keep curve adjustments and overrides
+    if(key==='intransit'){A.itSKU=null;trySeasons();inp.value='';return}  // null → ensureDataMaps rebuilds
     // Build scaleSizes from data whenever linelist or sales/inv is uploaded
     if(allUp())buildScaleSizes();
     // Wipe curve adjustments — the underlying sales data has shifted, so prior factors are stale
@@ -1417,7 +1422,7 @@ async function loadFromCloud(){
   let cloudCsvMeta={};
   try{cloudCsvMeta=await cloudListCSVMeta()}
   catch(err){console.error('cloudListCSVMeta failed:',err);return}
-  for(const key of['inventory','sales','linelist','wip']){
+  for(const key of CSV_KEYS){
     const meta=cloudCsvMeta[key];
     if(meta&&meta.storage_path){
       try{
@@ -1682,6 +1687,14 @@ function processData(){
   A.cols=c;
 
   const invI={};inv.forEach(r=>{const k=r[c.iS];if(!invI[k])invI[k]={};invI[k][r[c.iZ]]=(invI[k][r[c.iZ]]||0)+numP(r[c.iO])});
+  // V9.13: In Transit (42 export, Retail + Online rows) summed to SKU/size. Kept separate from invI so
+  // seasonal sizing is untouched; Chase adds it to OH.
+  const itI={};const it=A.raw.intransit;
+  if(it&&it[0]){
+    c.tS=findCol(it[0],['SKU']);c.tZ=findCol(it[0],['Size']);c.tU=findCol(it[0],['In Transit Units - TY','In Transit Units']);
+    if(c.tS&&c.tZ&&c.tU)it.forEach(r=>{const k=r[c.tS];if(!k)return;if(!itI[k])itI[k]={};itI[k][r[c.tZ]]=(itI[k][r[c.tZ]]||0)+numP(r[c.tU])});
+    else console.warn('[SizingTool] In Transit file is missing SKU / Size / In Transit Units columns:',Object.keys(it[0]));
+  }
   // Hierarchical sales: total (DTC), Retail-only, Online-only
   // V7.8: hierarchy now has Segment level between Program and Subcategory.
   // V7.8: also track weeksLive per SKU = count of distinct weeks with sales > 0
@@ -1776,6 +1789,7 @@ function processData(){
   });
   A.hierSales=hS;A.hierSalesRet=hSr;A.hierSalesOnline=hSo;
   A.invSKU=invI;          // V9: SKU -> {size:onHand} for Chase inventory lookup
+  A.itSKU=itI;            // V9.13: SKU -> {size:inTransit} for Chase OH + IT
   A.salSKUbySize=salI;    // V9: SKU -> {size:sales} for Chase sales lookup
   A.salSKURetBySize=salIr;    // V9.3: SKU -> {size:retail sales}
   A.salSKUOnlineBySize=salIo; // V9.3: SKU -> {size:online sales}
@@ -1923,7 +1937,7 @@ function processData(){
 // simply yields an empty A.skus, which is harmless.
 function ensureDataMaps(){
   if(!allUp())return false;
-  if(!A.salSkuMeta||!A.invSKU||!A.wipSKU||!A.salSKURetBySize){
+  if(!A.salSkuMeta||!A.invSKU||!A.itSKU||!A.wipSKU||!A.salSKURetBySize){
     const savedSeason=A.activeSeason;
     processData();
     A.activeSeason=savedSeason;
@@ -2352,13 +2366,16 @@ function buildChaseRecordBase(chase,prior){
   const prog=meta.styleDescription||chase.sku;
   // Inventory + sales + WIP pulled by SKU code (same source as seasonal SKUs)
   const sI=(A.invSKU&&A.invSKU[chase.sku])||{};
+  const sIT=(A.itSKU&&A.itSKU[chase.sku])||{};
   const sS=(A.salSKUbySize&&A.salSKUbySize[chase.sku])||{};
   const wipRec=(A.wipSKU&&A.wipSKU[chase.sku])||{bySize:{},byDateAgg:{}};
-  let tOH=0,tSl=0,tWIP=0;const sd={};
+  let tOH=0,tSl=0,tWIP=0,tOHOnly=0,tIT=0;const sd={};
   sizes.forEach(s=>{
-    const oh=sI[s]||0,sl=sS[s]||0,wo=(wipRec.bySize&&wipRec.bySize[s])||0;
-    sd[s]={onHand:oh,sales:sl,wipOrd:wo};
-    tOH+=oh;tSl+=sl;tWIP+=wo;
+    // V9.13: In Transit is stock already bought and moving, so Chase treats it as on hand.
+    // onHand (what BOP depletes) = OH + IT; ohOnly / inTransit are kept for display.
+    const ohOnly=sI[s]||0,itU=sIT[s]||0,oh=ohOnly+itU,sl=sS[s]||0,wo=(wipRec.bySize&&wipRec.bySize[s])||0;
+    sd[s]={onHand:oh,ohOnly,inTransit:itU,sales:sl,wipOrd:wo};
+    tOH+=oh;tOHOnly+=ohOnly;tIT+=itU;tSl+=sl;tWIP+=wo;
   });
   // Copy WIP-by-date so prior flows can be added without mutating the shared A.wipSKU map
   const wipByDate={};
@@ -2407,6 +2424,7 @@ function buildChaseRecordBase(chase,prior){
     rollout:'',pst:'',deliveryMonth:chase.deliveryMonth||'',
     sizingType:'cf', // Chase is always carryforward by nature
     sizes,sizeData:sd,
+    hasInTransit:!!A.raw.intransit,totalOHOnly:tOHOnly,totalIT:tIT,
     totalOH:tOH,totalSales:tSl,totalWIP:tWIP,
     skuSalesTotal:A.salSKU[chase.sku]||0,
     skuSalesRetail:salesRet,skuSalesOnline:salesOnline,
@@ -4940,7 +4958,11 @@ function renderDetail(el,rec){
   // + 2 if useBOP (Pending Rcpts, Proj BOP)
   // + dateColCount if showDateCols
   // + 2 if showChannelCols (Retail Buy, Online Buy under Size Break)
+  // V9.13: Chase with In Transit loaded shows OH and In Transit ahead of the OH + IT column the engine uses
+  const showIT=!!(rec.isChase&&rec.hasInTransit);
+  const ohLbl=showIT?'OH + IT':'Current OH';
   let invColspan=8;
+  if(showIT)invColspan+=2;
   if(useBOP)invColspan+=2+dateColCount;
   if(showChannelCols)invColspan+=2;
   // Sales metrics col count: base 5 (Adjustment, SKU Sales, Curve Sales, Curve %, Wkly Rate)
@@ -4959,7 +4981,8 @@ function renderDetail(el,rec){
   thead+='<th class="cbl">Curve %</th>';
   if(showChannelCols)thead+='<th class="cbl-ch">Retail %</th><th class="cbl-ch">Online %</th>';
   thead+='<th class="cbd">Wkly Rate</th>';
-  thead+='<th class="col">Current OH</th>';
+  if(showIT)thead+='<th class="col">OH</th><th class="col">In Transit</th>';
+  thead+='<th class="col"'+(showIT?' title="On hand + in transit. This is the on-hand used for Proj. BOP."':'')+'>'+ohLbl+'</th>';
   if(useBOP){
     const expandBtn=dateRows.length>0?' <span class="rcpt-expand" onclick="toggleWipExpand(\''+esc(rec.sku)+'\')" title="'+(wipExpanded?'Hide':'Show')+' by date">'+(wipExpanded?'▼':'▶')+'</span>':'';
     thead+='<th class="cod">Pending Rcpts'+expandBtn+'</th>';
@@ -5059,6 +5082,7 @@ function renderDetail(el,rec){
   }
   const cumWkly=cumRate>0?cumRate.toFixed(1):'';
   tBody+='<td class="cbd c-d" style="font-weight:700">'+cumWkly+'</td>';
+  if(showIT)tBody+='<td class="col">'+fmt(rec.totalOHOnly)+'</td><td class="col">'+fmt(rec.totalIT)+'</td>';
   tBody+='<td class="col">'+fmt(totOH)+'</td>';
   if(useBOP){
     tBody+='<td class="cod">'+fmt(totPend)+'</td>';
@@ -5081,7 +5105,7 @@ function renderDetail(el,rec){
     let totBopTip='Weekly rate × selling weeks before delivery = projected sales\n'+
       cumRate.toFixed(1)+' × '+bwLbl+' = '+fmt(totProjSales)+' projected sales\n'+
       (bwMax<wks?'(delivery is '+wks+'w out, but selling starts when stock lands)\n':'')+'\n'+
-      'Current OH − Projected sales + Pending receipts = Projected BOP\n'+
+      ohLbl+' − Projected sales + Pending receipts = Projected BOP\n'+
       fmt(totOH)+' − '+fmt(totProjSales)+' + '+fmt(totPend)+' = '+fmt(totBOP);
     const avgStockout=totStockout/(rec.sizes.length||1);
     if(avgStockout>=0.5)totBopTip+='\n\nAvg '+avgStockout.toFixed(1)+'w of expected stockout per size';
@@ -5144,6 +5168,7 @@ function renderDetail(el,rec){
       tBody+=diffCell(rawOnCv,onCv,pct,'cbl-ch c-d');
     }
     tBody+='<td class="cbd c-d">'+wr+'</td>';
+    if(showIT)tBody+='<td class="col">'+fmt(sd.ohOnly||0)+'</td><td class="col">'+fmt(sd.inTransit||0)+'</td>';
     tBody+='<td class="col">'+fmt(sd.onHand)+'</td>';
     if(useBOP){
       tBody+='<td class="cod">'+fmt(pendingForSize)+'</td>';
@@ -5165,7 +5190,7 @@ function renderDetail(el,rec){
       let szBopTip='Weekly rate × selling weeks before delivery = projected sales\n'+
         szRate.toFixed(1)+' × '+szWks+'w = '+fmt(szProjSales)+' projected sales\n'+
         (szBw&&szBw.startWk>0?'(no on-hand; selling starts wk '+szBw.startWk+' when the first receipt lands, '+wks+'w to delivery)\n':'')+'\n'+
-        'Current OH − Projected sales + Pending receipts = Projected BOP\n'+
+        ohLbl+' − Projected sales + Pending receipts = Projected BOP\n'+
         fmt(sd.onHand)+' − '+fmt(szProjSales)+' + '+fmt(pendingForSize)+' = '+fmt(szBop);
       if(szStockout>=0.5)szBopTip+='\n\n'+szStockout.toFixed(1)+'w of expected stockout';
       if(bopRateInfo&&bopRateInfo.manualRate)szBopTip+='\nRate source: manual override ('+bopRateInfo.sourceLabel+' total, flat — no seasonality)';
@@ -5242,7 +5267,9 @@ function renderDetail(el,rec){
     '<div class="metric-row">'+
       '<span class="metric-pill">'+esc(rec.season)+' Buy: '+fmt(pool)+'</span>'+
       '<span class="metric-pill">Stores: '+fmt(rec.storeCount)+'</span>'+
-      '<span class="metric-pill">Current OH: '+fmt(rec.totalOH)+'</span>'+
+      (rec.isChase&&rec.hasInTransit
+        ?'<span class="metric-pill">OH + IT: '+fmt(rec.totalOH)+' ('+fmt(rec.totalOHOnly)+' + '+fmt(rec.totalIT)+')</span>'
+        :'<span class="metric-pill">Current OH: '+fmt(rec.totalOH)+'</span>')+
       (useBOP?'<span class="metric-pill">Proj. BOP: '+fmt(totalBOPv)+' ('+(function(){
         // V9.9.4: quote the SELLING weeks, which is shorter than weeks-to-delivery whenever a size
         // has no on-hand and is waiting on a receipt.
@@ -5891,7 +5918,7 @@ async function renderChangelog(el){
 
 
 function renderDataSources(el){
-  const tabs=['inventory','sales','linelist','wip'];
+  const tabs=CSV_KEYS;
   let h='<div class="dv-page anim"><button class="d-back" onclick="goBackFromModule()">← Back</button>'+
     '<h2 style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:4px">Data Sources</h2>'+
     '<p style="font-size:12px;color:var(--txt2);margin-bottom:14px">Live view of ingested CSV data.</p><div class="dv-tabs">';
