@@ -3652,7 +3652,6 @@ function computeAlloc(rec){
   // Buy should fill the gap to ideal (after subtracting retail's BOP share)
   const retailIdealMinusBop={};
   rec.sizes.forEach(s=>{retailIdealMinusBop[s]=Math.max(0,retailIdeals[s]-retailBop[s])});
-  const retailAlloc=allocateBuy(rec,effRetailPool,retailCurve,retailFloor,retailIdealMinusBop);
 
   // ── Online allocation (BOP-aware) ──
   // V9.3: use override curve if present, else the historical online channel curve
@@ -3668,14 +3667,6 @@ function computeAlloc(rec){
   rec.sizes.forEach(s=>{onlineIdeals[s]=Math.round(onlineCurve[s]*onlineTotalTgt)});
   const onlineIdealMinusBop={};
   rec.sizes.forEach(s=>{onlineIdealMinusBop[s]=Math.max(0,onlineIdeals[s]-onlineBop[s])});
-  const onlineAlloc=allocateBuy(rec,effOnlinePool,onlineCurve,onlineFloor,onlineIdealMinusBop);
-
-  // ── Combined DTC alloc ──
-  const alloc={};
-  rec.sizes.forEach(s=>{alloc[s]=(retailAlloc[s]||0)+(onlineAlloc[s]||0)});
-
-  // Apply manual overrides AFTER channel split (overrides target the combined size break)
-  rec.sizes.forEach(s=>{if(ovr[s]!==undefined)alloc[s]=ovr[s]});
 
   // ── Curve sales (DTC, Retail, Online) at the level the curve resolved to ──
   // Use the DTC curve trail for the primary "Curve Sales" display
@@ -3718,6 +3709,49 @@ function computeAlloc(rec){
     dispDtcCurve=odc; // drives the CURVE % column when an override is active
   }
 
+  // V9.12: Online-only sizes are funded off their DTC curve share of the FULL buy, not just their
+  // online-curve share of the online pool. Before, an online-only size only got onlineCurve% × online
+  // pool, which on compact scales (M6) landed at or below the online flat floor, so every online-only
+  // size sat at the floor (e.g. 2u) even when its DTC ideal was higher. The extra units are carved out
+  // of the retail pool (stores never carry these sizes) but ONLY from retail's headroom above its
+  // pres-min floors, so retail pres min always wins. DTC total is unchanged; the channel split shifts.
+  // All of an online-only size's BOP counts against it (retail can't use it).
+  const ooExtra={};let ooCarve=0;
+  if(onlineOnlySet.size){
+    const dtcTotalTgt=pool+totalBOP;
+    let extraSum=0;
+    rec.sizes.forEach(s=>{
+      ooExtra[s]=0;
+      if(!onlineOnlySet.has(s))return;
+      const ooTarget=Math.max(0,Math.round((dispDtcCurve[s]||0)*dtcTotalTgt)-(useBOP?(bop[s]||0):0));
+      ooExtra[s]=Math.max(0,ooTarget-onlineIdealMinusBop[s]);
+      extraSum+=ooExtra[s];
+    });
+    const retailFloorSum=rec.sizes.reduce((a,s)=>a+(retailFloor[s]||0),0);
+    const retailHeadroom=Math.max(0,effRetailPool-retailFloorSum);
+    if(extraSum>retailHeadroom){
+      // Not enough retail headroom: scale every online-only size's lift down proportionally
+      rec.sizes.forEach(s=>{ooExtra[s]=Math.floor(ooExtra[s]*retailHeadroom/extraSum)});
+    }
+    rec.sizes.forEach(s=>{
+      if(!ooExtra[s])return;
+      onlineIdealMinusBop[s]+=ooExtra[s];
+      onlineIdeals[s]+=ooExtra[s];
+      ooCarve+=ooExtra[s];
+    });
+  }
+  const allocRetailPool=effRetailPool-ooCarve;
+  const allocOnlinePool=effOnlinePool+ooCarve;
+  const retailAlloc=allocateBuy(rec,allocRetailPool,retailCurve,retailFloor,retailIdealMinusBop);
+  const onlineAlloc=allocateBuy(rec,allocOnlinePool,onlineCurve,onlineFloor,onlineIdealMinusBop);
+
+  // ── Combined DTC alloc ──
+  const alloc={};
+  rec.sizes.forEach(s=>{alloc[s]=(retailAlloc[s]||0)+(onlineAlloc[s]||0)});
+
+  // Apply manual overrides AFTER channel split (overrides target the combined size break)
+  rec.sizes.forEach(s=>{if(ovr[s]!==undefined)alloc[s]=ovr[s]});
+
   // ── Flows: applied to combined DTC pool ──
   // V8.6: pass projected BOP per size so CF flows can guarantee the Global flow + BOP meets min pres.
   const flows=computeFlows(rec,pool,alloc,retailCurve,onlineCurve,useBOP?bop:null);
@@ -3743,7 +3777,7 @@ function computeAlloc(rec){
     retailCurve,onlineCurve,
     retailCurveSales,onlineCurveSales,
     retailCurveResult,onlineCurveResult,
-    retailPool:effRetailPool,onlinePool:effOnlinePool,
+    retailPool:allocRetailPool,onlinePool:allocOnlinePool,ooCarve,
     useChannelSplit,
     flows,flowSizeBreaks
   };
